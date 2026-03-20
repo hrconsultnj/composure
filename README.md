@@ -1,4 +1,4 @@
-# composure
+# Composure
 
 *Go with the grain — write composed, decomposed code.*
 
