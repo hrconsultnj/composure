@@ -1,0 +1,23 @@
+{
+  "name": "app-architecture",
+  "description": "Multi-tenant SaaS architecture plugin with decomposition enforcement, code quality hooks, and task tracking. Includes PreToolUse skill auto-trigger, PostToolUse code quality detection, and severity-grouped task queue.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Helder Rodrigues",
+    "url": "https://github.com/hrconsultnj"
+  },
+  "license": "MIT",
+  "keywords": [
+    "architecture",
+    "decomposition",
+    "code-quality",
+    "multi-tenant",
+    "saas",
+    "tanstack-query",
+    "supabase",
+    "next-js",
+    "react-native",
+    "expo"
+  ],
+  "skills": "./skills/"
+}
