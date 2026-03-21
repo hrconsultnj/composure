@@ -143,8 +143,9 @@ export function findDependents(store: GraphStore, filePath: string): string[] {
 
 // ── Full build ─────────────────────────────────────────────────────
 
-export function fullBuild(repoRoot: string, store: GraphStore): BuildResult {
+export async function fullBuild(repoRoot: string, store: GraphStore): Promise<BuildResult> {
   const parser = new CodeParser();
+  await parser.init();
   const files = collectAllFiles(repoRoot);
   const errors: string[] = [];
   let parsed = 0;
@@ -187,13 +188,14 @@ export function fullBuild(repoRoot: string, store: GraphStore): BuildResult {
 
 // ── Incremental update ─────────────────────────────────────────────
 
-export function incrementalUpdate(
+export async function incrementalUpdate(
   repoRoot: string,
   store: GraphStore,
   base = "HEAD~1",
   changedFiles?: string[],
-): BuildResult {
+): Promise<BuildResult> {
   const parser = new CodeParser();
+  await parser.init();
   const errors: string[] = [];
 
   let changed = changedFiles ?? [
@@ -260,11 +262,11 @@ export function incrementalUpdate(
 
 // ── Single file update (for hooks) ─────────────────────────────────
 
-export function singleFileUpdate(
+export async function singleFileUpdate(
   repoRoot: string,
   store: GraphStore,
   filePath: string,
-): void {
+): Promise<void> {
   const absPath = resolve(repoRoot, filePath);
 
   if (!existsSync(absPath)) {
@@ -275,6 +277,7 @@ export function singleFileUpdate(
   if (!isParseable(absPath)) return;
 
   const parser = new CodeParser();
+  await parser.init();
   const hash = fileHash(absPath);
   const { nodes, edges } = parser.parseFile(absPath);
 

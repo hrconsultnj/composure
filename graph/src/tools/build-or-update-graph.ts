@@ -7,11 +7,11 @@ import {
 } from "../incremental.js";
 import type { ToolResult } from "../types.js";
 
-export function buildOrUpdateGraph(params: {
+export async function buildOrUpdateGraph(params: {
   full_rebuild?: boolean;
   repo_root?: string;
   base?: string;
-}): ToolResult {
+}): Promise<ToolResult> {
   const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
 
@@ -27,8 +27,8 @@ export function buildOrUpdateGraph(params: {
 
   try {
     const result = params.full_rebuild
-      ? fullBuild(root, store)
-      : incrementalUpdate(root, store, params.base ?? "HEAD~1");
+      ? await fullBuild(root, store)
+      : await incrementalUpdate(root, store, params.base ?? "HEAD~1");
 
     const verb = result.build_type === "full" ? "Built" : "Updated";
     const summary = [

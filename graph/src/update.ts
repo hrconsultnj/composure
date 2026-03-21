@@ -14,7 +14,7 @@ import { isParseable } from "./parser.js";
 import { GraphStore } from "./store.js";
 import { findProjectRoot, getDbPath, singleFileUpdate } from "./incremental.js";
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
   // Parse --file argument
@@ -60,7 +60,7 @@ function main(): void {
   }
 
   try {
-    singleFileUpdate(root, store, filePath);
+    await singleFileUpdate(root, store, filePath);
   } catch (err) {
     // Log to stderr but don't fail the hook
     console.error("composure-graph update error:", err);

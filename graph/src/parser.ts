@@ -8,13 +8,11 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { basename, dirname, extname } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { EdgeInfo, NodeInfo } from "./types.js";
 
-import Parser from "tree-sitter";
-// Grammar types are corrected in grammars.d.ts (see that file for rationale)
-import TypeScript from "tree-sitter-typescript";
-import JavaScript from "tree-sitter-javascript";
+import { Parser, Language, type Node } from "web-tree-sitter";
 
 import {
   CLASS_TYPES,
@@ -65,34 +63,53 @@ export function fileHash(filePath: string): string {
 
 // ── CodeParser ─────────────────────────────────────────────────────
 
+// Resolve WASM file paths relative to this module's location.
+// After esbuild bundles into dist/, the .wasm files sit alongside the JS.
+const __dirname = typeof import.meta.url !== "undefined"
+  ? fileURLToPath(new URL(".", import.meta.url))
+  : process.cwd();
+
+const WASM_PATHS: Record<string, string> = {
+  typescript: join(__dirname, "tree-sitter-typescript.wasm"),
+  tsx: join(__dirname, "tree-sitter-tsx.wasm"),
+  javascript: join(__dirname, "tree-sitter-javascript.wasm"),
+  jsx: join(__dirname, "tree-sitter-javascript.wasm"),
+};
+
+let parserInitialized = false;
+
 export class CodeParser {
-  private parsers = new Map<string, Parser>();
+  private languages = new Map<string, Language>();
   private moduleCache = new Map<string, string | null>();
 
-  private getParser(language: string): Parser | null {
-    if (this.parsers.has(language)) return this.parsers.get(language)!;
-
-    const parser = new Parser();
-    try {
-      switch (language) {
-        case "typescript":
-          parser.setLanguage(TypeScript.typescript);
-          break;
-        case "tsx":
-          parser.setLanguage(TypeScript.tsx);
-          break;
-        case "javascript":
-        case "jsx":
-          parser.setLanguage(JavaScript);
-          break;
-        default:
-          return null;
-      }
-    } catch {
-      return null;
+  /**
+   * Initialize web-tree-sitter runtime and load grammars.
+   * Must be called once before parseFile/parseBytes.
+   */
+  async init(): Promise<void> {
+    if (!parserInitialized) {
+      await Parser.init();
+      parserInitialized = true;
     }
 
-    this.parsers.set(language, parser);
+    for (const [lang, wasmPath] of Object.entries(WASM_PATHS)) {
+      if (!this.languages.has(lang)) {
+        try {
+          const language = await Language.load(wasmPath);
+          this.languages.set(lang, language);
+        } catch {
+          // WASM file not found — skip this language
+        }
+      }
+    }
+  }
+
+  private getParser(language: string): Parser | null {
+    const lang = this.languages.get(language);
+    if (!lang) return null;
+
+    const parser = new Parser();
+    parser.setLanguage(lang);
     return parser;
   }
 
@@ -117,6 +134,7 @@ export class CodeParser {
     if (!parser) return { nodes: [], edges: [] };
 
     const tree = parser.parse(source.toString());
+    if (!tree) return { nodes: [], edges: [] };
     const nodes: NodeInfo[] = [];
     const edges: EdgeInfo[] = [];
     const testFile = isTestFile(filePath);
@@ -158,7 +176,7 @@ export class CodeParser {
   // ── File scope pre-scan ──────────────────────────────────────────
 
   private collectFileScope(
-    root: Parser.SyntaxNode,
+    root: Node,
     importMap: Map<string, string>,
     definedNames: Set<string>,
   ): void {
@@ -220,7 +238,7 @@ export class CodeParser {
   private static readonly MAX_DEPTH = 180;
 
   private extractFromTree(
-    root: Parser.SyntaxNode,
+    root: Node,
     language: string,
     filePath: string,
     nodes: NodeInfo[],
@@ -279,7 +297,7 @@ export class CodeParser {
   // ── Node handlers (called from extractFromTree) ──────────────────
 
   private handleClass(
-    child: Parser.SyntaxNode, language: string, filePath: string,
+    child: Node, language: string, filePath: string,
     nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
     importMap: Map<string, string>, definedNames: Set<string>, depth: number,
   ): boolean {
@@ -315,7 +333,7 @@ export class CodeParser {
   }
 
   private handleType(
-    child: Parser.SyntaxNode, filePath: string,
+    child: Node, filePath: string,
     nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
     language: string,
   ): boolean {
@@ -341,7 +359,7 @@ export class CodeParser {
   }
 
   private handleFunction(
-    child: Parser.SyntaxNode, nodeType: string, language: string,
+    child: Node, nodeType: string, language: string,
     filePath: string, nodes: NodeInfo[], edges: EdgeInfo[],
     enclosingClass: string | null, importMap: Map<string, string>,
     definedNames: Set<string>, depth: number,
@@ -380,7 +398,7 @@ export class CodeParser {
   }
 
   private handleLexicalDeclaration(
-    child: Parser.SyntaxNode, language: string, filePath: string,
+    child: Node, language: string, filePath: string,
     nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
     importMap: Map<string, string>, definedNames: Set<string>, depth: number,
   ): void {
@@ -420,7 +438,7 @@ export class CodeParser {
   }
 
   private handleImport(
-    child: Parser.SyntaxNode, filePath: string, edges: EdgeInfo[],
+    child: Node, filePath: string, edges: EdgeInfo[],
   ): void {
     const module = extractImportTarget(child);
     if (!module) return;
@@ -433,7 +451,7 @@ export class CodeParser {
   }
 
   private handleCall(
-    child: Parser.SyntaxNode, filePath: string,
+    child: Node, filePath: string,
     enclosingClass: string | null, enclosingFunc: string | null,
     importMap: Map<string, string>, definedNames: Set<string>,
     edges: EdgeInfo[],

@@ -8,7 +8,7 @@
 
 import { existsSync, statSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type Parser from "tree-sitter";
+import type { Node } from "web-tree-sitter";
 
 // ── AST node type constants ────────────────────────────────────────
 
@@ -65,14 +65,14 @@ export function qualify(
 
 // ── Node text ──────────────────────────────────────────────────────
 
-export function getNodeText(node: Parser.SyntaxNode): string {
+export function getNodeText(node: Node): string {
   return node.text;
 }
 
 // ── Name extraction ────────────────────────────────────────────────
 
 export function getName(
-  node: Parser.SyntaxNode,
+  node: Node,
   _kind: "class" | "function" | "type",
 ): string | null {
   for (const child of node.children) {
@@ -87,7 +87,7 @@ export function getName(
   return null;
 }
 
-export function getArrowFunctionName(node: Parser.SyntaxNode): string | null {
+export function getArrowFunctionName(node: Node): string | null {
   const parent = node.parent;
   if (!parent) return null;
   if (parent.type === "variable_declarator") {
@@ -97,7 +97,7 @@ export function getArrowFunctionName(node: Parser.SyntaxNode): string | null {
   return null;
 }
 
-export function getParams(node: Parser.SyntaxNode): string | null {
+export function getParams(node: Node): string | null {
   for (const child of node.children) {
     if (child.type === "formal_parameters" || child.type === "parameters") {
       return getNodeText(child);
@@ -106,7 +106,7 @@ export function getParams(node: Parser.SyntaxNode): string | null {
   return null;
 }
 
-export function getReturnType(node: Parser.SyntaxNode): string | null {
+export function getReturnType(node: Node): string | null {
   for (const child of node.children) {
     if (child.type === "type_annotation" || child.type === "return_type") {
       return getNodeText(child);
@@ -115,7 +115,7 @@ export function getReturnType(node: Parser.SyntaxNode): string | null {
   return null;
 }
 
-export function getBases(node: Parser.SyntaxNode): string[] {
+export function getBases(node: Node): string[] {
   const bases: string[] = [];
   for (const child of node.children) {
     if (child.type === "extends_clause" || child.type === "implements_clause") {
@@ -135,7 +135,7 @@ export function getBases(node: Parser.SyntaxNode): string[] {
 
 // ── Import extraction ──────────────────────────────────────────────
 
-export function extractImportTarget(node: Parser.SyntaxNode): string | null {
+export function extractImportTarget(node: Node): string | null {
   for (const child of node.children) {
     if (child.type === "string" || child.type === "string_fragment") {
       return getNodeText(child).replace(/^['"]|['"]$/g, "");
@@ -145,7 +145,7 @@ export function extractImportTarget(node: Parser.SyntaxNode): string | null {
 }
 
 export function collectJsImportNames(
-  clauseNode: Parser.SyntaxNode,
+  clauseNode: Node,
   module: string,
   importMap: Map<string, string>,
 ): void {
@@ -178,7 +178,7 @@ export function collectJsImportNames(
 
 // ── Call name extraction ───────────────────────────────────────────
 
-export function getCallName(node: Parser.SyntaxNode): string | null {
+export function getCallName(node: Node): string | null {
   const fn = node.childForFieldName("function") ?? node.children[0];
   if (!fn) return null;
   if (fn.type === "identifier") return getNodeText(fn);

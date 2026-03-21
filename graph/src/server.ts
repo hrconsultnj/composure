@@ -43,7 +43,7 @@ server.tool(
       .describe("Git ref to diff against for incremental updates."),
   },
   async (params) => {
-    const result = buildOrUpdateGraph(params);
+    const result = await buildOrUpdateGraph(params);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
     };
