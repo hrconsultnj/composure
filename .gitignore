@@ -1,3 +1,4 @@
 graph/node_modules/
+graph/pnpm-workspace.yaml
 .code-review-graph/
-tasks-plans/archived/
+tasks-plans/
