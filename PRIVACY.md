@@ -48,4 +48,4 @@ Updates to this policy will be posted in this file in the Composure repository. 
 
 ## Contact
 
-For privacy questions: helder@hrconsultnj.com
+For privacy questions: hrconsultnj@gmail.com

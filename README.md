@@ -267,7 +267,7 @@ Per-project via `.claude/no-bandaids.json` (see above) or run `/init` to auto-ge
 
 Free for personal, educational, and noncommercial use. Attribution required.
 
-**Commercial use** — including freelance work, agency projects, and corporate teams — requires a separate license. Contact [helder@hrconsultnj.com](mailto:helder@hrconsultnj.com).
+**Commercial use** — including freelance work, agency projects, and corporate teams — requires a separate license. Contact [hrconsultnj@gmail.com](mailto:hrconsultnj@gmail.com).
 
 **What's allowed without a commercial license:**
 - Personal projects, hobby work, learning
