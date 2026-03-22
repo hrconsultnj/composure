@@ -254,10 +254,11 @@ Per-project via `.claude/no-bandaids.json` (see above) or run `/init` to auto-ge
 ## Requirements
 
 - Claude Code CLI
-- Node.js 22.5+ (for `node:sqlite` used by the graph MCP server)
-- Bash (macOS/Linux)
+- Node.js 22.5+ (for `node:sqlite` and WASM-based code parsers)
 - `jq` (JSON parsing in hooks)
 - `sqlite3` (optional — enables graph-aware decomposition checks)
+
+**Platform support:** macOS, Linux, and Windows. The graph MCP server uses web-tree-sitter (WASM) — fully cross-platform with no native compilation. On Windows, hooks require bash via [Git for Windows](https://gitforwindows.org/) (ships Git Bash) or WSL.
 
 ---
 
