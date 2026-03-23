@@ -2,7 +2,9 @@
 
 *Go with the grain — write composed, decomposed code.*
 
-A Claude Code plugin that enforces code quality, architectural discipline, and type safety through automated hooks, skills, a code knowledge graph, and a severity-tracked task queue. Prevents monolithic files, blocks type-casting band-aids, provides impact-aware code reviews, and organizes remediation by priority.
+A Claude Code plugin that enforces code quality, architectural discipline, and type safety across **7 languages** through automated hooks, skills, a code knowledge graph, and a severity-tracked task queue. Prevents monolithic files, blocks language-specific anti-patterns, provides impact-aware code reviews, and organizes remediation by priority.
+
+**Supported languages:** TypeScript/JavaScript, Python, Go, Rust, C/C++, Swift, Kotlin
 
 ---
 
@@ -15,8 +17,13 @@ claude plugin marketplace add hrconsultnj/composure
 # Install the plugin
 claude plugin install composure@composure
 
-# Restart Claude Code, then run initialize in your project
+# Restart Claude Code, then initialize in your project
 /composure:initialize
+```
+
+For Pro Patterns (private submodule):
+```bash
+git submodule update --init --recursive
 ```
 
 ---
@@ -24,8 +31,8 @@ claude plugin install composure@composure
 ## Quick Start
 
 ```
-/composure:initialize            # Detect stack, build graph, generate config
-/composure:app-architecture     # Feature-building guide with 25+ reference docs
+/composure:initialize            # Detect stack, query Context7, build graph, generate config
+/composure:app-architecture     # Feature-building guide — loads framework-specific refs
 /composure:commit               # Commit with auto task queue hygiene
 /composure:decomposition-audit  # Full codebase scan for size violations
 /composure:review-tasks         # Process task queue (verify, delegate, archive...)
@@ -42,8 +49,8 @@ claude plugin install composure@composure
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
-| **Initialize** | `/initialize` | Detect project stack, generate config, build graph, create task queue. Run once per project. Ensures Context7 MCP is installed. |
-| **App Architecture** | `/app-architecture` | Feature-building guide. Decision trees for rendering, data fetching, multi-tenant patterns. 25+ reference docs. Auto-loaded on every session start. |
+| **Initialize** | `/initialize` | Detect project stack (multi-framework), query Context7 for current API patterns, generate config, build graph, create task queue. Supports monorepos with mixed languages. |
+| **App Architecture** | `/app-architecture` | Feature-building guide. Dynamically loads framework-specific patterns based on detected stack. 25+ reference docs for TypeScript, anti-pattern docs for all 7 languages. |
 | **Commit** | `/commit` | Commit with task queue hygiene. Auto-cleans resolved tasks, archives completed audits, blocks if staged files have open quality tasks. |
 | **Decomposition Audit** | `/decomposition-audit` | Full codebase scan. Reports Critical (800+), High (400-799), Moderate (200-399) with extraction instructions. |
 | **Review Tasks** | `/review-tasks` | Process the task queue. Modes: `summary`, `batch`, `delegate`, `clean`, `verify`, `archive`. |
@@ -57,14 +64,33 @@ Claude Code supports three hook types: `command` (shell scripts), `prompt` (LLM 
 
 | Hook | Type | Event | What It Does |
 |------|------|-------|-------------|
-| **Architecture Loader** | `command` | `SessionStart` (all) | Loads the full app-architecture skill on every session start (startup, resume, clear, compact). Ensures architectural context is always available. |
-| **Task Verifier** | `agent` | `SessionStart` (resume) | On session resume, checks open tasks against actual file sizes, marks completed items. Also checks graph staleness. |
-| **Pre-Commit Review** | `agent` | `PreToolUse` (Bash) | Intercepts `git commit`. Auto-cleans resolved tasks, archives completed audit files, blocks commit if staged files have open tasks. |
+| **Architecture Loader** | `command` | `SessionStart` (all) | Loads the full app-architecture skill on every session start. Ensures architectural context is always available. |
+| **Task Verifier** | `agent` | `SessionStart` (resume) | On session resume, checks open tasks against actual file sizes, marks completed items. Checks graph staleness. |
 | **Architecture Trigger** | `command` | `PreToolUse` (Edit/Write) | Once per session, reminds the agent to load `/app-architecture` before writing code. |
-| **No Band-Aids** | `command` | `PreToolUse` (Edit/Write) | Blocks literal type-casting shortcuts (`as any`, `@ts-ignore`, `!` assertions, `_unused` vars). |
-| **Type Safety Review** | `prompt` | `PreToolUse` (Edit/Write) | Semantic review for hidden `any` in generics, lazy types (`Function`, `Object`), unnecessary `as` assertions. Runs after No Band-Aids passes. |
-| **Code Quality Guard** | `command` | `PostToolUse` (Edit/Write) | Graph-aware: queries the knowledge graph for exact function sizes when available, falls back to regex. Logs violations to task queue. |
+| **No Band-Aids** | `command` | `PreToolUse` (Edit/Write) | Multi-framework: blocks language-specific anti-patterns (TS: `as any`; Python: `type: ignore`; Go: `_ = err`; Rust: `.unwrap()`; Swift: `!` force unwrap; Kotlin: `!!`; C++: raw `new`). |
+| **Type Safety Review** | `prompt` | `PreToolUse` (Edit/Write) | Semantic review for hidden `any` in generics, lazy types, unnecessary assertions. Runs after No Band-Aids passes. |
+| **Code Quality Guard** | `command` | `PostToolUse` (Edit/Write) | Graph-aware decomposition check. Queries knowledge graph for exact function sizes, logs violations. Also tracks edit count and suggests `/simplify` after 5+ edits. |
 | **Graph Update** | `command` | `PostToolUse` (Edit/Write) | Incrementally updates the code review knowledge graph when files change. |
+
+### Multi-Framework No Band-Aids
+
+The no-bandaids hook detects the file's language from its extension and applies the correct anti-pattern rules:
+
+| Language | Extensions | Key Rules |
+|---|---|---|
+| **TypeScript/JS** | `.ts .tsx .js .jsx` | `as any`, `@ts-ignore`, `@ts-nocheck`, non-null `!`, `_unused` vars |
+| **Python** | `.py` | `type: ignore`, bare `except:`, `# noqa`, `Any` type hints, `eval()`, `os.system()` |
+| **Go** | `.go` | `_ = err` error swallowing, `interface{}` (use generics), `//nolint` without reason, `panic()` in libraries |
+| **Rust** | `.rs` | `.unwrap()` in non-test code, `unsafe {}` without `// SAFETY:` comment |
+| **C/C++** | `.cpp .cc .h .hpp` | `using namespace std` in headers, `NULL` (use `nullptr`), `#define` for constants |
+| **Swift** | `.swift` | Force unwrap `!`, force cast `as!`, `try!` |
+| **Kotlin** | `.kt .kts` | `!!` non-null assertion, `runBlocking`, bare `return@AsyncFunction` |
+
+Rules are gated by the `frameworks` field in `.claude/no-bandaids.json` — only detected languages are checked.
+
+### `/simplify` Integration
+
+After editing 5+ source files in a session, the Code Quality Guard hook suggests running `/simplify` — a Claude-native agent that refines recently modified code for clarity, consistency, and maintainability without changing behavior. The user always decides — Claude asks via `AskUserQuestion`, never auto-runs.
 
 ### Code Review Knowledge Graph
 
@@ -88,35 +114,63 @@ A TypeScript MCP server (`graph/`) that builds a persistent SQLite graph of func
 
 ---
 
-## No Band-Aids Hook
+## Framework Reference Architecture
 
-Blocks Claude (and subagents) from using type-casting shortcuts. Validated against TypeScript 5.9, React 19.2, Next.js 16.1, Expo SDK 55.
+Each language has its own reference directory with curated patterns, Context7-generated docs, and anti-pattern definitions:
 
-### Rules
+```
+skills/app-architecture/
+├── SKILL.md                    # Master skill — dynamic framework loading
+├── typescript/
+│   ├── SKILL.md                # TS/JS anti-patterns and patterns
+│   ├── references/
+│   │   ├── universal/          # 15+ curated reference docs (committed)
+│   │   ├── generated/          # Context7 output (shadcn-v4, vite-8, tailwind-4, etc.)
+│   │   └── private/            # Pro Patterns (git submodule)
+│   └── skills/                 # TS-specific sub-skills
+├── python/                     # Pydantic, mypy, FastAPI patterns
+├── go/                         # Error handling, generics, context propagation
+├── rust/                       # Ownership, clippy, ? operator, unsafe
+├── c-cpp/                      # Smart pointers, RAII, MISRA C, const correctness
+├── swift/                      # Optionals, async/await, SwiftUI, Expo native modules
+└── kotlin/                     # Null safety, coroutines, Jetpack Compose, Expo native modules
+```
 
-| Rule | Detects | Required Fix |
-|------|---------|-------------|
-| `as-any` | `as any` | `satisfies`, type guard, fix at source |
-| `double-cast` | `as unknown as T` | Type guard to narrow `unknown` |
-| `ts-suppress` | `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck` | Fix the type error (`@ts-expect-error` allowed in test files) |
-| `eslint-ts-disable` | `eslint-disable` for `@typescript-eslint` | Fix the type |
-| `non-null-assertion` | `foo!.bar`, `foo![i]` | Optional chaining `?.` with null guard |
-| `underscore-unused` | `catch(_e)`, `const _x = await` | Remove it. Use `catch {}` (TS 5.x) |
-| `any-param` | `(param: any)` | Define interface. `ChangeEvent<T>`, `useLocalSearchParams<T>` |
-| `return-assertion` | `return x as Type` | `satisfies`, type guard, or annotate return type |
+### Context7 Generated Docs
 
-Safe patterns that are **not** blocked: `as const`, `satisfies`, generic type params.
+`/initialize` queries Context7 for the latest framework APIs and writes versioned reference docs to `{lang}/references/generated/`. These contain current patterns that Claude's training data may be 10+ months behind on.
 
-### Per-Project Config
+Refresh with `/initialize --force`. Skip with `--skip-context7` for offline/CI.
 
-`/initialize` generates this automatically, or create `.claude/no-bandaids.json` manually:
+### Project-Level Overrides
+
+Add project-specific patterns at `.claude/frameworks/{lang}/*.md`. These load last (highest priority) and override plugin-level refs.
+
+To contribute patterns back: move from your project overrides to `references/universal/` and submit a PR.
+
+---
+
+## Per-Project Config
+
+`/initialize` generates `.claude/no-bandaids.json` automatically:
 
 ```json
 {
-  "extensions": [".ts", ".tsx", ".js", ".jsx"],
-  "skipPatterns": ["*.d.ts", "*.generated.*", "database.types.ts"],
+  "extensions": [".ts", ".tsx", ".js", ".jsx", ".py", ".go"],
+  "skipPatterns": ["*.d.ts", "*.generated.*", "__pycache__/*"],
   "disabledRules": [],
-  "typegenHint": "pnpm --filter @myapp/database generate"
+  "typegenHint": "pnpm --filter @myapp/database generate",
+  "frameworks": {
+    "typescript": {
+      "paths": ["apps/web", "packages/shared"],
+      "versions": { "typescript": "5.9", "react": "19.2", "vite": "8.0" }
+    },
+    "python": {
+      "paths": ["services/api"],
+      "versions": { "python": "3.12", "fastapi": "0.115" }
+    }
+  },
+  "generatedRefsPath": "skills/app-architecture/{lang}/references/generated"
 }
 ```
 
@@ -126,6 +180,8 @@ Safe patterns that are **not** blocked: `as const`, `satisfies`, generic type pa
 | `skipPatterns` | `*.d.ts *.generated.* *.gen.*` | Globs to skip |
 | `disabledRules` | `[]` | Rule names to disable |
 | `typegenHint` | `""` | Type regen command shown in error messages |
+| `frameworks` | `{ "typescript": {...} }` | Detected languages with paths and versions |
+| `generatedRefsPath` | `""` | Path template for Context7-generated docs |
 
 ---
 
@@ -177,63 +233,43 @@ Tasks are deduplicated and persist across sessions. Process with `/review-tasks`
 
 ---
 
-## Reference Docs
-
-`/app-architecture` includes 25+ reference documents:
-
-- **UI Patterns** — Component decomposition, SSR/hydration, route groups, tabs, bottom sheets, icon patterns
-- **Hook Patterns** — Cache invalidation, common query/mutation patterns, multi-tenant isolation
-- **TanStack Query** — Pattern guide, examples, quick reference
-- **Data Architecture** — Entity registry, ID prefixes, auth model, privacy/role system, RLS policies
-- **Custom UI** — CalendarPicker, DateNavigator, TagSheet, SearchPicker, NumericPicker, BrandedDialog
-
----
-
-## Monorepo Shared-Type Detection
-
-In monorepo setups, the code quality hook detects inline types that already exist in shared packages:
-
-1. Auto-detects shared packages (`packages/shared`, `packages/common`, `packages/core`)
-2. Reads package name from `package.json` (e.g., `@myapp/shared`)
-3. Checks inline type names against the shared package
-4. Logs a `SHARED` task if duplicates are found
-
----
-
 ## Workflow
 
 ```
 1. /composure:initialize
-   → Detects stack, generates config, builds graph, ensures Context7, creates task queue
+   → Detects stack (multi-framework), queries Context7, generates config,
+     builds graph, ensures Context7, creates task queue
    |
 2. Resume a session
    → SessionStart agent auto-verifies open tasks, checks graph staleness
    |
 3. Start building a feature
-   → Architecture hook fires once, reminds to load /app-architecture
+   → Architecture hook fires once, loads /app-architecture with framework refs
    |
 4. Write code
    → No band-aids (command) → type safety review (prompt) — layered gate
+   → Rules adapt to file language (TS, Python, Go, Rust, C/C++, Swift, Kotlin)
    → Graph update hook keeps knowledge graph current
    → Code quality hook queries graph for exact function sizes, logs violations
    |
-5. /review-tasks verify
+5. After 5+ edits
+   → Code quality hook suggests /simplify — user decides via AskUserQuestion
+   |
+6. /review-tasks verify
    → Check which decomposition tasks are now resolved
    |
-6. /review-tasks delegate
+7. /review-tasks delegate
    → Sub-agents fix remaining issues in parallel
    |
-7. /review-delta (before commit)
+8. /review-delta (before commit)
    → Token-efficient review of what you changed
    |
-8. /commit (or git commit)
-   → Auto-cleans resolved tasks, archives completed audits, blocks if staged files have open items
+9. /commit (or git commit)
+   → Auto-cleans resolved tasks, archives completed audits,
+     blocks if staged files have open items
    |
-9. /review-pr (before merge)
-   → Full PR review with blast-radius analysis
-    |
-10. /review-tasks archive (optional — /commit handles this automatically)
-    → Manual archive if needed outside commit flow
+10. /review-pr (before merge)
+    → Full PR review with blast-radius analysis
     |
 11. /decomposition-audit (periodically)
     → Full codebase health check
@@ -251,6 +287,7 @@ Edit hook scripts in `hooks/` to customize:
 - `ALERT_LINES=600` — file size alert
 - `CRITICAL_LINES=800` — file size critical
 - `FUNC_MAX_LINES=150` — function size limit
+- `SIMPLIFY_THRESHOLD=5` — edits before suggesting /simplify
 
 ### No Band-Aids Config
 
@@ -275,7 +312,7 @@ Per-project via `.claude/no-bandaids.json` (see above) or run `/initialize` to a
 
 **PolyForm Noncommercial 1.0.0** — [Full text](./LICENSE)
 
-Free for personal, educational, and noncommercial use. Includes the full plugin: all hooks, graph MCP server, all 7 skills, and 15+ universal reference documents.
+Free for personal, educational, and noncommercial use. Includes the full plugin: all hooks, graph MCP server, all 8 skills, 7 language frameworks, and 15+ universal reference documents.
 
 **Allowed:** Personal projects, hobby work, learning, academic research, nonprofit/government use, evaluating before purchase.
 
@@ -288,8 +325,9 @@ Everything in Community, plus:
 | | Community (Free) | Pro ($39) |
 |---|---|---|
 | Plugin core (hooks, graph MCP, skills) | Yes | Yes |
+| 7 language frameworks (TS, Python, Go, Rust, C/C++, Swift, Kotlin) | Yes | Yes |
 | Universal reference docs (15+) | Yes | Yes |
-| Conceptual architecture (SKILL.md) | Yes | Yes |
+| Context7 generated docs | Yes | Yes |
 | **Commercial use** | No | **Yes** |
 | **Pro Patterns** (battle-tested data architecture) | No | **Yes** |
 | **RLS & migration patterns** | No | **Yes** |
@@ -302,7 +340,7 @@ Everything in Community, plus:
 1. Purchase at the link above
 2. Provide your GitHub username
 3. You're added as a collaborator on the private patterns repo (within 48 hours)
-4. Run `git submodule update --init` in your Composure installation
+4. Run `git submodule update --init --recursive` in your Composure installation
 
 **Requires a commercial license:** freelance/contract work, agency projects, for-profit company use, redistribution.
 
