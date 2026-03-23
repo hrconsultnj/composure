@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# no-bandaids.sh — Global PreToolUse hook that blocks type-casting band-aids.
+# no-bandaids.sh — Global PreToolUse hook that blocks band-aid fixes across languages.
 # Prevents Claude (and subagents) from using shortcuts instead of fixing root causes.
-#
-# Validated against: TypeScript 5.9, React 19.2, Next.js 16.1, Expo SDK 55, RN 0.83
-# Safe patterns: `as const`, `satisfies`, generic type params, async request APIs
 #
 # Config: place .claude/no-bandaids.json in any project to customize:
 # {
-#   "extensions": [".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte"],
-#   "skipPatterns": ["*.d.ts", "*.generated.*", "database.types.ts"],
+#   "extensions": [".ts", ".tsx", ".js", ".jsx"],
+#   "skipPatterns": ["*.d.ts", "*.generated.*"],
 #   "disabledRules": ["non-null-assertion"],
-#   "typegenHint": "pnpm --filter @my-app/database generate"
+#   "typegenHint": "pnpm --filter @my-app/database generate",
+#   "frameworks": { "typescript": { ... }, "python": { ... }, "go": { ... } }
 # }
 #
-# Without config, sensible defaults apply to any TypeScript/JavaScript project.
+# Without config or frameworks field, defaults to TypeScript rules only.
 
 INPUT=$(cat)
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name')
@@ -43,33 +41,34 @@ else
   CONFIG='{}'
 fi
 
-# ─── Resolve extensions to check ──────────────────────────────────
-EXT_MATCH=false
-DEFAULT_EXTS=(".ts" ".tsx" ".js" ".jsx")
+# ─── Detect language from file extension ──────────────────────────
+LANG=""
+case "$BASENAME" in
+  *.ts|*.tsx|*.js|*.jsx)           LANG="typescript" ;;
+  *.py)                            LANG="python" ;;
+  *.go)                            LANG="go" ;;
+  *.rs)                            LANG="rust" ;;
+  *.cpp|*.cc|*.cxx|*.hpp|*.h)     LANG="cpp" ;;
+esac
+[[ -z "$LANG" ]] && exit 0
 
-if printf '%s' "$CONFIG" | jq -e '.extensions' >/dev/null 2>&1; then
-  EXTS=$(printf '%s' "$CONFIG" | jq -r '.extensions[]')
-else
-  EXTS=$(printf '%s\n' "${DEFAULT_EXTS[@]}")
-fi
-
-for ext in $EXTS; do
-  if [[ "$BASENAME" == *"$ext" ]]; then
-    EXT_MATCH=true
-    break
+# ─── Check if this language is in configured frameworks ───────────
+if printf '%s' "$CONFIG" | jq -e '.frameworks' >/dev/null 2>&1; then
+  if ! printf '%s' "$CONFIG" | jq -e ".frameworks.${LANG}" >/dev/null 2>&1; then
+    exit 0
   fi
-done
-[[ "$EXT_MATCH" == "false" ]] && exit 0
+else
+  # No frameworks field — backward compat: only run for typescript
+  [[ "$LANG" != "typescript" ]] && exit 0
+fi
 
 # ─── Resolve skip patterns ────────────────────────────────────────
 DEFAULT_SKIPS=("*.d.ts" "*.generated.*" "*.gen.*")
-
 if printf '%s' "$CONFIG" | jq -e '.skipPatterns' >/dev/null 2>&1; then
   SKIP_PATTERNS=$(printf '%s' "$CONFIG" | jq -r '.skipPatterns[]')
 else
   SKIP_PATTERNS=$(printf '%s\n' "${DEFAULT_SKIPS[@]}")
 fi
-
 for pattern in $SKIP_PATTERNS; do
   case "$BASENAME" in
     $pattern) exit 0 ;;
@@ -79,10 +78,13 @@ done
 # ─── Detect test files ────────────────────────────────────────────
 IS_TEST_FILE=false
 case "$BASENAME" in
-  *.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx|*.test.js|*.spec.js) IS_TEST_FILE=true ;;
+  *.test.*|*.spec.*|*_test.go|*_test.py) IS_TEST_FILE=true ;;
+esac
+case "$FILE_PATH" in
+  */tests/*|*/test/*|*/__tests__/*) IS_TEST_FILE=true ;;
 esac
 
-# ─── Resolve disabled rules ───────────────────────────────────────
+# ─── Resolve disabled rules ──────────────────────────────────────
 DISABLED_RULES=""
 if printf '%s' "$CONFIG" | jq -e '.disabledRules' >/dev/null 2>&1; then
   DISABLED_RULES=$(printf '%s' "$CONFIG" | jq -r '.disabledRules[]' | tr '\n' '|')
@@ -96,71 +98,96 @@ is_rule_enabled() {
   return 0
 }
 
-# ─── Run checks ───────────────────────────────────────────────────
+check() { # usage: check <rule-name> <regex> <message>
+  is_rule_enabled "$1" && printf '%s\n' "$CONTENT" | grep -qE "$2" && \
+    VIOLATIONS="${VIOLATIONS}\n- $3"
+  return 0
+}
+
+# ─── Run checks ──────────────────────────────────────────────────
 VIOLATIONS=""
 
-# Rule: as-any
-if is_rule_enabled "as-any" && printf '%s\n' "$CONTENT" | grep -qE '\bas\s+any\b'; then
-  VIOLATIONS="${VIOLATIONS}\n- 'as any' detected. Use a type guard, satisfies, or fix the type at its source."
-fi
-
-# Rule: double-cast
-if is_rule_enabled "double-cast" && printf '%s\n' "$CONTENT" | grep -qE '\bas\s+unknown\s+as\b'; then
-  VIOLATIONS="${VIOLATIONS}\n- 'as unknown as T' detected. Use a type guard to narrow unknown to T."
-fi
-
-# Rule: ts-suppress
-if is_rule_enabled "ts-suppress"; then
-  if [[ "$IS_TEST_FILE" == "true" ]]; then
-    if printf '%s\n' "$CONTENT" | grep -qE '//\s*@ts-(ignore|nocheck)'; then
-      VIOLATIONS="${VIOLATIONS}\n- @ts-ignore/@ts-nocheck detected. Use @ts-expect-error in test files (it fails when the error is fixed)."
+case "$LANG" in
+  typescript)
+    check "as-any"        '\bas\s+any\b' \
+      "'as any' detected. Use a type guard, satisfies, or fix the type at its source."
+    check "double-cast"   '\bas\s+unknown\s+as\b' \
+      "'as unknown as T' detected. Use a type guard to narrow unknown to T."
+    if is_rule_enabled "ts-suppress"; then
+      if [[ "$IS_TEST_FILE" == "true" ]]; then
+        printf '%s\n' "$CONTENT" | grep -qE '//\s*@ts-(ignore|nocheck)' && \
+          VIOLATIONS="${VIOLATIONS}\n- @ts-ignore/@ts-nocheck detected. Use @ts-expect-error in test files (it fails when the error is fixed)."
+      else
+        printf '%s\n' "$CONTENT" | grep -qE '//\s*@ts-(ignore|expect-error|nocheck)' && \
+          VIOLATIONS="${VIOLATIONS}\n- TS suppression comment detected. Fix the type error. Do not suppress it."
+      fi
     fi
-  else
-    if printf '%s\n' "$CONTENT" | grep -qE '//\s*@ts-(ignore|expect-error|nocheck)'; then
-      VIOLATIONS="${VIOLATIONS}\n- TS suppression comment detected. Fix the type error. Do not suppress it."
+    check "eslint-ts-disable" '//\s*eslint-disable.*@typescript-eslint' \
+      "eslint-disable for @typescript-eslint rule detected. Fix the type."
+    check "non-null-assertion" '\w+!\.\w+|\w+!\[' \
+      "Non-null assertion (!) detected. Use optional chaining (?.) with a null guard."
+    check "underscore-unused" 'catch\s*\(\s*_\w+\)|const\s+_\w+\s*=\s*await|,\s*_\w+\s*[:\)]' \
+      "Underscore-prefixed unused variable detected. Remove it. For catch blocks, use catch {} (TS 5.x optional catch binding)."
+    check "any-param" '\(\s*\w+\s*:\s*any\s*[,\)]' \
+      "Parameter typed as 'any' detected. Define an interface. Use React.ChangeEvent<T>, useLocalSearchParams<T>, etc."
+    check "return-assertion" 'return\s+.*\bas\s+[A-Z]\w+' \
+      "Return type assertion detected. Use satisfies, a type guard, or annotate the function return type."
+    ;;
+  python)
+    check "type-ignore"     'type:\s*ignore'          "Fix the type error instead of ignoring it."
+    check "bare-except"     'except\s*:'               "Catch specific exceptions, not bare except."
+    check "broad-except"    'except\s+Exception\s*:'   "Catch specific exceptions, not Exception."
+    check "bare-noqa"       '# noqa$'                  "Use specific noqa code: # noqa: E501."
+    check "any-type"        ':\s*Any\b'                "Use a specific type instead of Any."
+    check "os-system"       'os\.system\('             "Use subprocess.run() with list arguments."
+    check "eval"            'eval\('                   "Never use eval()."
+    ;;
+  go)
+    check "err-discard"     '_\s*=\s*err'              "Handle the error or return it with context."
+    check "empty-interface" 'interface\{\}'            "Use 'any' keyword or generics (Go 1.18+)."
+    check "bare-nolint"     '//nolint$'                "Add justification: //nolint:lintername // reason."
+    if is_rule_enabled "panic" && [[ "$IS_TEST_FILE" == "false" ]]; then
+      # Allow panic in main packages and test files
+      if ! printf '%s\n' "$CONTENT" | grep -q '^package main$'; then
+        check "panic" 'panic\(' "Return error instead of panicking."
+      fi
     fi
-  fi
-fi
+    ;;
+  rust)
+    if [[ "$IS_TEST_FILE" == "false" ]]; then
+      check "unwrap"  '\.unwrap\(\)' "Use ? operator or .expect('reason') instead of .unwrap()."
+    fi
+    # unsafe without SAFETY comment (check line-by-line is impractical; flag any unsafe block)
+    if is_rule_enabled "unsafe" && printf '%s\n' "$CONTENT" | grep -qE 'unsafe\s*\{'; then
+      if ! printf '%s\n' "$CONTENT" | grep -qB1 '// SAFETY:' 2>/dev/null | grep -q 'unsafe'; then
+        VIOLATIONS="${VIOLATIONS}\n- unsafe block without // SAFETY: comment. Add a SAFETY comment explaining the invariants."
+      fi
+    fi
+    ;;
+  cpp)
+    if [[ "$BASENAME" == *.h || "$BASENAME" == *.hpp ]]; then
+      check "using-namespace-std" 'using namespace std' "Use std:: prefix in headers instead of 'using namespace std'."
+    fi
+    check "null-macro"    '\bNULL\b'                     "Use nullptr instead of NULL."
+    check "define-const"  '#define\s+[A-Z_]+\s+\d'       "Use constexpr instead of #define for constants."
+    ;;
+esac
 
-# Rule: eslint-ts-disable
-if is_rule_enabled "eslint-ts-disable" && printf '%s\n' "$CONTENT" | grep -qE '//\s*eslint-disable.*@typescript-eslint'; then
-  VIOLATIONS="${VIOLATIONS}\n- eslint-disable for @typescript-eslint rule detected. Fix the type."
-fi
-
-# Rule: non-null-assertion — foo!.bar or foo![index]
-# ref.current?.focus() is the correct pattern. Not ref.current!.focus().
-if is_rule_enabled "non-null-assertion" && printf '%s\n' "$CONTENT" | grep -qE '\w+!\.\w+|\w+!\['; then
-  VIOLATIONS="${VIOLATIONS}\n- Non-null assertion (!) detected. Use optional chaining (?.) with a null guard."
-fi
-
-# Rule: underscore-unused — catch(_error), const _result = await, param _data
-if is_rule_enabled "underscore-unused" && printf '%s\n' "$CONTENT" | grep -qE 'catch\s*\(\s*_\w+\)|const\s+_\w+\s*=\s*await|,\s*_\w+\s*[:\)]'; then
-  VIOLATIONS="${VIOLATIONS}\n- Underscore-prefixed unused variable detected. Remove it. For catch blocks, use catch {} (TS 5.x optional catch binding)."
-fi
-
-# Rule: any-param — function parameter typed as 'any'
-if is_rule_enabled "any-param" && printf '%s\n' "$CONTENT" | grep -qE '\(\s*\w+\s*:\s*any\s*[,\)]'; then
-  VIOLATIONS="${VIOLATIONS}\n- Parameter typed as 'any' detected. Define an interface. Use React.ChangeEvent<T>, useLocalSearchParams<T>, etc."
-fi
-
-# Rule: return-assertion — "return ... as Type" (NOT "as const" — that's correct)
-if is_rule_enabled "return-assertion" && printf '%s\n' "$CONTENT" | grep -qE 'return\s+.*\bas\s+[A-Z]\w+'; then
-  VIOLATIONS="${VIOLATIONS}\n- Return type assertion detected. Use satisfies, a type guard, or annotate the function return type."
-fi
-
-# ─── Report ────────────────────────────────────────────────────────
+# ─── Report ──────────────────────────────────────────────────────
 if [[ -n "$VIOLATIONS" ]]; then
-  printf 'BLOCKED: Band-aid type fix in %s. Fix the root cause:\n' "$BASENAME" >&2
+  printf 'BLOCKED: Band-aid fix in %s. Fix the root cause:\n' "$BASENAME" >&2
   printf '%b\n' "$VIOLATIONS" >&2
-  printf '\nFix with:\n' >&2
-  printf '  - satisfies operator for type validation without widening\n' >&2
-  printf '  - Type guards (is/in/instanceof) to narrow unknown or union types\n' >&2
-  printf '  - Generic type params: useLocalSearchParams<T>, ChangeEvent<T>, Ref<T>\n' >&2
-  printf '  - Regenerate types if the schema changed\n' >&2
 
-  TYPEGEN_HINT=$(printf '%s' "$CONFIG" | jq -r '.typegenHint // empty')
-  if [[ -n "$TYPEGEN_HINT" ]]; then
-    printf '  - Regen: %s\n' "$TYPEGEN_HINT" >&2
+  if [[ "$LANG" == "typescript" ]]; then
+    printf '\nFix with:\n' >&2
+    printf '  - satisfies operator for type validation without widening\n' >&2
+    printf '  - Type guards (is/in/instanceof) to narrow unknown or union types\n' >&2
+    printf '  - Generic type params: useLocalSearchParams<T>, ChangeEvent<T>, Ref<T>\n' >&2
+    printf '  - Regenerate types if the schema changed\n' >&2
+    TYPEGEN_HINT=$(printf '%s' "$CONFIG" | jq -r '.typegenHint // empty')
+    if [[ -n "$TYPEGEN_HINT" ]]; then
+      printf '  - Regen: %s\n' "$TYPEGEN_HINT" >&2
+    fi
   fi
 
   exit 2

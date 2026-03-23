@@ -2,5 +2,18 @@
   "extensions": [".ts", ".tsx", ".js", ".jsx"],
   "skipPatterns": ["*.d.ts", "*.generated.*", "*.gen.*"],
   "disabledRules": [],
-  "typegenHint": ""
+  "typegenHint": "",
+  "frameworks": {
+    "typescript": {
+      "paths": ["."],
+      "versions": {
+        "typescript": "5.9",
+        "react": "19.2",
+        "vite": "8.0",
+        "tailwindcss": "4.2",
+        "shadcn": "4.1"
+      }
+    }
+  },
+  "generatedRefsPath": "skills/app-architecture/{lang}/references/generated"
 }

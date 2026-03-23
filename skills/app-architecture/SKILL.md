@@ -1,18 +1,50 @@
 ---
 name: app-architecture
-description: Complete architecture guide for building multi-tenant SaaS features from database to UI. Use when creating new features, pages, components, database tables, query hooks, or understanding architectural patterns. Covers multi-tenant isolation, auth model, TanStack Query, SSR hydration, route groups, decomposition, and component patterns.
+description: Complete architecture guide for building features from database to UI. Dynamically loads framework-specific patterns (TypeScript, Python, Go, Rust, C++) based on detected stack. Covers decomposition, multi-tenant isolation, auth model, query patterns, and component patterns.
 ---
 
 # App Architecture - Complete Feature Building Guide
 
+## Framework Loading (READ FIRST)
+
+This skill dynamically loads framework-specific references based on the project's detected stack.
+
+**How it works:**
+1. Read `.claude/no-bandaids.json` for the `frameworks` field
+2. For each detected framework, load its references:
+
+| Framework | SKILL.md | Curated Refs | Generated Refs (Context7) |
+|---|---|---|---|
+| TypeScript | `typescript/SKILL.md` | `typescript/references/universal/` | `typescript/references/generated/` |
+| Python | `python/SKILL.md` | `python/references/universal/` | `python/references/generated/` |
+| Go | `go/SKILL.md` | `go/references/universal/` | `go/references/generated/` |
+| Rust | `rust/SKILL.md` | `rust/references/universal/` | `rust/references/generated/` |
+| C++ | `c++/SKILL.md` | `c++/references/universal/` | `c++/references/generated/` |
+
+3. Also check for project-level overrides at `.claude/frameworks/{lang}/*.md`
+
+**Loading priority** (later overrides earlier):
+1. This master SKILL.md (universal patterns — decomposition, component tree, quality tools)
+2. `{lang}/SKILL.md` (language-specific anti-patterns and patterns)
+3. `{lang}/references/universal/` (curated, hand-written reference docs)
+4. `{lang}/references/generated/` (Context7 output — latest API patterns)
+5. `{lang}/references/private/` (licensed patterns, if submodule initialized)
+6. `.claude/frameworks/{lang}/*.md` (project-level overrides)
+
+**If no `frameworks` field exists** in `no-bandaids.json`, default to TypeScript.
+
+**To refresh generated docs:** Run `/composure:init --force`
+
+---
+
 ## Overview
 
-This skill provides the **complete architectural foundation** for building multi-tenant SaaS applications. It covers the entire feature lifecycle from database schema to UI components, ensuring consistent patterns across all projects.
+This skill provides the **complete architectural foundation** for building applications. It covers the entire feature lifecycle from database schema to UI components, ensuring consistent patterns across all projects.
 
 **Use this skill when:**
 - Creating a new feature (database → UI)
 - Building pages, routes, or components
-- Implementing data fetching with TanStack Query
+- Implementing data fetching patterns (TanStack Query, FastAPI, Go handlers)
 - Setting up multi-tenant isolation (RLS, feed fields)
 - Understanding why certain patterns exist
 
@@ -636,46 +668,50 @@ These tools work together as part of the architecture workflow. They are also av
 
 ## Resources
 
-### Included References (`references/universal/`)
+### TypeScript References (`typescript/references/`)
 
-**Data Patterns:**
-- [06-query-key-conventions.md](references/universal/data-patterns/06-query-key-conventions.md) — Account-scoped TanStack Query key factories
-- [07-component-patterns.md](references/universal/data-patterns/07-component-patterns.md) — Single modal, extend-not-rewrite, presentational children
+**Curated (`universal/`):**
+- [06-query-key-conventions.md](typescript/references/universal/data-patterns/06-query-key-conventions.md) — Account-scoped TanStack Query key factories
+- [07-component-patterns.md](typescript/references/universal/data-patterns/07-component-patterns.md) — Single modal, extend-not-rewrite, presentational children
+- [09-ssr-hydration-layout.md](typescript/references/universal/ui-patterns/09-ssr-hydration-layout.md)
+- [10-component-decomposition.md](typescript/references/universal/ui-patterns/10-component-decomposition.md)
+- [11-route-groups.md](typescript/references/universal/ui-patterns/11-route-groups.md)
+- [12-tabs-and-views.md](typescript/references/universal/ui-patterns/12-tabs-and-views.md)
+- [13-icon-patterns.md](typescript/references/universal/ui-patterns/13-icon-patterns.md)
+- [14-bottom-sheet-dynamic-sizing.md](typescript/references/universal/ui-patterns/14-bottom-sheet-dynamic-sizing.md)
+- [15-custom-ui-components.md](typescript/references/universal/ui-patterns/15-custom-ui-components.md)
+- [quick-reference.md](typescript/references/universal/tanstack-query/quick-reference.md) — TanStack Query
+- [pattern-guide.md](typescript/references/universal/tanstack-query/pattern-guide.md)
+- [common-patterns.md](typescript/references/universal/hooks/common-patterns.md) — Query hooks
+- [multi-tenant-patterns.md](typescript/references/universal/hooks/multi-tenant-patterns.md)
 
-**UI & Architecture Patterns:**
-- [09-ssr-hydration-layout.md](references/universal/ui-patterns/09-ssr-hydration-layout.md)
-- [10-component-decomposition.md](references/universal/ui-patterns/10-component-decomposition.md)
-- [11-route-groups.md](references/universal/ui-patterns/11-route-groups.md)
-- [12-tabs-and-views.md](references/universal/ui-patterns/12-tabs-and-views.md)
-- [13-icon-patterns.md](references/universal/ui-patterns/13-icon-patterns.md)
-- [14-bottom-sheet-dynamic-sizing.md](references/universal/ui-patterns/14-bottom-sheet-dynamic-sizing.md)
-- [15-custom-ui-components.md](references/universal/ui-patterns/15-custom-ui-components.md) — Themed controls: CalendarPickerSheet, DateNavigator, TagSheet, BrandedDialog, SearchPickerModal, BottomSheetModal
+**Generated (`generated/` — via Context7, refreshed by `/composure:init --force`):**
+- [shadcn-v4.md](typescript/references/generated/shadcn-v4.md) — oklch theming, @theme inline, CSS variable set
+- [vite-8.md](typescript/references/generated/vite-8.md) — Environment API, SPA config
+- [tailwind-4.md](typescript/references/generated/tailwind-4.md) — CSS-based config, @custom-variant
+- [typescript-5.9.md](typescript/references/generated/typescript-5.9.md) — satisfies, strict flags, erasableSyntaxOnly
 
-**TanStack Query:**
-- [quick-reference.md](references/universal/tanstack-query/quick-reference.md)
-- [pattern-guide.md](references/universal/tanstack-query/pattern-guide.md)
-- [pattern-examples.md](references/universal/tanstack-query/pattern-examples.md)
+**Private (`private/` — submodule, licensed patterns):**
+- [01-entity-registry-feed.md](typescript/references/private/data-patterns/01-entity-registry-feed.md) — Entity registry schema
+- [02-id-prefix-convention.md](typescript/references/private/data-patterns/02-id-prefix-convention.md) — ID prefix triggers
+- [03-four-level-auth.md](typescript/references/private/data-patterns/03-four-level-auth.md) — 4-level auth hierarchy
+- [04-privacy-role-system.md](typescript/references/private/data-patterns/04-privacy-role-system.md) — Privacy groups and roles
+- [05-contact-first-pattern.md](typescript/references/private/data-patterns/05-contact-first-pattern.md) — Contact-based account linking
+- [08-metadata-templates.md](typescript/references/private/data-patterns/08-metadata-templates.md) — JSONB metadata patterns
+- [rls-patterns.md](typescript/references/private/rls-policies/rls-patterns.md) — RLS policy templates
+- [role-hierarchy.md](typescript/references/private/rls-policies/role-hierarchy.md) — Role-based access patterns
+- [migration-checklist.md](typescript/references/private/rls-policies/migration-checklist.md) — Migration safety checklist
 
-**Query Hooks:**
-- [common-patterns.md](references/universal/hooks/common-patterns.md)
-- [multi-tenant-patterns.md](references/universal/hooks/multi-tenant-patterns.md)
+### Other Frameworks
 
-**Mobile:**
-- [~/.claude/examples/mobile-patterns/10-native-modules.md](~/.claude/examples/mobile-patterns/10-native-modules.md) — No-op stub pattern, config plugins, phased SDK integration
+Each language has its own `SKILL.md` with anti-patterns and patterns:
+- [Python](python/SKILL.md) — Pydantic validation, mypy strict, async patterns
+- [Go](go/SKILL.md) — Error handling, generics, context propagation, package decomposition
+- [Rust](rust/SKILL.md) — Ownership, clippy, ? operator, unsafe justification
+- [C++](c++/SKILL.md) — Smart pointers, RAII, const correctness, modern C++ idioms
 
-### Private References (`references/private/`)
+Generated docs (populated by `/composure:init --force` via Context7) live in `{lang}/references/generated/`.
 
-Implementation-level documentation with migration templates, RLS policies, trigger functions, and role hierarchies. Available when the `composure-private` submodule is initialized.
+### Project-Level Overrides
 
-**Data & Auth Patterns:**
-- [01-entity-registry-feed.md](references/private/data-patterns/01-entity-registry-feed.md) — Entity registry schema and feed field implementation
-- [02-id-prefix-convention.md](references/private/data-patterns/02-id-prefix-convention.md) — ID prefix triggers and naming conventions
-- [03-four-level-auth.md](references/private/data-patterns/03-four-level-auth.md) — Complete 4-level auth hierarchy implementation
-- [04-privacy-role-system.md](references/private/data-patterns/04-privacy-role-system.md) — Privacy groups and role-based access tables
-- [05-contact-first-pattern.md](references/private/data-patterns/05-contact-first-pattern.md) — Contact-based account linking for external users
-- [08-metadata-templates.md](references/private/data-patterns/08-metadata-templates.md) — JSONB metadata column patterns
-
-**RLS & Database Security:**
-- [rls-patterns.md](references/private/rls-policies/rls-patterns.md) — Complete RLS policy templates
-- [role-hierarchy.md](references/private/rls-policies/role-hierarchy.md) — Role-based access patterns
-- [migration-checklist.md](references/private/rls-policies/migration-checklist.md) — Migration safety checklist
+Users can add project-specific patterns at `.claude/frameworks/{lang}/*.md`. These layer on top of plugin refs and are loaded last (highest priority).
