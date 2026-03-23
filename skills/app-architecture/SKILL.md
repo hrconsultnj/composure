@@ -5,33 +5,46 @@ description: Complete architecture guide for building features from database to 
 
 # App Architecture - Complete Feature Building Guide
 
-## Framework Loading (READ FIRST)
+## Framework Loading (MANDATORY — DO NOT SKIP)
 
-This skill dynamically loads framework-specific references based on the project's detected stack.
+**You MUST load framework-specific references before writing any code.** This is not optional. Your training data is 10+ months behind — the reference docs contain current API patterns from Context7.
 
-**How it works:**
-1. Read `.claude/no-bandaids.json` for the `frameworks` field
-2. For each detected framework, load its references:
+### Step 1: Detect framework
 
-| Framework | SKILL.md | Curated Refs | Generated Refs (Context7) |
+Read `.claude/no-bandaids.json` and extract the `frameworks` field. If the field is missing, default to `typescript`.
+
+### Step 2: Load ALL references for detected framework(s)
+
+For each detected framework, you MUST read these files (use the Read tool):
+
+| Framework | MUST Read | MUST Read | MUST Read |
 |---|---|---|---|
-| TypeScript | `typescript/SKILL.md` | `typescript/references/universal/` | `typescript/references/generated/` |
-| Python | `python/SKILL.md` | `python/references/universal/` | `python/references/generated/` |
-| Go | `go/SKILL.md` | `go/references/universal/` | `go/references/generated/` |
-| Rust | `rust/SKILL.md` | `rust/references/universal/` | `rust/references/generated/` |
-| C++ | `c++/SKILL.md` | `c++/references/universal/` | `c++/references/generated/` |
+| TypeScript | `typescript/SKILL.md` | ALL files in `typescript/references/universal/` | ALL files in `typescript/references/generated/` |
+| Python | `python/SKILL.md` | ALL files in `python/references/universal/` | ALL files in `python/references/generated/` |
+| Go | `go/SKILL.md` | ALL files in `go/references/universal/` | ALL files in `go/references/generated/` |
+| Rust | `rust/SKILL.md` | ALL files in `rust/references/universal/` | ALL files in `rust/references/generated/` |
+| C/C++ | `c-cpp/SKILL.md` | ALL files in `c-cpp/references/universal/` | ALL files in `c-cpp/references/generated/` |
+| Swift | `swift/SKILL.md` | ALL files in `swift/references/universal/` | ALL files in `swift/references/generated/` |
+| Kotlin | `kotlin/SKILL.md` | ALL files in `kotlin/references/universal/` | ALL files in `kotlin/references/generated/` |
 
-3. Also check for project-level overrides at `.claude/frameworks/{lang}/*.md`
+**Also load if they exist:**
+- `{lang}/references/private/` — licensed patterns (submodule, may not be initialized)
+- `.claude/frameworks/{lang}/*.md` — project-level overrides
+
+### Step 3: Apply patterns from loaded docs
+
+The loaded reference docs define:
+- **Anti-patterns to block** (enforced by no-bandaids hook, but you must also refuse to write them)
+- **Current API patterns** (use these, not your training data)
+- **Configuration format** (e.g., oklch for shadcn, not hex)
 
 **Loading priority** (later overrides earlier):
-1. This master SKILL.md (universal patterns — decomposition, component tree, quality tools)
-2. `{lang}/SKILL.md` (language-specific anti-patterns and patterns)
-3. `{lang}/references/universal/` (curated, hand-written reference docs)
-4. `{lang}/references/generated/` (Context7 output — latest API patterns)
-5. `{lang}/references/private/` (licensed patterns, if submodule initialized)
+1. This master SKILL.md (universal: decomposition, component tree, quality tools)
+2. `{lang}/SKILL.md` (language-specific anti-patterns)
+3. `{lang}/references/universal/` (curated reference docs)
+4. `{lang}/references/generated/` (Context7 — latest API patterns)
+5. `{lang}/references/private/` (licensed patterns)
 6. `.claude/frameworks/{lang}/*.md` (project-level overrides)
-
-**If no `frameworks` field exists** in `no-bandaids.json`, default to TypeScript.
 
 **To refresh generated docs:** Run `/composure:init --force`
 
@@ -708,7 +721,9 @@ Each language has its own `SKILL.md` with anti-patterns and patterns:
 - [Python](python/SKILL.md) — Pydantic validation, mypy strict, async patterns
 - [Go](go/SKILL.md) — Error handling, generics, context propagation, package decomposition
 - [Rust](rust/SKILL.md) — Ownership, clippy, ? operator, unsafe justification
-- [C++](c++/SKILL.md) — Smart pointers, RAII, const correctness, modern C++ idioms
+- [C/C++](c-cpp/SKILL.md) — Smart pointers, RAII, const correctness, MISRA C, modern C++ idioms
+- [Swift](swift/SKILL.md) — Optionals, async/await actors, SwiftUI, Expo native modules
+- [Kotlin](kotlin/SKILL.md) — Null safety, coroutines, Jetpack Compose, Expo native modules
 
 Generated docs (populated by `/composure:init --force` via Context7) live in `{lang}/references/generated/`.
 

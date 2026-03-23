@@ -49,6 +49,8 @@ case "$BASENAME" in
   *.go)                            LANG="go" ;;
   *.rs)                            LANG="rust" ;;
   *.cpp|*.cc|*.cxx|*.hpp|*.h)     LANG="cpp" ;;
+  *.swift)                         LANG="swift" ;;
+  *.kt|*.kts)                     LANG="kotlin" ;;
 esac
 [[ -z "$LANG" ]] && exit 0
 
@@ -170,6 +172,20 @@ case "$LANG" in
     fi
     check "null-macro"    '\bNULL\b'                     "Use nullptr instead of NULL."
     check "define-const"  '#define\s+[A-Z_]+\s+\d'       "Use constexpr instead of #define for constants."
+    ;;
+  swift)
+    if [[ "$IS_TEST_FILE" == "false" ]]; then
+      check "force-unwrap"  '[^!]=.*[^?]!'               "Use guard let, if let, or ?? instead of force unwrap (!)."
+      check "force-cast"    '\bas!\b'                     "Use 'as?' with optional binding instead of force cast 'as!'."
+      check "try-force"     '\btry!'                      "Use do/try/catch or try? instead of try!."
+    fi
+    ;;
+  kotlin)
+    if [[ "$IS_TEST_FILE" == "false" ]]; then
+      check "non-null-assert"  '!!'                       "Use ?.let { }, ?:, or safe calls instead of !! assertion."
+      check "run-blocking"     '\brunBlocking\b'           "Use lifecycleScope.launch or viewModelScope.launch instead of runBlocking."
+      check "bare-return-async" 'return@AsyncFunction\s*$' "Use 'return@AsyncFunction null' — bare return sends Unit, Expo expects Any?."
+    fi
     ;;
 esac
 
