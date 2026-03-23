@@ -3,6 +3,7 @@
  *
  * Produces a single .html file with all CSS + JS inlined.
  * No external dependencies — opens offline in any browser.
+ * Supports light/dark themes via CSS custom properties.
  */
 export interface VisNode {
     id: string;

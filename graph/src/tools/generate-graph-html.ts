@@ -239,9 +239,17 @@ function extractVisNodes(
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
 
+    // Show parent dir for generic filenames (page.tsx, route.ts, index.ts, layout.tsx)
+    const name = basename(filePath);
+    const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name);
+    const parts = relPath.split("/");
+    const label = isGenericName && parts.length >= 2
+      ? parts[parts.length - 2] + "/" + name
+      : name;
+
     nodes.push({
       id: filePath,
-      label: basename(filePath),
+      label,
       path: relPath,
       cat: detectCategory(relPath),
       lines,
