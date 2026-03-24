@@ -1,14 +1,9 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import type { VisNode } from "@/lib/types";
-import { CATEGORY_META } from "@/lib/types";
+import { CATEGORY_META, CAT_ORDER } from "@/lib/types";
 import { GraphControls } from "./graph-controls";
 
 const NODE_W = 190, NODE_H = 34, COL_GAP = 220, ROW_GAP = 42, PAD_X = 44, PAD_Y = 52;
-
-const CAT_ORDER = [
-  "pages", "api", "components", "hooks", "lib",
-  "auth", "data", "types", "config", "tests", "styles", "source",
-];
 
 interface GraphCanvasProps {
   nodes: VisNode[];

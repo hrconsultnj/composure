@@ -22,7 +22,7 @@ export function TabBar({ tabs, activeId, onSelect, onClose }: TabBarProps) {
           <button
             key={tab.id}
             onClick={() => onSelect(tab.id)}
-            className={`group flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-border shrink-0 transition-colors ${
+            className={`group flex items-center gap-1.5 px-3 py-1.5 text-sm border-r border-border shrink-0 transition-colors ${
               isActive
                 ? "bg-accent text-foreground border-t-2"
                 : "text-muted-foreground hover:text-muted-foreground hover:bg-muted"

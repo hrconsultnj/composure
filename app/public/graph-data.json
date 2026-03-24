@@ -1,0 +1,1839 @@
+{
+  "repoName": "composure",
+  "generatedAt": "2026-03-24",
+  "stats": {
+    "totalNodes": 36,
+    "totalEdges": 51,
+    "filesCount": 36,
+    "entityCount": 171
+  },
+  "categories": [
+    {
+      "key": "source",
+      "count": 22
+    },
+    {
+      "key": "components",
+      "count": 9
+    },
+    {
+      "key": "config",
+      "count": 2
+    },
+    {
+      "key": "types",
+      "count": 1
+    },
+    {
+      "key": "hooks",
+      "count": 1
+    },
+    {
+      "key": "lib",
+      "count": 1
+    }
+  ],
+  "nodes": [
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/bfs.ts",
+      "label": "bfs.ts",
+      "path": "graph/src/bfs.ts",
+      "cat": "source",
+      "lines": 147,
+      "functions": 2,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "AdjacencyList",
+          "kind": "Type",
+          "lineStart": 9,
+          "lineEnd": 14,
+          "lines": 6
+        },
+        {
+          "name": "buildAdjacencyList",
+          "kind": "Function",
+          "lineStart": 19,
+          "lineEnd": 40,
+          "lines": 22
+        },
+        {
+          "name": "getImpactRadius",
+          "kind": "Function",
+          "lineStart": 48,
+          "lineEnd": 146,
+          "lines": 99
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+      "label": "incremental.ts",
+      "path": "graph/src/incremental.ts",
+      "cat": "source",
+      "lines": 309,
+      "functions": 13,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/parser.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "shouldIgnore",
+          "kind": "Function",
+          "lineStart": 31,
+          "lineEnd": 34,
+          "lines": 4
+        },
+        {
+          "name": "findRepoRoot",
+          "kind": "Function",
+          "lineStart": 38,
+          "lineEnd": 46,
+          "lines": 9
+        },
+        {
+          "name": "findProjectRoot",
+          "kind": "Function",
+          "lineStart": 48,
+          "lineEnd": 50,
+          "lines": 3
+        },
+        {
+          "name": "getDbPath",
+          "kind": "Function",
+          "lineStart": 52,
+          "lineEnd": 54,
+          "lines": 3
+        },
+        {
+          "name": "execGit",
+          "kind": "Function",
+          "lineStart": 60,
+          "lineEnd": 71,
+          "lines": 12
+        },
+        {
+          "name": "getChangedFiles",
+          "kind": "Function",
+          "lineStart": 73,
+          "lineEnd": 80,
+          "lines": 8
+        },
+        {
+          "name": "getStagedAndUnstaged",
+          "kind": "Function",
+          "lineStart": 82,
+          "lineEnd": 91,
+          "lines": 10
+        },
+        {
+          "name": "collectAllFiles",
+          "kind": "Function",
+          "lineStart": 95,
+          "lineEnd": 116,
+          "lines": 22
+        },
+        {
+          "name": "loadIgnorePatterns",
+          "kind": "Function",
+          "lineStart": 118,
+          "lineEnd": 129,
+          "lines": 12
+        },
+        {
+          "name": "findDependents",
+          "kind": "Function",
+          "lineStart": 133,
+          "lineEnd": 142,
+          "lines": 10
+        },
+        {
+          "name": "fullBuild",
+          "kind": "Function",
+          "lineStart": 146,
+          "lineEnd": 187,
+          "lines": 42
+        },
+        {
+          "name": "incrementalUpdate",
+          "kind": "Function",
+          "lineStart": 191,
+          "lineEnd": 261,
+          "lines": 71
+        },
+        {
+          "name": "singleFileUpdate",
+          "kind": "Function",
+          "lineStart": 265,
+          "lineEnd": 308,
+          "lines": 44
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/node-sqlite.d.ts",
+      "label": "node-sqlite.d.ts",
+      "path": "graph/src/node-sqlite.d.ts",
+      "cat": "types",
+      "lines": 29,
+      "functions": 0,
+      "classes": 1,
+      "types": 2,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "StatementResult",
+          "kind": "Type",
+          "lineStart": 10,
+          "lineEnd": 13,
+          "lines": 4
+        },
+        {
+          "name": "Statement",
+          "kind": "Type",
+          "lineStart": 15,
+          "lineEnd": 19,
+          "lines": 5
+        },
+        {
+          "name": "DatabaseSync",
+          "kind": "Class",
+          "lineStart": 21,
+          "lineEnd": 27,
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/parser-helpers.ts",
+      "label": "parser-helpers.ts",
+      "path": "graph/src/parser-helpers.ts",
+      "cat": "source",
+      "lines": 223,
+      "functions": 14,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "isTestFile",
+          "kind": "Function",
+          "lineStart": 43,
+          "lineEnd": 45,
+          "lines": 3
+        },
+        {
+          "name": "isTestFunction",
+          "kind": "Function",
+          "lineStart": 47,
+          "lineEnd": 53,
+          "lines": 7
+        },
+        {
+          "name": "qualify",
+          "kind": "Function",
+          "lineStart": 57,
+          "lineEnd": 64,
+          "lines": 8
+        },
+        {
+          "name": "getNodeText",
+          "kind": "Function",
+          "lineStart": 68,
+          "lineEnd": 70,
+          "lines": 3
+        },
+        {
+          "name": "getName",
+          "kind": "Function",
+          "lineStart": 74,
+          "lineEnd": 88,
+          "lines": 15
+        },
+        {
+          "name": "getArrowFunctionName",
+          "kind": "Function",
+          "lineStart": 90,
+          "lineEnd": 98,
+          "lines": 9
+        },
+        {
+          "name": "getParams",
+          "kind": "Function",
+          "lineStart": 100,
+          "lineEnd": 107,
+          "lines": 8
+        },
+        {
+          "name": "getReturnType",
+          "kind": "Function",
+          "lineStart": 109,
+          "lineEnd": 116,
+          "lines": 8
+        },
+        {
+          "name": "getBases",
+          "kind": "Function",
+          "lineStart": 118,
+          "lineEnd": 134,
+          "lines": 17
+        },
+        {
+          "name": "extractImportTarget",
+          "kind": "Function",
+          "lineStart": 138,
+          "lineEnd": 145,
+          "lines": 8
+        },
+        {
+          "name": "collectJsImportNames",
+          "kind": "Function",
+          "lineStart": 147,
+          "lineEnd": 177,
+          "lines": 31
+        },
+        {
+          "name": "getCallName",
+          "kind": "Function",
+          "lineStart": 181,
+          "lineEnd": 190,
+          "lines": 10
+        },
+        {
+          "name": "resolveModuleToFile",
+          "kind": "Function",
+          "lineStart": 194,
+          "lineEnd": 214,
+          "lines": 21
+        },
+        {
+          "name": "isDirectory",
+          "kind": "Function",
+          "lineStart": 216,
+          "lineEnd": 222,
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/parser.ts",
+      "label": "parser.ts",
+      "path": "graph/src/parser.ts",
+      "cat": "source",
+      "lines": 526,
+      "functions": 19,
+      "classes": 1,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/parser-helpers.ts"
+      ],
+      "entities": [
+        {
+          "name": "isParseable",
+          "kind": "Function",
+          "lineStart": 49,
+          "lineEnd": 51,
+          "lines": 3
+        },
+        {
+          "name": "detectLanguage",
+          "kind": "Function",
+          "lineStart": 53,
+          "lineEnd": 55,
+          "lines": 3
+        },
+        {
+          "name": "fileHash",
+          "kind": "Function",
+          "lineStart": 59,
+          "lineEnd": 62,
+          "lines": 4
+        },
+        {
+          "name": "CodeParser",
+          "kind": "Class",
+          "lineStart": 81,
+          "lineEnd": 525,
+          "lines": 445
+        },
+        {
+          "name": "init",
+          "kind": "Function",
+          "lineStart": 89,
+          "lineEnd": 105,
+          "lines": 17
+        },
+        {
+          "name": "getParser",
+          "kind": "Function",
+          "lineStart": 107,
+          "lineEnd": 114,
+          "lines": 8
+        },
+        {
+          "name": "parseFile",
+          "kind": "Function",
+          "lineStart": 116,
+          "lineEnd": 124,
+          "lines": 9
+        },
+        {
+          "name": "parseBytes",
+          "kind": "Function",
+          "lineStart": 126,
+          "lineEnd": 174,
+          "lines": 49
+        },
+        {
+          "name": "collectFileScope",
+          "kind": "Function",
+          "lineStart": 178,
+          "lineEnd": 234,
+          "lines": 57
+        },
+        {
+          "name": "extractFromTree",
+          "kind": "Function",
+          "lineStart": 240,
+          "lineEnd": 295,
+          "lines": 56
+        },
+        {
+          "name": "handleClass",
+          "kind": "Function",
+          "lineStart": 299,
+          "lineEnd": 333,
+          "lines": 35
+        },
+        {
+          "name": "handleType",
+          "kind": "Function",
+          "lineStart": 335,
+          "lineEnd": 359,
+          "lines": 25
+        },
+        {
+          "name": "handleFunction",
+          "kind": "Function",
+          "lineStart": 361,
+          "lineEnd": 398,
+          "lines": 38
+        },
+        {
+          "name": "handleLexicalDeclaration",
+          "kind": "Function",
+          "lineStart": 400,
+          "lineEnd": 438,
+          "lines": 39
+        },
+        {
+          "name": "handleImport",
+          "kind": "Function",
+          "lineStart": 440,
+          "lineEnd": 451,
+          "lines": 12
+        },
+        {
+          "name": "handleCall",
+          "kind": "Function",
+          "lineStart": 453,
+          "lineEnd": 467,
+          "lines": 15
+        },
+        {
+          "name": "resolveCallTarget",
+          "kind": "Function",
+          "lineStart": 471,
+          "lineEnd": 481,
+          "lines": 11
+        },
+        {
+          "name": "resolveModuleCached",
+          "kind": "Function",
+          "lineStart": 483,
+          "lineEnd": 490,
+          "lines": 8
+        },
+        {
+          "name": "resolveCallTargets",
+          "kind": "Function",
+          "lineStart": 492,
+          "lineEnd": 507,
+          "lines": 16
+        },
+        {
+          "name": "generateTestEdges",
+          "kind": "Function",
+          "lineStart": 509,
+          "lineEnd": 524,
+          "lines": 16
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/serialization.ts",
+      "label": "serialization.ts",
+      "path": "graph/src/serialization.ts",
+      "cat": "source",
+      "lines": 82,
+      "functions": 5,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "makeQualifiedName",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 16,
+          "lines": 5
+        },
+        {
+          "name": "rowToNode",
+          "kind": "Function",
+          "lineStart": 20,
+          "lineEnd": 39,
+          "lines": 20
+        },
+        {
+          "name": "rowToEdge",
+          "kind": "Function",
+          "lineStart": 41,
+          "lineEnd": 52,
+          "lines": 12
+        },
+        {
+          "name": "nodeToDict",
+          "kind": "Function",
+          "lineStart": 56,
+          "lineEnd": 71,
+          "lines": 16
+        },
+        {
+          "name": "edgeToDict",
+          "kind": "Function",
+          "lineStart": 73,
+          "lineEnd": 81,
+          "lines": 9
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+      "label": "store.ts",
+      "path": "graph/src/store.ts",
+      "cat": "source",
+      "lines": 376,
+      "functions": 20,
+      "classes": 1,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/serialization.ts"
+      ],
+      "entities": [
+        {
+          "name": "GraphStore",
+          "kind": "Class",
+          "lineStart": 66,
+          "lineEnd": 375,
+          "lines": 310
+        },
+        {
+          "name": "constructor",
+          "kind": "Function",
+          "lineStart": 69,
+          "lineEnd": 83,
+          "lines": 15
+        },
+        {
+          "name": "close",
+          "kind": "Function",
+          "lineStart": 85,
+          "lineEnd": 87,
+          "lines": 3
+        },
+        {
+          "name": "commit",
+          "kind": "Function",
+          "lineStart": 89,
+          "lineEnd": 91,
+          "lines": 3
+        },
+        {
+          "name": "setMetadata",
+          "kind": "Function",
+          "lineStart": 95,
+          "lineEnd": 99,
+          "lines": 5
+        },
+        {
+          "name": "getMetadata",
+          "kind": "Function",
+          "lineStart": 101,
+          "lineEnd": 106,
+          "lines": 6
+        },
+        {
+          "name": "upsertNode",
+          "kind": "Function",
+          "lineStart": 110,
+          "lineEnd": 144,
+          "lines": 35
+        },
+        {
+          "name": "upsertEdge",
+          "kind": "Function",
+          "lineStart": 146,
+          "lineEnd": 163,
+          "lines": 18
+        },
+        {
+          "name": "removeFileData",
+          "kind": "Function",
+          "lineStart": 165,
+          "lineEnd": 168,
+          "lines": 4
+        },
+        {
+          "name": "storeFileNodesEdges",
+          "kind": "Function",
+          "lineStart": 170,
+          "lineEnd": 190,
+          "lines": 21
+        },
+        {
+          "name": "getNode",
+          "kind": "Function",
+          "lineStart": 194,
+          "lineEnd": 199,
+          "lines": 6
+        },
+        {
+          "name": "getNodesByFile",
+          "kind": "Function",
+          "lineStart": 201,
+          "lineEnd": 206,
+          "lines": 6
+        },
+        {
+          "name": "getAllFiles",
+          "kind": "Function",
+          "lineStart": 208,
+          "lineEnd": 213,
+          "lines": 6
+        },
+        {
+          "name": "searchNodes",
+          "kind": "Function",
+          "lineStart": 215,
+          "lineEnd": 232,
+          "lines": 18
+        },
+        {
+          "name": "getNodesBySize",
+          "kind": "Function",
+          "lineStart": 234,
+          "lineEnd": 273,
+          "lines": 40
+        },
+        {
+          "name": "getEdgesBySource",
+          "kind": "Function",
+          "lineStart": 277,
+          "lineEnd": 282,
+          "lines": 6
+        },
+        {
+          "name": "getEdgesByTarget",
+          "kind": "Function",
+          "lineStart": 284,
+          "lineEnd": 289,
+          "lines": 6
+        },
+        {
+          "name": "searchEdgesByTargetName",
+          "kind": "Function",
+          "lineStart": 291,
+          "lineEnd": 298,
+          "lines": 8
+        },
+        {
+          "name": "getAllEdges",
+          "kind": "Function",
+          "lineStart": 300,
+          "lineEnd": 305,
+          "lines": 6
+        },
+        {
+          "name": "getEdgesAmong",
+          "kind": "Function",
+          "lineStart": 307,
+          "lineEnd": 328,
+          "lines": 22
+        },
+        {
+          "name": "getStats",
+          "kind": "Function",
+          "lineStart": 332,
+          "lineEnd": 374,
+          "lines": 43
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/build-or-update-graph.ts",
+      "label": "build-or-update-graph.ts",
+      "path": "graph/src/tools/build-or-update-graph.ts",
+      "cat": "source",
+      "lines": 57,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "buildOrUpdateGraph",
+          "kind": "Function",
+          "lineStart": 10,
+          "lineEnd": 56,
+          "lines": 47
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/find-large-functions.ts",
+      "label": "find-large-functions.ts",
+      "path": "graph/src/tools/find-large-functions.ts",
+      "cat": "source",
+      "lines": 46,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "findLargeFunctions",
+          "kind": "Function",
+          "lineStart": 5,
+          "lineEnd": 45,
+          "lines": 41
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-impact-radius.ts",
+      "label": "get-impact-radius.ts",
+      "path": "graph/src/tools/get-impact-radius.ts",
+      "cat": "source",
+      "lines": 86,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/bfs.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "getImpactRadiusTool",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 85,
+          "lines": 74
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-review-context.ts",
+      "label": "get-review-context.ts",
+      "path": "graph/src/tools/get-review-context.ts",
+      "cat": "source",
+      "lines": 142,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/bfs.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "getReviewContext",
+          "kind": "Function",
+          "lineStart": 13,
+          "lineEnd": 141,
+          "lines": 129
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/list-graph-stats.ts",
+      "label": "list-graph-stats.ts",
+      "path": "graph/src/tools/list-graph-stats.ts",
+      "cat": "source",
+      "lines": 39,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "listGraphStats",
+          "kind": "Function",
+          "lineStart": 5,
+          "lineEnd": 38,
+          "lines": 34
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/query-graph.ts",
+      "label": "query-graph.ts",
+      "path": "graph/src/tools/query-graph.ts",
+      "cat": "source",
+      "lines": 185,
+      "functions": 6,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "QueryResult",
+          "kind": "Type",
+          "lineStart": 31,
+          "lineEnd": 31,
+          "lines": 1
+        },
+        {
+          "name": "edgesByTarget",
+          "kind": "Function",
+          "lineStart": 33,
+          "lineEnd": 44,
+          "lines": 12
+        },
+        {
+          "name": "edgesBySource",
+          "kind": "Function",
+          "lineStart": 46,
+          "lineEnd": 57,
+          "lines": 12
+        },
+        {
+          "name": "callersOf",
+          "kind": "Function",
+          "lineStart": 59,
+          "lineEnd": 72,
+          "lines": 14
+        },
+        {
+          "name": "fileSummary",
+          "kind": "Function",
+          "lineStart": 74,
+          "lineEnd": 77,
+          "lines": 4
+        },
+        {
+          "name": "inheritorsOf",
+          "kind": "Function",
+          "lineStart": 79,
+          "lineEnd": 90,
+          "lines": 12
+        },
+        {
+          "name": "queryGraph",
+          "kind": "Function",
+          "lineStart": 94,
+          "lineEnd": 184,
+          "lines": 91
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/semantic-search-nodes.ts",
+      "label": "semantic-search-nodes.ts",
+      "path": "graph/src/tools/semantic-search-nodes.ts",
+      "cat": "source",
+      "lines": 46,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "semanticSearchNodes",
+          "kind": "Function",
+          "lineStart": 5,
+          "lineEnd": 45,
+          "lines": 41
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/types.ts",
+      "label": "types.ts",
+      "path": "graph/src/types.ts",
+      "cat": "source",
+      "lines": 114,
+      "functions": 0,
+      "classes": 0,
+      "types": 10,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "NodeKind",
+          "kind": "Type",
+          "lineStart": 10,
+          "lineEnd": 10,
+          "lines": 1
+        },
+        {
+          "name": "EdgeKind",
+          "kind": "Type",
+          "lineStart": 12,
+          "lineEnd": 19,
+          "lines": 8
+        },
+        {
+          "name": "NodeInfo",
+          "kind": "Type",
+          "lineStart": 23,
+          "lineEnd": 36,
+          "lines": 14
+        },
+        {
+          "name": "EdgeInfo",
+          "kind": "Type",
+          "lineStart": 38,
+          "lineEnd": 45,
+          "lines": 8
+        },
+        {
+          "name": "GraphNode",
+          "kind": "Type",
+          "lineStart": 49,
+          "lineEnd": 66,
+          "lines": 18
+        },
+        {
+          "name": "GraphEdge",
+          "kind": "Type",
+          "lineStart": 68,
+          "lineEnd": 77,
+          "lines": 10
+        },
+        {
+          "name": "GraphStats",
+          "kind": "Type",
+          "lineStart": 81,
+          "lineEnd": 89,
+          "lines": 9
+        },
+        {
+          "name": "BuildResult",
+          "kind": "Type",
+          "lineStart": 91,
+          "lineEnd": 99,
+          "lines": 9
+        },
+        {
+          "name": "ImpactResult",
+          "kind": "Type",
+          "lineStart": 101,
+          "lineEnd": 108,
+          "lines": 8
+        },
+        {
+          "name": "ToolResult",
+          "kind": "Type",
+          "lineStart": 110,
+          "lineEnd": 113,
+          "lines": 4
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/update.ts",
+      "label": "update.ts",
+      "path": "graph/src/update.ts",
+      "cat": "source",
+      "lines": 73,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/parser.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts"
+      ],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 17,
+          "lineEnd": 70,
+          "lines": 54
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/server.ts",
+      "label": "server.ts",
+      "path": "graph/src/server.ts",
+      "cat": "source",
+      "lines": 293,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/build-or-update-graph.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/query-graph.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-review-context.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-impact-radius.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/find-large-functions.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/semantic-search-nodes.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/list-graph-stats.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts"
+      ],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 284,
+          "lineEnd": 287,
+          "lines": 4
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/view-graph.ts",
+      "label": "view-graph.ts",
+      "path": "graph/src/view-graph.ts",
+      "cat": "source",
+      "lines": 55,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts"
+      ],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 16,
+          "lineEnd": 52,
+          "lines": 37
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/esbuild.config.js",
+      "label": "esbuild.config.js",
+      "path": "graph/esbuild.config.js",
+      "cat": "config",
+      "lines": 94,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 35,
+          "lineEnd": 88,
+          "lines": 54
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts",
+      "label": "generate-graph-html.ts",
+      "path": "graph/src/tools/generate-graph-html.ts",
+      "cat": "source",
+      "lines": 345,
+      "functions": 4,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "CategoryRule",
+          "kind": "Type",
+          "lineStart": 23,
+          "lineEnd": 26,
+          "lines": 4
+        },
+        {
+          "name": "detectCategory",
+          "kind": "Function",
+          "lineStart": 134,
+          "lineEnd": 140,
+          "lines": 7
+        },
+        {
+          "name": "resolveImportTarget",
+          "kind": "Function",
+          "lineStart": 152,
+          "lineEnd": 180,
+          "lines": 29
+        },
+        {
+          "name": "extractVisNodes",
+          "kind": "Function",
+          "lineStart": 184,
+          "lineEnd": 266,
+          "lines": 83
+        },
+        {
+          "name": "generateGraphHtmlTool",
+          "kind": "Function",
+          "lineStart": 270,
+          "lineEnd": 344,
+          "lines": 75
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
+      "label": "html-template.ts",
+      "path": "graph/src/html-template.ts",
+      "cat": "source",
+      "lines": 664,
+      "functions": 15,
+      "classes": 0,
+      "types": 2,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "VisNode",
+          "kind": "Type",
+          "lineStart": 11,
+          "lineEnd": 23,
+          "lines": 13
+        },
+        {
+          "name": "GraphHtmlData",
+          "kind": "Type",
+          "lineStart": 25,
+          "lineEnd": 34,
+          "lines": 10
+        },
+        {
+          "name": "generateGraphHtml",
+          "kind": "Function",
+          "lineStart": 38,
+          "lineEnd": 84,
+          "lines": 47
+        },
+        {
+          "name": "esc",
+          "kind": "Function",
+          "lineStart": 112,
+          "lineEnd": 114,
+          "lines": 3
+        },
+        {
+          "name": "jsonInject",
+          "kind": "Function",
+          "lineStart": 116,
+          "lineEnd": 118,
+          "lines": 3
+        },
+        {
+          "name": "buildStyles",
+          "kind": "Function",
+          "lineStart": 122,
+          "lineEnd": 250,
+          "lines": 129
+        },
+        {
+          "name": "buildHeader",
+          "kind": "Function",
+          "lineStart": 254,
+          "lineEnd": 289,
+          "lines": 36
+        },
+        {
+          "name": "buildControls",
+          "kind": "Function",
+          "lineStart": 291,
+          "lineEnd": 293,
+          "lines": 3
+        },
+        {
+          "name": "buildLegend",
+          "kind": "Function",
+          "lineStart": 295,
+          "lineEnd": 312,
+          "lines": 18
+        },
+        {
+          "name": "buildZoomControls",
+          "kind": "Function",
+          "lineStart": 314,
+          "lineEnd": 320,
+          "lines": 7
+        },
+        {
+          "name": "buildScriptData",
+          "kind": "Function",
+          "lineStart": 328,
+          "lineEnd": 347,
+          "lines": 20
+        },
+        {
+          "name": "buildScriptControls",
+          "kind": "Function",
+          "lineStart": 350,
+          "lineEnd": 404,
+          "lines": 55
+        },
+        {
+          "name": "buildScriptGraphLogic",
+          "kind": "Function",
+          "lineStart": 407,
+          "lineEnd": 433,
+          "lines": 27
+        },
+        {
+          "name": "buildScriptDetailPanel",
+          "kind": "Function",
+          "lineStart": 436,
+          "lineEnd": 485,
+          "lines": 50
+        },
+        {
+          "name": "buildScriptTreeView",
+          "kind": "Function",
+          "lineStart": 488,
+          "lineEnd": 591,
+          "lines": 104
+        },
+        {
+          "name": "buildScriptRender",
+          "kind": "Function",
+          "lineStart": 594,
+          "lineEnd": 651,
+          "lines": 58
+        },
+        {
+          "name": "buildScript",
+          "kind": "Function",
+          "lineStart": 654,
+          "lineEnd": 663,
+          "lines": 10
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/ui/vite.config.ts",
+      "label": "vite.config.ts",
+      "path": "graph/ui/vite.config.ts",
+      "cat": "config",
+      "lines": 14,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": []
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/ui/src/components/activity-bar.tsx",
+      "label": "activity-bar.tsx",
+      "path": "graph/ui/src/components/activity-bar.tsx",
+      "cat": "components",
+      "lines": 53,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "ActivityBarProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "ActivityBar",
+          "kind": "Function",
+          "lineStart": 18,
+          "lineEnd": 52,
+          "lines": 35
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-controls.tsx",
+      "label": "graph-controls.tsx",
+      "path": "app/src/components/graph-controls.tsx",
+      "cat": "components",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "GraphControlsProps",
+          "kind": "Type",
+          "lineStart": 3,
+          "lineEnd": 8,
+          "lines": 6
+        },
+        {
+          "name": "GraphControls",
+          "kind": "Function",
+          "lineStart": 10,
+          "lineEnd": 24,
+          "lines": 15
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/activity-bar.tsx",
+      "label": "activity-bar.tsx",
+      "path": "app/src/components/activity-bar.tsx",
+      "cat": "components",
+      "lines": 53,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "ActivityBarProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "ActivityBar",
+          "kind": "Function",
+          "lineStart": 18,
+          "lineEnd": 52,
+          "lines": 35
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/hooks/use-graph-data.ts",
+      "label": "use-graph-data.ts",
+      "path": "app/src/hooks/use-graph-data.ts",
+      "cat": "hooks",
+      "lines": 55,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "Window",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 7,
+          "lines": 3
+        },
+        {
+          "name": "useGraphData",
+          "kind": "Function",
+          "lineStart": 10,
+          "lineEnd": 54,
+          "lines": 45
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tree-explorer.tsx",
+      "label": "tree-explorer.tsx",
+      "path": "app/src/components/tree-explorer.tsx",
+      "cat": "components",
+      "lines": 172,
+      "functions": 5,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "TreeExplorerProps",
+          "kind": "Type",
+          "lineStart": 8,
+          "lineEnd": 13,
+          "lines": 6
+        },
+        {
+          "name": "buildTree",
+          "kind": "Function",
+          "lineStart": 15,
+          "lineEnd": 43,
+          "lines": 29
+        },
+        {
+          "name": "calcStats",
+          "kind": "Function",
+          "lineStart": 30,
+          "lineEnd": 40,
+          "lines": 11
+        },
+        {
+          "name": "DirNode",
+          "kind": "Function",
+          "lineStart": 45,
+          "lineEnd": 103,
+          "lines": 59
+        },
+        {
+          "name": "FileNode",
+          "kind": "Function",
+          "lineStart": 105,
+          "lineEnd": 133,
+          "lines": 29
+        },
+        {
+          "name": "TreeExplorer",
+          "kind": "Function",
+          "lineStart": 135,
+          "lineEnd": 171,
+          "lines": 37
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/status-bar.tsx",
+      "label": "status-bar.tsx",
+      "path": "app/src/components/status-bar.tsx",
+      "cat": "components",
+      "lines": 17,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "StatusBarProps",
+          "kind": "Type",
+          "lineStart": 1,
+          "lineEnd": 5,
+          "lines": 5
+        },
+        {
+          "name": "StatusBar",
+          "kind": "Function",
+          "lineStart": 7,
+          "lineEnd": 16,
+          "lines": 10
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tab-bar.tsx",
+      "label": "tab-bar.tsx",
+      "path": "app/src/components/tab-bar.tsx",
+      "cat": "components",
+      "lines": 49,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "TabBarProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "TabBar",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 48,
+          "lines": 37
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/file-detail.tsx",
+      "label": "file-detail.tsx",
+      "path": "app/src/components/file-detail.tsx",
+      "cat": "components",
+      "lines": 167,
+      "functions": 7,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "FileDetailProps",
+          "kind": "Type",
+          "lineStart": 6,
+          "lineEnd": 11,
+          "lines": 6
+        },
+        {
+          "name": "bfsRadius",
+          "kind": "Function",
+          "lineStart": 13,
+          "lineEnd": 38,
+          "lines": 26
+        },
+        {
+          "name": "FileDetail",
+          "kind": "Function",
+          "lineStart": 40,
+          "lineEnd": 109,
+          "lines": 70
+        },
+        {
+          "name": "Badge",
+          "kind": "Function",
+          "lineStart": 111,
+          "lineEnd": 117,
+          "lines": 7
+        },
+        {
+          "name": "Stat",
+          "kind": "Function",
+          "lineStart": 119,
+          "lineEnd": 126,
+          "lines": 8
+        },
+        {
+          "name": "SectionTitle",
+          "kind": "Function",
+          "lineStart": 128,
+          "lineEnd": 132,
+          "lines": 5
+        },
+        {
+          "name": "DepSection",
+          "kind": "Function",
+          "lineStart": 134,
+          "lineEnd": 156,
+          "lines": 23
+        },
+        {
+          "name": "Flag",
+          "kind": "Function",
+          "lineStart": 158,
+          "lineEnd": 166,
+          "lines": 9
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/legend-panel.tsx",
+      "label": "legend-panel.tsx",
+      "path": "app/src/components/legend-panel.tsx",
+      "cat": "components",
+      "lines": 40,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "LegendPanelProps",
+          "kind": "Type",
+          "lineStart": 4,
+          "lineEnd": 8,
+          "lines": 5
+        },
+        {
+          "name": "LegendPanel",
+          "kind": "Function",
+          "lineStart": 10,
+          "lineEnd": 39,
+          "lines": 30
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-canvas.tsx",
+      "label": "graph-canvas.tsx",
+      "path": "app/src/components/graph-canvas.tsx",
+      "cat": "components",
+      "lines": 163,
+      "functions": 2,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/app/src/components/graph-controls.tsx"
+      ],
+      "entities": [
+        {
+          "name": "GraphCanvasProps",
+          "kind": "Type",
+          "lineStart": 8,
+          "lineEnd": 17,
+          "lines": 10
+        },
+        {
+          "name": "bfsConnected",
+          "kind": "Function",
+          "lineStart": 19,
+          "lineEnd": 33,
+          "lines": 15
+        },
+        {
+          "name": "GraphCanvas",
+          "kind": "Function",
+          "lineStart": 35,
+          "lineEnd": 162,
+          "lines": 128
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/App.tsx",
+      "label": "App.tsx",
+      "path": "app/src/App.tsx",
+      "cat": "source",
+      "lines": 269,
+      "functions": 2,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "isActivity",
+          "kind": "Function",
+          "lineStart": 19,
+          "lineEnd": 21,
+          "lines": 3
+        },
+        {
+          "name": "App",
+          "kind": "Function",
+          "lineStart": 23,
+          "lineEnd": 268,
+          "lines": 246
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/lib/types.ts",
+      "label": "types.ts",
+      "path": "app/src/lib/types.ts",
+      "cat": "lib",
+      "lines": 166,
+      "functions": 3,
+      "classes": 0,
+      "types": 6,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "VisNode",
+          "kind": "Type",
+          "lineStart": 2,
+          "lineEnd": 16,
+          "lines": 15
+        },
+        {
+          "name": "VisEntity",
+          "kind": "Type",
+          "lineStart": 19,
+          "lineEnd": 25,
+          "lines": 7
+        },
+        {
+          "name": "GraphData",
+          "kind": "Type",
+          "lineStart": 27,
+          "lineEnd": 39,
+          "lines": 13
+        },
+        {
+          "name": "CategoryInfo",
+          "kind": "Type",
+          "lineStart": 41,
+          "lineEnd": 46,
+          "lines": 6
+        },
+        {
+          "name": "TreeDir",
+          "kind": "Type",
+          "lineStart": 48,
+          "lineEnd": 53,
+          "lines": 6
+        },
+        {
+          "name": "Activity",
+          "kind": "Type",
+          "lineStart": 55,
+          "lineEnd": 55,
+          "lines": 1
+        },
+        {
+          "name": "getCategoryMeta",
+          "kind": "Function",
+          "lineStart": 111,
+          "lineEnd": 119,
+          "lines": 9
+        },
+        {
+          "name": "buildCategoryMeta",
+          "kind": "Function",
+          "lineStart": 125,
+          "lineEnd": 135,
+          "lines": 11
+        },
+        {
+          "name": "orderCategories",
+          "kind": "Function",
+          "lineStart": 157,
+          "lineEnd": 161,
+          "lines": 5
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/scripts/extract-graph.js",
+      "label": "extract-graph.js",
+      "path": "app/scripts/extract-graph.js",
+      "cat": "source",
+      "lines": 220,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "detectCategory",
+          "kind": "Function",
+          "lineStart": 72,
+          "lineEnd": 78,
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/data/mock.ts",
+      "label": "mock.ts",
+      "path": "app/src/data/mock.ts",
+      "cat": "source",
+      "lines": 26,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": []
+    }
+  ]
+}

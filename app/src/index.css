@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -37,6 +38,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --font-mono: "SF Mono", "Fira Code", Menlo, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ── Dark (default) ─────────────────────────────────────────────── */
@@ -108,11 +110,6 @@
   box-sizing: border-box;
 }
 
-body {
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-
 #root {
   height: 100vh;
   display: flex;
@@ -123,10 +120,12 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
-    font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-sans overflow-hidden;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
   }
 }

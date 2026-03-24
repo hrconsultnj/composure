@@ -19,7 +19,7 @@ export function LegendPanel({ categories, hiddenCats, onToggle }: LegendPanelPro
             <button
               key={cat}
               onClick={() => onToggle(cat)}
-              className={`flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-sm cursor-pointer transition-all ${
+              className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm cursor-pointer transition-all ${
                 isHidden
                   ? "opacity-35 line-through text-muted-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"

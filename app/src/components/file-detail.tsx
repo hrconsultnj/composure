@@ -119,7 +119,7 @@ function Badge({ text, bg, fg }: { text: string; bg: string; fg: string }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="px-3 py-2.5 rounded-lg bg-muted border border-border">
-      <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/60">{label}</div>
+      <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground/60">{label}</div>
       <div className="text-lg font-bold text-foreground mt-0.5">{value}</div>
     </div>
   );
@@ -127,7 +127,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/60 mb-2">{children}</div>
+    <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground/60 mb-2">{children}</div>
   );
 }
 

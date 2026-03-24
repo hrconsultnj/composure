@@ -67,7 +67,7 @@ function DirNode({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1 w-full px-2 py-[3px] text-xs hover:bg-accent rounded-sm cursor-pointer text-muted-foreground group">
+      <CollapsibleTrigger className="flex items-center gap-1 w-full px-2 py-[3px] text-sm hover:bg-accent rounded-sm cursor-pointer text-muted-foreground group">
         <Icon
           icon="ph:caret-right-bold"
           width={10}
@@ -116,7 +116,7 @@ function FileNode({
   return (
     <button
       onClick={() => onSelect(node)}
-      className={`flex items-center gap-[6px] w-full px-2 py-[3px] text-xs rounded-sm cursor-pointer transition-colors ${
+      className={`flex items-center gap-[6px] w-full px-2 py-[3px] text-sm rounded-sm cursor-pointer transition-colors ${
         selected
           ? "bg-primary/10 text-primary"
           : "text-muted-foreground hover:bg-accent hover:text-foreground"

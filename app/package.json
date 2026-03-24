@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "predev": "node scripts/extract-graph.js && lsof -ti:5173 | xargs kill -9 2>/dev/null || true",
+    "dev": "vite --port 5173 --strictPort",
+    "build": "node scripts/extract-graph.js && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
