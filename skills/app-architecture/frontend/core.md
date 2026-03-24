@@ -8,7 +8,7 @@
 
 | File | What you'll learn |
 |------|-------------------|
-| `typescript/data-patterns/06-query-key-conventions.md` | Account-scoped query key factory pattern, hierarchical key structure |
+| `typescript/data-patterns/01-query-key-conventions.md` | Account-scoped query key factory pattern, hierarchical key structure |
 | `typescript/hooks/common-patterns.md` | 10 real-world useQuery/useMutation patterns (pagination, CRUD, infinite scroll, search, prefetching) |
 | `typescript/hooks/multi-tenant-patterns.md` | Account-scoped queries, account switching, feed field joins |
 | `typescript/hooks/cache-invalidation-guide.md` | When and how to invalidate — granular vs broad, optimistic updates |
@@ -23,8 +23,8 @@
 
 | File | What you'll learn |
 |------|-------------------|
-| `typescript/10-component-decomposition.md` | Size limits (enforced by hook), folder structure templates, pre-write planning rules, barrel exports |
-| `typescript/data-patterns/07-component-patterns.md` | Single modal pattern, extend-not-rewrite, presentational children, loading states |
+| `typescript/01-component-decomposition.md` | Size limits (enforced by hook), folder structure templates, pre-write planning rules, barrel exports |
+| `typescript/data-patterns/02-component-patterns.md` | Single modal pattern, extend-not-rewrite, presentational children, loading states |
 
 ## Project-Level Reference Docs
 

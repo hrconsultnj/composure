@@ -2,6 +2,25 @@
 
 > **This file is a template for Context7 agents.** It defines the structure, frontmatter, and content expectations for every generated reference doc in this skill. Agents MUST follow this template exactly.
 
+## Filename Convention (required)
+
+Generated docs use numbered prefixes: `{NN}-{descriptive-name}.md`
+
+The number is the **priority** — lower numbers are more foundational and get loaded first. Core language and framework docs get the lowest numbers, supplementary libraries get higher numbers. Within the same priority level, order alphabetically.
+
+```
+frontend/generated/01-typescript-5.9.md
+frontend/generated/02-react-19.md
+frontend/generated/03-tailwind-4.md
+frontend/generated/04-shadcn-v4.md
+frontend/generated/05-tanstack-query-5.90.md
+fullstack/nextjs/generated/01-nextjs-16.md
+mobile/expo/generated/01-expo-sdk55.md
+mobile/expo/generated/02-react-native-0.79.md
+sdks/generated/01-ai-sdk-v6.md
+sdks/generated/02-zod-v4.md
+```
+
 ## Frontmatter (required)
 
 ```markdown

@@ -34,7 +34,7 @@ export default async function ProtectedLayout({ children }) {
 }
 ```
 
-**Deep Dive**: See `typescript/references/universal/nextjs/09-ssr-hydration-layout.md`
+**Deep Dive**: See `fullstack/nextjs/01-ssr-hydration-layout.md`
 
 ---
 
@@ -56,7 +56,7 @@ app/
     └── admin/
 ```
 
-**Deep Dive**: See `typescript/references/universal/nextjs/11-route-groups.md`
+**Deep Dive**: See `fullstack/nextjs/02-route-groups.md`
 
 ---
 

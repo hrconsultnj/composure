@@ -187,7 +187,7 @@ Based on detected frameworks (merged across all detected languages):
 
 **This step is required.** Claude's training data is 10+ months behind. Context7 provides the current API surface. Use `--skip-context7` only in offline/CI environments.
 
-**Use parallel agents** — spawn one agent per library group. Each agent independently resolves the library ID, queries Context7, and writes the generated doc. This prevents sequential bottlenecks when multiple libraries are detected.
+**Query from the main conversation** — MCP tool permissions are session-scoped and not delegated to subagents. The main conversation already has Context7 loaded and permitted, so querying here avoids the ~80-100K token overhead of bootstrapping each subagent only for MCP calls to be denied. Batch multiple tool calls per message for parallelism within a single turn.
 
 #### 3a. Create the categorized folder structure
 
@@ -263,58 +263,66 @@ From the detected stack, build a list of `{ library, version, outputPath, focusA
 
 **Library → category mapping:**
 
+Files use numbered prefixes (`{NN}-{name}.md`) where the number is the **priority** — lower = more foundational, loaded first. See `GENERATED-DOC-TEMPLATE.md` for the full convention.
+
 ```
 Library detected        →  Output path
 ────────────────────────────────────────────────────────────────────────────
 FRONTEND (shared)
-  typescript, react     →  frontend/generated/{lib}-{ver}.md
-  shadcn/ui, tailwindcss→  frontend/generated/{lib}-{ver}.md
-  tanstack-query        →  frontend/generated/{lib}-{ver}.md
+  typescript            →  frontend/generated/01-typescript-{ver}.md
+  react                 →  frontend/generated/02-react-{ver}.md
+  tailwindcss           →  frontend/generated/03-tailwind-{ver}.md
+  shadcn/ui             →  frontend/generated/04-shadcn-{ver}.md
+  tanstack-query        →  frontend/generated/05-tanstack-query-{ver}.md
 
 FRONTEND (framework-specific)
-  vite                  →  frontend/vite/generated/vite-{ver}.md
-  @angular/core, router →  frontend/angular/generated/{lib}-{ver}.md
+  vite                  →  frontend/vite/generated/01-vite-{ver}.md
+  @angular/core, router →  frontend/angular/generated/01-angular-{ver}.md
 
 FULLSTACK
-  next.js               →  fullstack/nextjs/generated/nextjs-{ver}.md
+  next.js               →  fullstack/nextjs/generated/01-nextjs-{ver}.md
 
 MOBILE
-  expo, expo-router     →  mobile/expo/generated/{lib}-{ver}.md
-  react-native          →  mobile/expo/generated/react-native-{ver}.md
+  expo, expo-router     →  mobile/expo/generated/01-expo-{ver}.md
+  react-native          →  mobile/expo/generated/02-react-native-{ver}.md
 
 BACKEND
-  supabase-js           →  backend/supabase/generated/{lib}-{ver}.md
-  fastapi, pydantic     →  backend/python/generated/{lib}-{ver}.md
-  django                →  backend/python/generated/{lib}-{ver}.md
-  go stdlib, gin, echo  →  backend/go/generated/{lib}-{ver}.md
-  axum, actix-web       →  backend/rust/generated/{lib}-{ver}.md
+  supabase-js           →  backend/supabase/generated/01-supabase-{ver}.md
+  fastapi               →  backend/python/generated/01-fastapi-{ver}.md
+  pydantic              →  backend/python/generated/02-pydantic-{ver}.md
+  django                →  backend/python/generated/01-django-{ver}.md
+  go stdlib             →  backend/go/generated/01-go-{ver}.md
+  gin, echo, chi        →  backend/go/generated/02-{framework}-{ver}.md
+  axum, actix-web       →  backend/rust/generated/01-{framework}-{ver}.md
 
 SDKs (cross-cutting)
-  ai-sdk                →  sdks/generated/ai-sdk-{ver}.md
-  zod                   →  sdks/generated/zod-{ver}.md
-  stripe                →  sdks/generated/stripe-{ver}.md
-  resend                →  sdks/generated/resend-{ver}.md
-  clerk                 →  sdks/generated/clerk-{ver}.md
+  ai-sdk                →  sdks/generated/01-ai-sdk-{ver}.md
+  zod                   →  sdks/generated/02-zod-{ver}.md
+  stripe                →  sdks/generated/03-stripe-{ver}.md
+  resend                →  sdks/generated/04-resend-{ver}.md
+  clerk                 →  sdks/generated/05-clerk-{ver}.md
 ```
 
 **Example for a Next.js + Expo monorepo project:**
 
 ```
 .claude/frameworks/
-├── frontend/references/generated/
-│   ├── typescript-5.9.md
-│   ├── shadcn-v4.md
-│   ├── tailwind-4.md
-│   └── tanstack-query-5.90.md
-├── fullstack/nextjs/references/generated/
-│   └── nextjs-16.md
-├── mobile/expo/references/generated/
-│   └── expo-sdk55.md
-├── backend/supabase/references/generated/
-│   └── supabase-js-v2.md
-└── sdks/references/generated/
-    ├── ai-sdk-v6.md
-    └── zod-v4.md
+├── frontend/generated/
+│   ├── 01-typescript-5.9.md
+│   ├── 02-react-19.md
+│   ├── 03-tailwind-4.md
+│   ├── 04-shadcn-v4.md
+│   └── 05-tanstack-query-5.90.md
+├── fullstack/nextjs/generated/
+│   └── 01-nextjs-16.md
+├── mobile/expo/generated/
+│   ├── 01-expo-sdk55.md
+│   └── 02-react-native-0.79.md
+├── backend/supabase/generated/
+│   └── 01-supabase-v2.md
+└── sdks/generated/
+    ├── 01-ai-sdk-v6.md
+    └── 02-zod-v4.md
 ```
 
 **Create directories as needed** — `mkdir -p` before writing each file. The category structure mirrors the plugin's `skills/app-architecture/` layout so the same INDEX.md routing logic works for both plugin-shipped and project-level docs.
@@ -336,69 +344,64 @@ SDKs (cross-cutting)
 
 **Only include libraries matching the detected `frontend`/`backend` values.** Do not query Next.js for a Vite project.
 
-#### 3b. Spawn parallel research agents
+#### 3c. Query Context7 from the main conversation
 
-Agents do **research only** — they query Context7 and return the content. They do NOT write files. The main conversation writes the files after collecting agent results. This avoids permission issues with third-party plugin hooks that false-positive match documentation content.
-
-Spawn **one Agent per library group**, all in parallel (`run_in_background: true`).
-
-Each agent receives this prompt:
-
-```
-You are researching Context7 documentation for {library} {version}.
-Your job is to query Context7 and RETURN the document content. Do NOT write any files.
+> **Why not subagents?** MCP tool permissions are session-scoped and NOT delegated to
+> subagents — even with `bypassPermissions` or `auto` mode. Subagents can discover
+> tools via `ToolSearch` but cannot call them. Each agent also inherits ~80-100K tokens
+> of context overhead. The main conversation already has Context7 loaded and permitted,
+> making it both cheaper and reliable.
 
 **Read the template first**: Read `skills/app-architecture/GENERATED-DOC-TEMPLATE.md` — it defines
-the exact structure, frontmatter, sections, and rules you MUST follow.
+the exact structure, frontmatter, sections, and rules for generated docs.
 
-Then:
-1. Call `resolve-library-id` with libraryName="{library}" — pick the highest benchmark score
+**Per-library workflow:**
+
+1. Call `resolve-library-id` with `libraryName="{library}"` — pick the highest benchmark score
    with "High" reputation. If a version-specific ID exists, prefer it.
-2. Call `query-docs` (BROAD): setup, key patterns, breaking changes
-   Focus areas: {focusAreas}
+2. Call `query-docs` (BROAD): setup, key patterns, breaking changes.
+   Focus areas: `{focusAreas}`
 3. Call `query-docs` (TARGETED): query specifically for the focus areas that the first
    query didn't fully cover — anti-patterns, migration steps, advanced config
 4. If results are still sparse, try a DIFFERENT library ID from the resolve results
    (e.g., /websites/ variant instead of /org/repo) and query again
 
-RETURN the complete markdown document as your final result, including frontmatter.
-Do NOT attempt to Write, Edit, or use Bash to create files.
+**Parallelism strategy**: Batch all `resolve-library-id` calls together in one message (they're independent). Then batch all `query-docs` calls (they depend on resolved IDs, but are independent of each other).
 
-MUST rules (non-negotiable):
+**Example**: For a Vite + React + Tailwind + shadcn project:
+
+```
+Message 1 (parallel): resolve-library-id × 4 (typescript, shadcn, tailwind, vite)
+Message 2 (parallel): query-docs × 4 (broad, one per library using resolved IDs)
+Message 3 (parallel): query-docs × 4 (targeted, for gaps from message 2)
+```
+
+This achieves similar parallelism to subagents without the MCP permission barrier or token overhead.
+
+#### 3d. Format, validate, and write
+
+After collecting all Context7 results:
+
+1. **Format** each library's results into the template structure (from `GENERATED-DOC-TEMPLATE.md`)
+2. **Validate** before writing:
+   - If Context7 returned no data after 3+ attempts → skip, report as "no Context7 data available"
+   - If `resolve-library-id` returned no results → skip, report as "library not found in Context7"
+   - If `context7_library_id` in frontmatter would be `manual`, `n/a`, or missing → **REJECT**. Report as "fabricated, discarded"
+   - If the content contains no code blocks from Context7 → **REJECT** — likely fabricated
+3. **Create directories** — `mkdir -p` for each output path
+4. **Write** validated files
+5. **Report** which docs were written, which returned NO_DATA, and which were rejected
+
+**MUST rules (non-negotiable):**
 - MUST source ALL content from Context7 query-docs results. NEVER use training data.
-- MUST include a valid context7_library_id in frontmatter — the exact ID from resolve-library-id.
-  NEVER use "manual", "n/a", or placeholders. If you couldn't resolve the ID, return "NO_DATA".
-- MUST NOT fabricate. If Context7 returns nothing after 3 attempts, return "NO_DATA".
+- MUST include a valid `context7_library_id` in frontmatter — the exact ID from `resolve-library-id`.
+  NEVER use "manual", "n/a", or placeholders.
+- MUST NOT fabricate. If Context7 returns nothing after 3 attempts, skip the library.
   An empty result is correct. A fabricated document is a defect.
 - Aim for 200-500 lines — be thorough with complete code examples from Context7.
 - Do NOT give up after one empty query — try different IDs and different query phrasings.
-```
 
-**Example**: For a Vite + React + Tailwind + shadcn project, spawn 4 agents:
-
-```
-Agent 1: research typescript 5.9   → returns markdown content
-Agent 2: research shadcn/ui 4.1    → returns markdown content
-Agent 3: research tailwindcss 4.2  → returns markdown content
-Agent 4: research vite 8.0         → returns markdown content
-```
-
-#### 3c. Collect, validate, and write
-
-After all agents complete:
-
-1. **Collect** each agent's returned markdown content
-2. **Validate** each result before writing:
-   - If result is `NO_DATA` → skip, report as "no Context7 data available"
-   - If `context7_library_id` in frontmatter is `manual`, `n/a`, or missing → **REJECT** — do not write. Report as "fabricated, discarded"
-   - If the content contains no code blocks from Context7 → **REJECT** — likely fabricated
-3. **Create directories** — `mkdir -p` for each output path
-4. **Write** only validated files from the main conversation
-5. **Report** which docs were written, which returned NO_DATA, and which were rejected
-
-This two-phase approach (agents research, main writes) prevents token waste from agents retrying blocked writes or the main conversation re-querying Context7.
-
-**While agents are running**: proceed with Steps 4-6 (config, graph, task queue). Only Step 3c needs agent results.
+**While querying Context7**: proceed with Steps 4-6 (config, graph, task queue) between query batches where possible.
 
 **If Context7 is unavailable** (`--skip-context7`): skip this entire step. The plugin ships with curated reference docs as fallback.
 
@@ -477,10 +480,10 @@ Generated:
   ✓ tasks-plans/tasks.md (task queue ready)
 
 Framework reference docs (.claude/frameworks/ — categorized):
-  ✓ .claude/frameworks/frontend/references/generated/ (3 docs: typescript-5.9, shadcn-v4, tailwind-4)
-  ✓ .claude/frameworks/frontend/vite/references/generated/ (1 doc: vite-8)
-  ✓ .claude/frameworks/backend/python/references/generated/ (3 docs: python-3.12, fastapi-0.115, pydantic-2.12)
-  ✓ .claude/frameworks/backend/go/references/generated/ (1 doc: go-1.23)
+  ✓ .claude/frameworks/frontend/generated/ (3 docs: 01-typescript-5.9, 03-tailwind-4, 04-shadcn-v4)
+  ✓ .claude/frameworks/frontend/vite/generated/ (1 doc: 01-vite-8)
+  ✓ .claude/frameworks/backend/python/generated/ (3 docs: 01-fastapi-0.115, 02-pydantic-2.12, 03-python-3.12)
+  ✓ .claude/frameworks/backend/go/generated/ (1 doc: 01-go-1.23)
 
 Code review graph:
   ✓ 153 nodes, 883 edges, 23 files (last updated: 2026-03-23)
@@ -507,6 +510,6 @@ Available skills:
 - The skill does NOT modify CLAUDE.md — that's the project's responsibility
 - If the project already has a `.claude/no-bandaids.json`, skip generation unless `--force`
 - Generated framework docs are `.gitignored` by default — users can `git add -f` to commit them
-- Project-level generated docs go to `.claude/frameworks/{category}/{framework}/references/generated/` (e.g., `.claude/frameworks/fullstack/nextjs/references/generated/nextjs-16.md`)
+- Project-level generated docs go to `.claude/frameworks/{category}/{framework}/generated/` (e.g., `.claude/frameworks/fullstack/nextjs/generated/nextjs-16.md`)
 - Users can also add hand-written project-specific patterns at `.claude/frameworks/{category}/*.md` which layer on top of plugin refs
 - To contribute patterns back to the plugin: move from project `generated/` to plugin `references/` and submit a PR

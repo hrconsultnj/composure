@@ -67,7 +67,7 @@ Check if `.claude/frameworks/` exists in the project. If it does, load docs from
 | # | Source | What | Why |
 |---|--------|------|-----|
 | 1 | Plugin | Category `INDEX.md` + curated docs | Battle-tested patterns (hooks, decomposition, query patterns) |
-| 2 | Plugin | Framework-specific files + co-located curated docs | e.g., `fullstack/nextjs/nextjs.md` + `09-ssr-hydration-layout.md` |
+| 2 | Plugin | Framework-specific files + co-located curated docs | e.g., `fullstack/nextjs/nextjs.md` + `01-ssr-hydration-layout.md` |
 | 3 | Plugin | Language `SKILL.md` | Anti-patterns for the detected language |
 | 4 | Plugin | `references/private/` | Licensed patterns (submodule) |
 | 5 | Project | `.claude/frameworks/{category}/{framework}/generated/` | Context7 docs — may have newer API versions |
@@ -100,8 +100,8 @@ skills/app-architecture/                  ← PLUGIN (curated, battle-tested)
 │   ├── INDEX.md
 │   └── nextjs/
 │       ├── nextjs.md                     ← Phase 5+7 for Next.js
-│       ├── 09-ssr-hydration-layout.md    ← Curated
-│       └── 11-route-groups.md            ← Curated
+│       ├── 01-ssr-hydration-layout.md    ← Curated
+│       └── 02-route-groups.md            ← Curated
 │
 ├── mobile/                               ← Mobile frameworks
 │   ├── INDEX.md
@@ -109,9 +109,9 @@ skills/app-architecture/                  ← PLUGIN (curated, battle-tested)
 │   ├── kotlin/SKILL.md                   ← Native module language
 │   └── expo/
 │       ├── expo.md                       ← Phase 5+7 + anti-patterns
-│       ├── 13-icon-patterns.md           ← Curated
-│       ├── 14-bottom-sheet-dynamic-sizing.md
-│       └── 15-custom-ui-components.md
+│       ├── 01-icon-patterns.md           ← Curated
+│       ├── 02-bottom-sheet-dynamic-sizing.md
+│       └── 03-custom-ui-components.md
 │
 ├── backend/                              ← Backend concerns + languages
 │   ├── INDEX.md

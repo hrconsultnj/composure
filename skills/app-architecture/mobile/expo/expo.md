@@ -84,9 +84,9 @@ Without `_layout.tsx`, expo-router sees `(dashboard)/index` as the route name, n
 
 | Pattern | File |
 |---------|------|
-| Icon Patterns | `typescript/references/universal/expo/13-icon-patterns.md` |
-| Bottom Sheet Sizing | `typescript/references/universal/expo/14-bottom-sheet-dynamic-sizing.md` |
-| Custom UI Components | `typescript/references/universal/expo/15-custom-ui-components.md` |
+| Icon Patterns | `mobile/expo/01-icon-patterns.md` |
+| Bottom Sheet Sizing | `mobile/expo/02-bottom-sheet-dynamic-sizing.md` |
+| Custom UI Components | `mobile/expo/03-custom-ui-components.md` |
 | Native Modules | `~/.claude/examples/mobile-patterns/10-native-modules.md` |
 | Route Groups & Tabs | `~/.claude/examples/mobile-patterns/09-route-groups-tabs.md` |
 

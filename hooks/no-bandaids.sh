@@ -189,9 +189,58 @@ case "$LANG" in
     ;;
 esac
 
+# ─── Framework validation rules ──────────────────────────────────
+# Reads frameworkValidation from no-bandaids.json and checks file
+# content against deprecated/incorrect API patterns per framework.
+# Severity "error" → blocks. Severity "warn" → warns only.
+WARNINGS=""
+
+if printf '%s' "$CONFIG" | jq -e '.frameworkValidation' >/dev/null 2>&1; then
+  # Get relative path from project root for glob matching
+  REL_PATH="${FILE_PATH#"$PROJECT_DIR"/}"
+
+  # Iterate over each framework group (nextjs, ai-sdk, react, etc.)
+  for GROUP in $(printf '%s' "$CONFIG" | jq -r '.frameworkValidation | keys[]'); do
+    # Check if file matches any appliesTo glob pattern
+    MATCH=false
+    for GLOB_PATTERN in $(printf '%s' "$CONFIG" | jq -r ".frameworkValidation.\"$GROUP\".appliesTo[]"); do
+      # Use bash pattern matching (convert glob ** to regex-friendly)
+      REGEX_PATTERN=$(printf '%s' "$GLOB_PATTERN" | sed 's/\*\*/.*?/g; s/\*/[^\/]*/g')
+      if printf '%s' "$REL_PATH" | grep -qE "^${REGEX_PATTERN}$"; then
+        MATCH=true
+        break
+      fi
+    done
+    [[ "$MATCH" == "false" ]] && continue
+
+    # Process each rule in this group
+    RULE_COUNT=$(printf '%s' "$CONFIG" | jq ".frameworkValidation.\"$GROUP\".rules | length")
+    for ((i=0; i<RULE_COUNT; i++)); do
+      RULE_PATTERN=$(printf '%s' "$CONFIG" | jq -r ".frameworkValidation.\"$GROUP\".rules[$i].pattern")
+      RULE_SEVERITY=$(printf '%s' "$CONFIG" | jq -r ".frameworkValidation.\"$GROUP\".rules[$i].severity")
+      RULE_MESSAGE=$(printf '%s' "$CONFIG" | jq -r ".frameworkValidation.\"$GROUP\".rules[$i].message")
+      RULE_SKIPIF=$(printf '%s' "$CONFIG" | jq -r ".frameworkValidation.\"$GROUP\".rules[$i].skipIf // empty")
+
+      # Skip if content matches skipIf pattern
+      if [[ -n "$RULE_SKIPIF" ]] && printf '%s\n' "$CONTENT" | grep -qE "$RULE_SKIPIF"; then
+        continue
+      fi
+
+      # Check if content matches the violation pattern
+      if printf '%s\n' "$CONTENT" | grep -qE "$RULE_PATTERN"; then
+        if [[ "$RULE_SEVERITY" == "error" ]]; then
+          VIOLATIONS="${VIOLATIONS}\n- [${GROUP}] ${RULE_MESSAGE}"
+        else
+          WARNINGS="${WARNINGS}\n- [${GROUP}] ${RULE_MESSAGE}"
+        fi
+      fi
+    done
+  done
+fi
+
 # ─── Report ──────────────────────────────────────────────────────
 if [[ -n "$VIOLATIONS" ]]; then
-  printf 'BLOCKED: Band-aid fix in %s. Fix the root cause:\n' "$BASENAME" >&2
+  printf 'BLOCKED: Fix before proceeding (%s):\n' "$BASENAME" >&2
   printf '%b\n' "$VIOLATIONS" >&2
 
   if [[ "$LANG" == "typescript" ]]; then
@@ -206,7 +255,19 @@ if [[ -n "$VIOLATIONS" ]]; then
     fi
   fi
 
+  # Append warnings if any
+  if [[ -n "$WARNINGS" ]]; then
+    printf '\nWarnings (non-blocking):\n' >&2
+    printf '%b\n' "$WARNINGS" >&2
+  fi
+
   exit 2
+fi
+
+# Report warnings even when no blocking violations
+if [[ -n "$WARNINGS" ]]; then
+  printf 'Framework warnings in %s (non-blocking):\n' "$BASENAME" >&2
+  printf '%b\n' "$WARNINGS" >&2
 fi
 
 exit 0
