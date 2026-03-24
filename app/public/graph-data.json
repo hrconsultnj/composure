@@ -2,10 +2,10 @@
   "repoName": "composure",
   "generatedAt": "2026-03-24",
   "stats": {
-    "totalNodes": 36,
-    "totalEdges": 51,
-    "filesCount": 36,
-    "entityCount": 171
+    "totalNodes": 40,
+    "totalEdges": 52,
+    "filesCount": 40,
+    "entityCount": 182
   },
   "categories": [
     {
@@ -14,7 +14,7 @@
     },
     {
       "key": "components",
-      "count": 9
+      "count": 12
     },
     {
       "key": "config",
@@ -30,6 +30,10 @@
     },
     {
       "key": "lib",
+      "count": 1
+    },
+    {
+      "key": "providers",
       "count": 1
     }
   ],
@@ -1441,63 +1445,6 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tree-explorer.tsx",
-      "label": "tree-explorer.tsx",
-      "path": "app/src/components/tree-explorer.tsx",
-      "cat": "components",
-      "lines": 172,
-      "functions": 5,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "TreeExplorerProps",
-          "kind": "Type",
-          "lineStart": 8,
-          "lineEnd": 13,
-          "lines": 6
-        },
-        {
-          "name": "buildTree",
-          "kind": "Function",
-          "lineStart": 15,
-          "lineEnd": 43,
-          "lines": 29
-        },
-        {
-          "name": "calcStats",
-          "kind": "Function",
-          "lineStart": 30,
-          "lineEnd": 40,
-          "lines": 11
-        },
-        {
-          "name": "DirNode",
-          "kind": "Function",
-          "lineStart": 45,
-          "lineEnd": 103,
-          "lines": 59
-        },
-        {
-          "name": "FileNode",
-          "kind": "Function",
-          "lineStart": 105,
-          "lineEnd": 133,
-          "lines": 29
-        },
-        {
-          "name": "TreeExplorer",
-          "kind": "Function",
-          "lineStart": 135,
-          "lineEnd": 171,
-          "lines": 37
-        }
-      ]
-    },
-    {
       "id": "/Users/helderrodrigues/Projects/composure/app/src/components/status-bar.tsx",
       "label": "status-bar.tsx",
       "path": "app/src/components/status-bar.tsx",
@@ -1627,35 +1574,6 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/legend-panel.tsx",
-      "label": "legend-panel.tsx",
-      "path": "app/src/components/legend-panel.tsx",
-      "cat": "components",
-      "lines": 40,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "LegendPanelProps",
-          "kind": "Type",
-          "lineStart": 4,
-          "lineEnd": 8,
-          "lines": 5
-        },
-        {
-          "name": "LegendPanel",
-          "kind": "Function",
-          "lineStart": 10,
-          "lineEnd": 39,
-          "lines": 30
-        }
-      ]
-    },
-    {
       "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-canvas.tsx",
       "label": "graph-canvas.tsx",
       "path": "app/src/components/graph-canvas.tsx",
@@ -1694,31 +1612,123 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/App.tsx",
-      "label": "App.tsx",
-      "path": "app/src/App.tsx",
+      "id": "/Users/helderrodrigues/Projects/composure/app/scripts/extract-graph.js",
+      "label": "extract-graph.js",
+      "path": "app/scripts/extract-graph.js",
       "cat": "source",
-      "lines": 269,
-      "functions": 2,
+      "lines": 220,
+      "functions": 1,
       "classes": 0,
       "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "detectCategory",
+          "kind": "Function",
+          "lineStart": 72,
+          "lineEnd": 78,
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/data/mock.ts",
+      "label": "mock.ts",
+      "path": "app/src/data/mock.ts",
+      "cat": "source",
+      "lines": 26,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": []
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tree-explorer.tsx",
+      "label": "tree-explorer.tsx",
+      "path": "app/src/components/tree-explorer.tsx",
+      "cat": "components",
+      "lines": 169,
+      "functions": 5,
+      "classes": 0,
+      "types": 1,
       "isTest": false,
       "language": "tsx",
       "imports": [],
       "entities": [
         {
-          "name": "isActivity",
-          "kind": "Function",
-          "lineStart": 19,
-          "lineEnd": 21,
-          "lines": 3
+          "name": "TreeExplorerProps",
+          "kind": "Type",
+          "lineStart": 6,
+          "lineEnd": 11,
+          "lines": 6
         },
         {
-          "name": "App",
+          "name": "buildTree",
           "kind": "Function",
-          "lineStart": 23,
-          "lineEnd": 268,
-          "lines": 246
+          "lineStart": 13,
+          "lineEnd": 41,
+          "lines": 29
+        },
+        {
+          "name": "calcStats",
+          "kind": "Function",
+          "lineStart": 28,
+          "lineEnd": 38,
+          "lines": 11
+        },
+        {
+          "name": "DirNode",
+          "kind": "Function",
+          "lineStart": 43,
+          "lineEnd": 102,
+          "lines": 60
+        },
+        {
+          "name": "FileNode",
+          "kind": "Function",
+          "lineStart": 104,
+          "lineEnd": 132,
+          "lines": 29
+        },
+        {
+          "name": "TreeExplorer",
+          "kind": "Function",
+          "lineStart": 134,
+          "lineEnd": 168,
+          "lines": 35
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/legend-panel.tsx",
+      "label": "legend-panel.tsx",
+      "path": "app/src/components/legend-panel.tsx",
+      "cat": "components",
+      "lines": 93,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "LegendPanelProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "LegendPanel",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 92,
+          "lines": 81
         }
       ]
     },
@@ -1727,10 +1737,10 @@
       "label": "types.ts",
       "path": "app/src/lib/types.ts",
       "cat": "lib",
-      "lines": 166,
+      "lines": 167,
       "functions": 3,
       "classes": 0,
-      "types": 6,
+      "types": 7,
       "isTest": false,
       "language": "typescript",
       "imports": [],
@@ -1778,62 +1788,195 @@
           "lines": 1
         },
         {
+          "name": "View",
+          "kind": "Type",
+          "lineStart": 56,
+          "lineEnd": 56,
+          "lines": 1
+        },
+        {
           "name": "getCategoryMeta",
           "kind": "Function",
-          "lineStart": 111,
-          "lineEnd": 119,
+          "lineStart": 112,
+          "lineEnd": 120,
           "lines": 9
         },
         {
           "name": "buildCategoryMeta",
           "kind": "Function",
-          "lineStart": 125,
-          "lineEnd": 135,
+          "lineStart": 126,
+          "lineEnd": 136,
           "lines": 11
         },
         {
           "name": "orderCategories",
           "kind": "Function",
-          "lineStart": 157,
-          "lineEnd": 161,
+          "lineStart": 158,
+          "lineEnd": 162,
           "lines": 5
         }
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/scripts/extract-graph.js",
-      "label": "extract-graph.js",
-      "path": "app/scripts/extract-graph.js",
-      "cat": "source",
-      "lines": 220,
-      "functions": 1,
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/providers/theme-provider.tsx",
+      "label": "theme-provider.tsx",
+      "path": "app/src/providers/theme-provider.tsx",
+      "cat": "providers",
+      "lines": 42,
+      "functions": 2,
       "classes": 0,
-      "types": 0,
+      "types": 1,
       "isTest": false,
-      "language": "javascript",
+      "language": "tsx",
       "imports": [],
       "entities": [
         {
-          "name": "detectCategory",
+          "name": "ThemeContextValue",
+          "kind": "Type",
+          "lineStart": 3,
+          "lineEnd": 6,
+          "lines": 4
+        },
+        {
+          "name": "ThemeProvider",
           "kind": "Function",
-          "lineStart": 72,
-          "lineEnd": 78,
-          "lines": 7
+          "lineStart": 10,
+          "lineEnd": 35,
+          "lines": 26
+        },
+        {
+          "name": "useTheme",
+          "kind": "Function",
+          "lineStart": 37,
+          "lineEnd": 41,
+          "lines": 5
         }
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/data/mock.ts",
-      "label": "mock.ts",
-      "path": "app/src/data/mock.ts",
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/layout/header.tsx",
+      "label": "header.tsx",
+      "path": "app/src/components/layout/header.tsx",
+      "cat": "components",
+      "lines": 102,
+      "functions": 2,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "HeaderProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 14,
+          "lines": 10
+        },
+        {
+          "name": "Header",
+          "kind": "Function",
+          "lineStart": 16,
+          "lineEnd": 68,
+          "lines": 53
+        },
+        {
+          "name": "ViewToggle",
+          "kind": "Function",
+          "lineStart": 70,
+          "lineEnd": 101,
+          "lines": 32
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/floating-legend.tsx",
+      "label": "floating-legend.tsx",
+      "path": "app/src/components/floating-legend.tsx",
+      "cat": "components",
+      "lines": 53,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "FloatingLegendProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 9,
+          "lines": 5
+        },
+        {
+          "name": "FloatingLegend",
+          "kind": "Function",
+          "lineStart": 11,
+          "lineEnd": 52,
+          "lines": 42
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/layout/app-layout.tsx",
+      "label": "app-layout.tsx",
+      "path": "app/src/components/layout/app-layout.tsx",
+      "cat": "components",
+      "lines": 85,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/app/src/components/layout/header.tsx"
+      ],
+      "entities": [
+        {
+          "name": "AppLayoutProps",
+          "kind": "Type",
+          "lineStart": 7,
+          "lineEnd": 25,
+          "lines": 19
+        },
+        {
+          "name": "AppLayout",
+          "kind": "Function",
+          "lineStart": 27,
+          "lineEnd": 84,
+          "lines": 58
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/App.tsx",
+      "label": "App.tsx",
+      "path": "app/src/App.tsx",
       "cat": "source",
-      "lines": 26,
-      "functions": 0,
+      "lines": 132,
+      "functions": 2,
       "classes": 0,
       "types": 0,
       "isTest": false,
-      "language": "typescript",
-      "imports": []
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "App",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 20,
+          "lines": 9
+        },
+        {
+          "name": "GraphApp",
+          "kind": "Function",
+          "lineStart": 22,
+          "lineEnd": 131,
+          "lines": 110
+        }
+      ]
     }
   ]
 }

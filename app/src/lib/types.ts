@@ -53,6 +53,7 @@ export interface TreeDir {
 }
 
 export type Activity = "explorer" | "graph" | "legend";
+export type View = "graph" | "tree";
 
 /**
  * Default category colors — used as fallback when a category is discovered

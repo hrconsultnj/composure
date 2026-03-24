@@ -1,9 +1,7 @@
 import { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { VisNode, TreeDir } from "@/lib/types";
-import { CATEGORY_META } from "@/lib/types";
+import { getCategoryMeta } from "@/lib/types";
 
 interface TreeExplorerProps {
   nodes: VisNode[];
@@ -66,23 +64,24 @@ function DirNode({
   );
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1 w-full px-2 py-[3px] text-sm hover:bg-accent rounded-sm cursor-pointer text-muted-foreground group">
+    <div>
+      <div
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 px-1.5 py-[3px] cursor-pointer rounded-[5px] text-muted-foreground select-none hover:bg-muted hover:text-foreground"
+      >
         <Icon
           icon="ph:caret-right-bold"
-          width={10}
-          className={`shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+          width={14}
+          height={14}
+          className={`shrink-0 text-muted-foreground/70 transition-transform duration-150 ${open ? "rotate-90" : ""}`}
         />
-        <Icon
-          icon={open ? "ph:folder-open-fill" : "ph:folder-fill"}
-          width={16}
-          className="shrink-0 text-muted-foreground"
-        />
-        <span className="truncate font-medium text-foreground">{dir.name}</span>
-        <span className="ml-auto text-[10px] text-foreground-faint shrink-0">{dir.stats.count}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="ml-3 border-l border-border pl-2">
+        <span className="font-semibold text-foreground truncate">{dir.name}</span>
+        <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
+          {dir.stats.count} {dir.stats.count === 1 ? "file" : "files"}
+        </span>
+      </div>
+      {open && (
+        <div className="pl-4 border-l border-border ml-[7px]">
           {sortedDirs.map((k) => (
             <DirNode
               key={k}
@@ -97,8 +96,8 @@ function DirNode({
             <FileNode key={f.id} node={f} selected={selectedId === f.id} onSelect={onSelect} />
           ))}
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+    </div>
   );
 }
 
@@ -111,23 +110,23 @@ function FileNode({
   selected: boolean;
   onSelect: (node: VisNode) => void;
 }) {
-  const color = CATEGORY_META[node.cat]?.color ?? "#94a3b8";
+  const meta = getCategoryMeta(node.cat);
 
   return (
     <button
       onClick={() => onSelect(node)}
-      className={`flex items-center gap-[6px] w-full px-2 py-[3px] text-sm rounded-sm cursor-pointer transition-colors ${
+      className={`flex items-center gap-[7px] w-full pl-[22px] pr-1.5 py-[3px] cursor-pointer rounded-[5px] transition-all duration-100 ${
         selected
           ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       <span
-        className="w-[5px] h-[5px] rounded-full shrink-0"
-        style={{ background: color }}
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: meta.color }}
       />
-      <span className="truncate">{node.label}</span>
-      <span className="ml-auto text-[9px] font-mono text-foreground-faint shrink-0">{node.lines}</span>
+      <span className="flex-1 truncate text-left">{node.label}</span>
+      <span className="text-[10px] text-muted-foreground/50 font-mono shrink-0">{node.lines}</span>
     </button>
   );
 }
@@ -150,22 +149,20 @@ export function TreeExplorer({ nodes, selectedId, onSelect, search }: TreeExplor
   );
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="py-1">
-        {topDirs.map((k) => (
-          <DirNode
-            key={k}
-            dir={tree.children[k]}
-            path={k}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            defaultOpen={!!search}
-          />
-        ))}
-        {topFiles.map((f) => (
-          <FileNode key={f.id} node={f} selected={selectedId === f.id} onSelect={onSelect} />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="flex-1 overflow-y-auto px-5 py-4 text-xs">
+      {topDirs.map((k) => (
+        <DirNode
+          key={k}
+          dir={tree.children[k]}
+          path={k}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          defaultOpen={!!search}
+        />
+      ))}
+      {topFiles.map((f) => (
+        <FileNode key={f.id} node={f} selected={selectedId === f.id} onSelect={onSelect} />
+      ))}
+    </div>
   );
 }
