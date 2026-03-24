@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { Button } from "@/components/ui/button";
 import { getCategoryMeta } from "@/lib/types";
 
 interface FloatingLegendProps {
@@ -12,10 +13,10 @@ export function FloatingLegend({ categories, hiddenCats, onToggle }: FloatingLeg
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="fixed bottom-[60px] right-3.5 z-10 bg-background/95 border border-border rounded-[10px] text-[10px] backdrop-blur-sm min-w-[130px]">
+    <div className="fixed bottom-14 right-4 z-10 bg-popover border border-border rounded-lg text-xs shadow-md backdrop-blur-sm min-w-[140px]">
       <button
         onClick={() => setCollapsed((p) => !p)}
-        className="flex items-center justify-between w-full px-3 py-[7px] cursor-pointer select-none text-muted-foreground text-[10px] font-semibold tracking-[0.04em] gap-2 hover:text-foreground"
+        className="flex items-center justify-between w-full px-3 py-2 cursor-pointer select-none text-muted-foreground text-[10px] font-semibold tracking-widest uppercase gap-2 hover:text-foreground transition-colors"
       >
         <span>Legend</span>
         <Icon
@@ -26,7 +27,7 @@ export function FloatingLegend({ categories, hiddenCats, onToggle }: FloatingLeg
       </button>
 
       {!collapsed && (
-        <div className="px-3 pb-2">
+        <div className="px-2 pb-2">
           {categories.map((cat) => {
             const meta = getCategoryMeta(cat);
             const isHidden = hiddenCats.has(cat);
@@ -34,13 +35,13 @@ export function FloatingLegend({ categories, hiddenCats, onToggle }: FloatingLeg
               <button
                 key={cat}
                 onClick={() => onToggle(cat)}
-                className={`flex items-center gap-[7px] w-full my-[3px] cursor-pointer px-1 py-0.5 rounded select-none transition-all text-[10px] ${
+                className={`flex items-center gap-2 w-full cursor-pointer px-1.5 py-1 rounded-md select-none transition-all text-xs ${
                   isHidden
                     ? "opacity-35 line-through text-muted-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
-                <span className="w-2.5 h-2.5 rounded-[3px] shrink-0" style={{ background: meta.color }} />
+                <span className="size-2.5 rounded-sm shrink-0" style={{ background: meta.color }} />
                 <span>{meta.label}</span>
               </button>
             );

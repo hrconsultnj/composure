@@ -61,10 +61,11 @@ Build a stack profile:
   "frameworks": {
     "typescript": {
       "paths": ["apps/web", "apps/mobile", "packages/shared"],
+      "frontend": "nextjs",
+      "backend": null,
       "versions": {
         "typescript": "5.9",
         "react": "19.2",
-        "vite": "8.0",
         "next": "16.1",
         "tailwindcss": "4.2",
         "shadcn": "4.1"
@@ -72,6 +73,8 @@ Build a stack profile:
     },
     "python": {
       "paths": ["services/api", "scripts"],
+      "frontend": null,
+      "backend": "fastapi",
       "versions": {
         "python": "3.12",
         "fastapi": "0.115",
@@ -80,12 +83,64 @@ Build a stack profile:
     },
     "go": {
       "paths": ["services/worker"],
+      "frontend": null,
+      "backend": "stdlib",
       "versions": {
         "go": "1.23"
       }
     }
   },
   "typegenScript": "pnpm --filter @myapp/database generate"
+}
+```
+
+**Frontend detection rules** (check `package.json` dependencies in each path):
+
+| Dependency | `frontend` value |
+|-----------|-----------------|
+| `next` | `"nextjs"` |
+| `vite` (without `next`) | `"vite"` |
+| `expo` or `expo-router` | `"expo"` |
+| `@angular/core` | `"angular"` |
+| `nuxt` | `"nuxt"` |
+| `svelte` or `@sveltejs/kit` | `"svelte"` |
+| `astro` | `"astro"` |
+| None detected | `null` |
+
+**Backend detection rules** (check `package.json` dependencies or language-specific config):
+
+| Dependency / File | `backend` value |
+|------------------|----------------|
+| `express` | `"express"` |
+| `fastify` | `"fastify"` |
+| `hono` | `"hono"` |
+| `nestjs` | `"nestjs"` |
+| `fastapi` (Python) | `"fastapi"` |
+| `django` (Python) | `"django"` |
+| `gin` / `echo` / `chi` (Go) | `"gin"` / `"echo"` / `"chi"` |
+| `axum` / `actix-web` (Rust) | `"axum"` / `"actix"` |
+| Go stdlib only | `"stdlib"` |
+| None detected | `null` |
+
+**Important**: In monorepos, different paths may have different frontends. When `paths` includes both `apps/web` (Next.js) and `apps/mobile` (Expo), split into separate entries:
+
+```json
+{
+  "monorepo": true,
+  "frameworks": {
+    "typescript": {
+      "paths": ["apps/web", "packages/shared"],
+      "frontend": "nextjs",
+      "backend": null,
+      "versions": { "next": "16.1", "react": "19.2" }
+    },
+    "typescript-mobile": {
+      "paths": ["apps/mobile"],
+      "frontend": "expo",
+      "backend": null,
+      "versions": { "expo": "54", "react-native": "0.79" }
+    }
+  }
 }
 ```
 
@@ -96,6 +151,8 @@ For single-framework projects, `frameworks` has one key:
   "frameworks": {
     "typescript": {
       "paths": ["."],
+      "frontend": "vite",
+      "backend": null,
       "versions": { "typescript": "5.9", "vite": "8.0", "react": "19.2" }
     }
   }
@@ -130,38 +187,120 @@ Based on detected frameworks (merged across all detected languages):
 
 **This step is required.** Claude's training data is 10+ months behind. Context7 provides the current API surface. Use `--skip-context7` only in offline/CI environments.
 
-For **each detected framework**, query Context7:
+**Use parallel agents** — spawn one agent per library group. Each agent independently resolves the library ID, queries Context7, and writes the generated doc. This prevents sequential bottlenecks when multiple libraries are detected.
 
-1. Resolve the library ID: `resolve-library-id` for each framework/library in `versions`
-2. Query for: breaking changes from previous version, current recommended patterns, type safety patterns, anti-patterns, configuration format
-3. Write findings to framework reference docs:
+#### 3a. Build the library task list
+
+From the detected stack, build a list of `{ library, version, outputPath, focusAreas }` tuples:
+
+**Output path mapping** (relative to `skills/app-architecture/`):
 
 ```
-skills/app-architecture/{lang}/references/generated/{library}-{version}.md
+Library detected        →  Output path
+────────────────────────────────────────────────────────────────────────────
+typescript, react       →  frontend/references/generated/{lib}-{ver}.md
+shadcn/ui, tailwindcss  →  frontend/references/generated/{lib}-{ver}.md
+vite                    →  frontend/vite/references/generated/vite-{ver}.md
+@angular/core, router   →  frontend/angular/references/generated/{lib}-{ver}.md
+next.js                 →  fullstack/nextjs/references/generated/nextjs-{ver}.md
+expo, expo-router       →  mobile/expo/references/generated/{lib}-{ver}.md
+react-native            →  mobile/expo/references/generated/react-native-{ver}.md
+fastapi, pydantic       →  backend/python/references/generated/{lib}-{ver}.md
+django                  →  backend/python/references/generated/{lib}-{ver}.md
+go stdlib, gin, echo    →  backend/go/references/generated/{lib}-{ver}.md
+axum, actix-web         →  backend/rust/references/generated/{lib}-{ver}.md
 ```
 
-Each generated doc MUST have this frontmatter:
-```markdown
----
-name: {library} {version} Patterns
-source: context7
-queried_at: {ISO date}
-library_version: {version}
-context7_library_id: {/org/project}
----
-```
+**Per-framework focus areas:**
 
-**Per-language query focus:**
-
-| Language | Libraries to Query | Focus Areas |
+| Detected stack | Libraries to Query | Focus Areas |
 |---|---|---|
-| TypeScript | typescript, react, next.js, vite, tailwindcss, shadcn/ui, expo | Type patterns, satisfies, hooks rules, CSS variables, routing |
-| Python | fastapi, pydantic, sqlalchemy, django | Pydantic v2 patterns, async patterns, type hints, validation |
-| Go | stdlib, gin/echo/chi, cobra | Error handling patterns, generics, context propagation |
-| Rust | std, axum/actix-web, clap, serde | Ownership patterns, error handling with ?, trait patterns |
-| C++ | — (use web search) | Smart pointers, RAII, const correctness, modern C++ idioms |
+| TypeScript (always) | typescript, tailwindcss | Type patterns, satisfies, CSS variables |
+| TypeScript + React | + react, shadcn/ui | Hooks rules, component patterns (skip for Angular) |
+| `frontend: "vite"` | + vite, react-router or tanstack-router | SPA config, Environment API, client-side routing |
+| `frontend: "angular"` | + @angular/core, @angular/router | Standalone components, signals, functional guards, zoneless |
+| `frontend: "nextjs"` | + next.js | App Router, Server Components, Server Actions, proxy.ts |
+| `frontend: "expo"` | + expo, expo-router, react-native | Navigation, native modules, EAS build |
+| Python backend | fastapi, pydantic, sqlalchemy, django | Pydantic v2 patterns, async patterns, type hints |
+| Go backend | stdlib, gin/echo/chi, cobra | Error handling, generics, context propagation |
+| Rust backend | std, axum/actix-web, clap, serde | Ownership, error handling with ?, trait patterns |
+| C++ | — (use web search) | Smart pointers, RAII, const correctness |
 
-**If Context7 is unavailable** (`--skip-context7`): skip doc generation, note in report. The plugin ships with curated `references/universal/` docs as fallback.
+**Only include libraries matching the detected `frontend`/`backend` values.** Do not query Next.js for a Vite project.
+
+#### 3b. Spawn parallel agents
+
+Group libraries by output directory, then spawn **one Agent per group** using the Agent tool. All agents run in parallel (`run_in_background: true`, `mode: "bypassPermissions"`).
+
+**`bypassPermissions` is required** — agents need to write generated docs without prompting. These are auto-generated reference files, not user code.
+
+Each agent receives this prompt:
+
+```
+You are generating a Context7 reference doc for {library} {version}.
+
+**Read the template first**: Read `skills/app-architecture/GENERATED-DOC-TEMPLATE.md` — it defines
+the exact structure, frontmatter, sections, and rules you MUST follow.
+
+Then:
+1. Call `resolve-library-id` with libraryName="{library}" — pick the highest benchmark score
+   with "High" reputation. If a version-specific ID exists, prefer it.
+2. Call `query-docs` (BROAD): setup, key patterns, breaking changes
+   Focus areas: {focusAreas}
+3. Call `query-docs` (TARGETED): query specifically for the focus areas that the first
+   query didn't fully cover — anti-patterns, migration steps, advanced config
+4. If results are still sparse, try a DIFFERENT library ID from the resolve results
+   (e.g., /websites/ variant instead of /org/repo) and query again
+5. Read the existing file at {outputPath} (if it exists)
+6. Write the result to: {outputPath} following the template structure exactly
+
+Rules from the template apply:
+- Only include what Context7 returns — do NOT invent patterns
+- Aim for 200-500 lines — be thorough with complete code examples
+- Code examples must come from Context7
+- If Context7 returns no results after 3 attempts, skip the file entirely
+- Do NOT give up after one empty query — try different IDs and different query phrasings
+```
+
+**Example**: For a Vite + React + Tailwind + shadcn project, spawn 4 agents in parallel:
+
+```
+Agent 1: typescript 5.9   → frontend/references/generated/typescript-5.9.md
+Agent 2: shadcn/ui 4.1    → frontend/references/generated/shadcn-v4.md
+Agent 3: tailwindcss 4.2  → frontend/references/generated/tailwind-4.md
+Agent 4: vite 8.0         → frontend/vite/references/generated/vite-8.md
+```
+
+For a Next.js + React + Tailwind project, spawn 4 agents:
+
+```
+Agent 1: typescript 5.9   → frontend/references/generated/typescript-5.9.md
+Agent 2: shadcn/ui 4.1    → frontend/references/generated/shadcn-v4.md
+Agent 3: tailwindcss 4.2  → frontend/references/generated/tailwind-4.md
+Agent 4: next.js 16.1     → fullstack/nextjs/references/generated/nextjs-16.md
+```
+
+#### 3c. Wait and report
+
+After all agents complete, collect results and report which docs were written, how many Context7 snippets each received, and any failures.
+
+**While agents are running**: Tell the user what's happening. Example:
+
+```
+Generating framework reference docs (4 agents running in parallel)...
+  - typescript 5.9   → frontend/references/generated/
+  - shadcn/ui 4.1    → frontend/references/generated/
+  - tailwindcss 4.2  → frontend/references/generated/
+  - vite 8.0         → frontend/vite/references/generated/
+
+Continue with Steps 4-6 while agents finish. Results will be reported in Step 7.
+```
+
+**Do NOT wait for agents to finish before proceeding** to Steps 4-6 (config generation, graph build, task queue). These are independent. Only Step 7 (Report) needs agent results.
+
+**First-time users**: The plugin ships with the folder skeleton (`frontend/`, `fullstack/`, `mobile/`, `backend/` with README placeholders). Agents write into these existing directories. No manual setup needed.
+
+**If Context7 is unavailable** (`--skip-context7`): skip this entire step. The plugin ships with curated reference docs in `frontend/references/typescript/` as fallback.
 
 ### Step 4: Generate Config
 
@@ -176,18 +315,22 @@ Create `.claude/no-bandaids.json`:
   "frameworks": {
     "typescript": {
       "paths": ["apps/web"],
+      "frontend": "vite",
+      "backend": null,
       "versions": { "typescript": "5.9", "react": "19.2", "vite": "8.0" }
     },
     "python": {
       "paths": ["services/api"],
+      "frontend": null,
+      "backend": "fastapi",
       "versions": { "python": "3.12", "fastapi": "0.115" }
     }
   },
-  "generatedRefsPath": "skills/app-architecture/{lang}/references/generated"
+  "generatedRefsRoot": "skills/app-architecture"
 }
 ```
 
-The `frameworks` field tells `no-bandaids.sh` which rules to apply based on file path and extension.
+The `frameworks` field tells `no-bandaids.sh` which rules to apply based on file path and extension. The `frontend` and `backend` fields control which reference docs and architecture patterns get loaded — preventing Next.js patterns from bleeding into Vite projects, and vice versa. The `generatedRefsRoot` points to the architecture skill root; generated docs are distributed into `frontend/`, `fullstack/`, `mobile/`, or `backend/` subfolders based on the library-to-path mapping in Step 3.
 
 ### Step 5: Build Code Graph
 
@@ -231,10 +374,11 @@ Generated:
   ✓ .claude/no-bandaids.json (6 extensions, 8 skip patterns, 3 frameworks)
   ✓ tasks-plans/tasks.md (task queue ready)
 
-Framework reference docs:
-  ✓ typescript/references/generated/ (5 docs: typescript-5.9, react-19, vite-8, shadcn-v4, tailwind-4)
-  ✓ python/references/generated/ (3 docs: python-3.12, fastapi-0.115, pydantic-2.12)
-  ✓ go/references/generated/ (1 doc: go-1.23)
+Framework reference docs (distributed by architecture category):
+  ✓ frontend/references/generated/ (3 docs: typescript-5.9, shadcn-v4, tailwind-4)
+  ✓ frontend/vite/references/generated/ (1 doc: vite-8)
+  ✓ backend/python/references/generated/ (3 docs: python-3.12, fastapi-0.115, pydantic-2.12)
+  ✓ backend/go/references/generated/ (1 doc: go-1.23)
 
 Code review graph:
   ✓ 153 nodes, 883 edges, 23 files (last updated: 2026-03-23)

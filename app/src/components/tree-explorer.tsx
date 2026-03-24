@@ -65,21 +65,21 @@ function DirNode({
 
   return (
     <div>
-      <div
+      <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-1.5 py-[3px] cursor-pointer rounded-[5px] text-muted-foreground select-none hover:bg-muted hover:text-foreground"
+        className="flex items-center gap-1 w-full px-1.5 py-1 cursor-pointer rounded-md text-muted-foreground select-none hover:bg-muted hover:text-foreground transition-colors"
       >
         <Icon
           icon="ph:caret-right-bold"
           width={14}
           height={14}
-          className={`shrink-0 text-muted-foreground/70 transition-transform duration-150 ${open ? "rotate-90" : ""}`}
+          className={`shrink-0 text-muted-foreground transition-transform duration-150 ${open ? "rotate-90" : ""}`}
         />
-        <span className="font-semibold text-foreground truncate">{dir.name}</span>
-        <span className="text-[10px] text-muted-foreground/50 ml-auto shrink-0">
+        <span className="font-semibold text-foreground text-xs truncate">{dir.name}</span>
+        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
           {dir.stats.count} {dir.stats.count === 1 ? "file" : "files"}
         </span>
-      </div>
+      </button>
       {open && (
         <div className="pl-4 border-l border-border ml-[7px]">
           {sortedDirs.map((k) => (
@@ -115,18 +115,18 @@ function FileNode({
   return (
     <button
       onClick={() => onSelect(node)}
-      className={`flex items-center gap-[7px] w-full pl-[22px] pr-1.5 py-[3px] cursor-pointer rounded-[5px] transition-all duration-100 ${
+      className={`flex items-center gap-2 w-full pl-5 pr-1.5 py-1 cursor-pointer rounded-md transition-all duration-100 text-xs ${
         selected
-          ? "bg-primary/10 text-primary"
+          ? "bg-primary/12 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       <span
-        className="w-1.5 h-1.5 rounded-full shrink-0"
+        className="size-1.5 rounded-full shrink-0"
         style={{ background: meta.color }}
       />
       <span className="flex-1 truncate text-left">{node.label}</span>
-      <span className="text-[10px] text-muted-foreground/50 font-mono shrink-0">{node.lines}</span>
+      <span className="text-[10px] text-muted-foreground font-mono shrink-0">{node.lines}</span>
     </button>
   );
 }
@@ -149,7 +149,7 @@ export function TreeExplorer({ nodes, selectedId, onSelect, search }: TreeExplor
   );
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4 text-xs">
+    <div className="flex-1 overflow-y-auto px-4 py-3 text-xs">
       {topDirs.map((k) => (
         <DirNode
           key={k}

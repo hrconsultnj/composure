@@ -3,7 +3,7 @@ import type { VisNode } from "@/lib/types";
 import { CATEGORY_META, CAT_ORDER } from "@/lib/types";
 import { GraphControls } from "./graph-controls";
 
-const NODE_W = 190, NODE_H = 34, COL_GAP = 220, ROW_GAP = 42, PAD_X = 44, PAD_Y = 52;
+const NODE_W = 200, NODE_H = 40, COL_GAP = 240, ROW_GAP = 48, PAD_X = 44, PAD_Y = 56;
 
 interface GraphCanvasProps {
   nodes: VisNode[];
@@ -82,9 +82,9 @@ export function GraphCanvas({ nodes, nodeMap, reverseDeps, selectedId, onSelect,
     ctx.scale(dpr * zoom, dpr * zoom);
     ctx.clearRect(0, 0, maxX.w, maxX.h);
 
-    const edgeColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)";
-    const edgeDim = isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)";
-    const edgeHl = isDark ? "rgba(243,112,41,0.55)" : "rgba(234,88,12,0.5)";
+    const edgeColor = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
+    const edgeDim = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
+    const edgeHl = isDark ? "rgba(243,112,41,0.6)" : "rgba(234,88,12,0.55)";
 
     for (const e of edges) {
       const s = positions[e.source], t = positions[e.target];
@@ -116,7 +116,7 @@ export function GraphCanvas({ nodes, nodeMap, reverseDeps, selectedId, onSelect,
               const color = CATEGORY_META[cat]?.color ?? "#94a3b8";
               return (
                 <div key={cat} className="absolute" style={{ left: PAD_X + ci * COL_GAP, top: 16 }}>
-                  <div className="text-xs font-bold tracking-wide opacity-80 font-mono" style={{ color }}>{CATEGORY_META[cat]?.label ?? cat}</div>
+                  <div className="text-sm font-bold tracking-normal opacity-90 font-mono" style={{ color }}>{CATEGORY_META[cat]?.label ?? cat}</div>
                   <div className="h-0.5 mt-1 rounded-sm opacity-25" style={{ width: NODE_W, background: color }} />
                 </div>
               );
@@ -132,7 +132,7 @@ export function GraphCanvas({ nodes, nodeMap, reverseDeps, selectedId, onSelect,
                 <div
                   key={n.id}
                   onClick={(e) => { e.stopPropagation(); onSelect(n); }}
-                  className="absolute flex items-center gap-2 px-3 rounded-[7px] cursor-pointer text-[11px] font-medium text-foreground transition-opacity hover:brightness-125"
+                  className="absolute flex items-center gap-2.5 px-4 rounded-lg cursor-pointer text-sm font-medium text-foreground select-none transition-all duration-150 hover:brightness-110 hover:shadow-md"
                   style={{
                     left: pos.x, top: pos.y, width: NODE_W, height: NODE_H,
                     background: color + (isDark ? "14" : "10"),

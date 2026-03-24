@@ -5,7 +5,9 @@
   "typegenHint": "",
   "frameworks": {
     "typescript": {
-      "paths": ["."],
+      "paths": ["app"],
+      "frontend": "vite",
+      "backend": null,
       "versions": {
         "typescript": "5.9",
         "react": "19.2",
@@ -15,5 +17,5 @@
       }
     }
   },
-  "generatedRefsPath": "skills/app-architecture/{lang}/references/generated"
+  "generatedRefsRoot": "skills/app-architecture"
 }

@@ -291,7 +291,7 @@ Edit hook scripts in `hooks/` to customize:
 
 ### No Band-Aids Config
 
-Per-project via `.claude/no-bandaids.json` (see above) or run `/initialize` to auto-generate.
+Per-project via `.claude/no-bandaids.json` (see above) or run `/composure:initialize` to auto-generate.
 
 ---
 

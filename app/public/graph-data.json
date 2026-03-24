@@ -2,10 +2,10 @@
   "repoName": "composure",
   "generatedAt": "2026-03-24",
   "stats": {
-    "totalNodes": 40,
-    "totalEdges": 52,
-    "filesCount": 40,
-    "entityCount": 182
+    "totalNodes": 43,
+    "totalEdges": 53,
+    "filesCount": 43,
+    "entityCount": 188
   },
   "categories": [
     {
@@ -14,30 +14,471 @@
     },
     {
       "key": "components",
-      "count": 12
+      "count": 14
     },
     {
       "key": "config",
-      "count": 2
+      "count": 3
     },
     {
-      "key": "types",
-      "count": 1
+      "key": "lib",
+      "count": 2
     },
     {
       "key": "hooks",
       "count": 1
     },
     {
-      "key": "lib",
-      "count": 1
-    },
-    {
-      "key": "providers",
+      "key": "types",
       "count": 1
     }
   ],
   "nodes": [
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/eslint.config.js",
+      "label": "eslint.config.js",
+      "path": "app/eslint.config.js",
+      "cat": "config",
+      "lines": 24,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": []
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/scripts/extract-graph.js",
+      "label": "extract-graph.js",
+      "path": "app/scripts/extract-graph.js",
+      "cat": "source",
+      "lines": 220,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "detectCategory",
+          "kind": "Function",
+          "lineStart": 72,
+          "lineEnd": 78,
+          "lines": 7
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/App.tsx",
+      "label": "App.tsx",
+      "path": "app/src/App.tsx",
+      "cat": "source",
+      "lines": 132,
+      "functions": 2,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "App",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 20,
+          "lines": 9
+        },
+        {
+          "name": "GraphApp",
+          "kind": "Function",
+          "lineStart": 22,
+          "lineEnd": 131,
+          "lines": 110
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/legend-panel.tsx",
+      "label": "legend-panel.tsx",
+      "path": "app/src/components/legend-panel.tsx",
+      "cat": "components",
+      "lines": 93,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "LegendPanelProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "LegendPanel",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 92,
+          "lines": 81
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/ui/button.tsx",
+      "label": "button.tsx",
+      "path": "app/src/components/ui/button.tsx",
+      "cat": "components",
+      "lines": 59,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "Button",
+          "kind": "Function",
+          "lineStart": 43,
+          "lineEnd": 56,
+          "lines": 14
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/ui/collapsible.tsx",
+      "label": "collapsible.tsx",
+      "path": "app/src/components/ui/collapsible.tsx",
+      "cat": "components",
+      "lines": 20,
+      "functions": 3,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "Collapsible",
+          "kind": "Function",
+          "lineStart": 3,
+          "lineEnd": 5,
+          "lines": 3
+        },
+        {
+          "name": "CollapsibleTrigger",
+          "kind": "Function",
+          "lineStart": 7,
+          "lineEnd": 11,
+          "lines": 5
+        },
+        {
+          "name": "CollapsibleContent",
+          "kind": "Function",
+          "lineStart": 13,
+          "lineEnd": 17,
+          "lines": 5
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/ui/resizable.tsx",
+      "label": "resizable.tsx",
+      "path": "app/src/components/ui/resizable.tsx",
+      "cat": "components",
+      "lines": 49,
+      "functions": 3,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "ResizablePanelGroup",
+          "kind": "Function",
+          "lineStart": 5,
+          "lineEnd": 19,
+          "lines": 15
+        },
+        {
+          "name": "ResizablePanel",
+          "kind": "Function",
+          "lineStart": 21,
+          "lineEnd": 23,
+          "lines": 3
+        },
+        {
+          "name": "ResizableHandle",
+          "kind": "Function",
+          "lineStart": 25,
+          "lineEnd": 46,
+          "lines": 22
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/ui/scroll-area.tsx",
+      "label": "scroll-area.tsx",
+      "path": "app/src/components/ui/scroll-area.tsx",
+      "cat": "components",
+      "lines": 55,
+      "functions": 2,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "ScrollArea",
+          "kind": "Function",
+          "lineStart": 7,
+          "lineEnd": 28,
+          "lines": 22
+        },
+        {
+          "name": "ScrollBar",
+          "kind": "Function",
+          "lineStart": 30,
+          "lineEnd": 52,
+          "lines": 23
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/ui/tooltip.tsx",
+      "label": "tooltip.tsx",
+      "path": "app/src/components/ui/tooltip.tsx",
+      "cat": "components",
+      "lines": 67,
+      "functions": 4,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "TooltipProvider",
+          "kind": "Function",
+          "lineStart": 7,
+          "lineEnd": 18,
+          "lines": 12
+        },
+        {
+          "name": "Tooltip",
+          "kind": "Function",
+          "lineStart": 20,
+          "lineEnd": 22,
+          "lines": 3
+        },
+        {
+          "name": "TooltipTrigger",
+          "kind": "Function",
+          "lineStart": 24,
+          "lineEnd": 26,
+          "lines": 3
+        },
+        {
+          "name": "TooltipContent",
+          "kind": "Function",
+          "lineStart": 28,
+          "lineEnd": 64,
+          "lines": 37
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/hooks/use-graph-data.ts",
+      "label": "use-graph-data.ts",
+      "path": "app/src/hooks/use-graph-data.ts",
+      "cat": "hooks",
+      "lines": 55,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "Window",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 7,
+          "lines": 3
+        },
+        {
+          "name": "useGraphData",
+          "kind": "Function",
+          "lineStart": 10,
+          "lineEnd": 54,
+          "lines": 45
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/lib/types.ts",
+      "label": "types.ts",
+      "path": "app/src/lib/types.ts",
+      "cat": "lib",
+      "lines": 167,
+      "functions": 3,
+      "classes": 0,
+      "types": 7,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "VisNode",
+          "kind": "Type",
+          "lineStart": 2,
+          "lineEnd": 16,
+          "lines": 15
+        },
+        {
+          "name": "VisEntity",
+          "kind": "Type",
+          "lineStart": 19,
+          "lineEnd": 25,
+          "lines": 7
+        },
+        {
+          "name": "GraphData",
+          "kind": "Type",
+          "lineStart": 27,
+          "lineEnd": 39,
+          "lines": 13
+        },
+        {
+          "name": "CategoryInfo",
+          "kind": "Type",
+          "lineStart": 41,
+          "lineEnd": 46,
+          "lines": 6
+        },
+        {
+          "name": "TreeDir",
+          "kind": "Type",
+          "lineStart": 48,
+          "lineEnd": 53,
+          "lines": 6
+        },
+        {
+          "name": "Activity",
+          "kind": "Type",
+          "lineStart": 55,
+          "lineEnd": 55,
+          "lines": 1
+        },
+        {
+          "name": "View",
+          "kind": "Type",
+          "lineStart": 56,
+          "lineEnd": 56,
+          "lines": 1
+        },
+        {
+          "name": "getCategoryMeta",
+          "kind": "Function",
+          "lineStart": 112,
+          "lineEnd": 120,
+          "lines": 9
+        },
+        {
+          "name": "buildCategoryMeta",
+          "kind": "Function",
+          "lineStart": 126,
+          "lineEnd": 136,
+          "lines": 11
+        },
+        {
+          "name": "orderCategories",
+          "kind": "Function",
+          "lineStart": 158,
+          "lineEnd": 162,
+          "lines": 5
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/lib/utils.ts",
+      "label": "utils.ts",
+      "path": "app/src/lib/utils.ts",
+      "cat": "lib",
+      "lines": 7,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "cn",
+          "kind": "Function",
+          "lineStart": 4,
+          "lineEnd": 6,
+          "lines": 3
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/main.tsx",
+      "label": "main.tsx",
+      "path": "app/src/main.tsx",
+      "cat": "source",
+      "lines": 11,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/app/src/App.tsx"
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/vite.config.ts",
+      "label": "vite.config.ts",
+      "path": "app/vite.config.ts",
+      "cat": "config",
+      "lines": 14,
+      "functions": 0,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": []
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/esbuild.config.js",
+      "label": "esbuild.config.js",
+      "path": "graph/esbuild.config.js",
+      "cat": "config",
+      "lines": 94,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "javascript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 35,
+          "lineEnd": 88,
+          "lines": 54
+        }
+      ]
+    },
     {
       "id": "/Users/helderrodrigues/Projects/composure/graph/src/bfs.ts",
       "label": "bfs.ts",
@@ -74,6 +515,140 @@
           "lineStart": 48,
           "lineEnd": 146,
           "lines": 99
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
+      "label": "html-template.ts",
+      "path": "graph/src/html-template.ts",
+      "cat": "source",
+      "lines": 664,
+      "functions": 15,
+      "classes": 0,
+      "types": 2,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [],
+      "entities": [
+        {
+          "name": "VisNode",
+          "kind": "Type",
+          "lineStart": 11,
+          "lineEnd": 23,
+          "lines": 13
+        },
+        {
+          "name": "GraphHtmlData",
+          "kind": "Type",
+          "lineStart": 25,
+          "lineEnd": 34,
+          "lines": 10
+        },
+        {
+          "name": "generateGraphHtml",
+          "kind": "Function",
+          "lineStart": 38,
+          "lineEnd": 84,
+          "lines": 47
+        },
+        {
+          "name": "esc",
+          "kind": "Function",
+          "lineStart": 112,
+          "lineEnd": 114,
+          "lines": 3
+        },
+        {
+          "name": "jsonInject",
+          "kind": "Function",
+          "lineStart": 116,
+          "lineEnd": 118,
+          "lines": 3
+        },
+        {
+          "name": "buildStyles",
+          "kind": "Function",
+          "lineStart": 122,
+          "lineEnd": 250,
+          "lines": 129
+        },
+        {
+          "name": "buildHeader",
+          "kind": "Function",
+          "lineStart": 254,
+          "lineEnd": 289,
+          "lines": 36
+        },
+        {
+          "name": "buildControls",
+          "kind": "Function",
+          "lineStart": 291,
+          "lineEnd": 293,
+          "lines": 3
+        },
+        {
+          "name": "buildLegend",
+          "kind": "Function",
+          "lineStart": 295,
+          "lineEnd": 312,
+          "lines": 18
+        },
+        {
+          "name": "buildZoomControls",
+          "kind": "Function",
+          "lineStart": 314,
+          "lineEnd": 320,
+          "lines": 7
+        },
+        {
+          "name": "buildScriptData",
+          "kind": "Function",
+          "lineStart": 328,
+          "lineEnd": 347,
+          "lines": 20
+        },
+        {
+          "name": "buildScriptControls",
+          "kind": "Function",
+          "lineStart": 350,
+          "lineEnd": 404,
+          "lines": 55
+        },
+        {
+          "name": "buildScriptGraphLogic",
+          "kind": "Function",
+          "lineStart": 407,
+          "lineEnd": 433,
+          "lines": 27
+        },
+        {
+          "name": "buildScriptDetailPanel",
+          "kind": "Function",
+          "lineStart": 436,
+          "lineEnd": 485,
+          "lines": 50
+        },
+        {
+          "name": "buildScriptTreeView",
+          "kind": "Function",
+          "lineStart": 488,
+          "lineEnd": 591,
+          "lines": 104
+        },
+        {
+          "name": "buildScriptRender",
+          "kind": "Function",
+          "lineStart": 594,
+          "lineEnd": 651,
+          "lines": 58
+        },
+        {
+          "name": "buildScript",
+          "kind": "Function",
+          "lineStart": 654,
+          "lineEnd": 663,
+          "lines": 10
         }
       ]
     },
@@ -547,6 +1122,37 @@
       ]
     },
     {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/server.ts",
+      "label": "server.ts",
+      "path": "graph/src/server.ts",
+      "cat": "source",
+      "lines": 293,
+      "functions": 1,
+      "classes": 0,
+      "types": 0,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/build-or-update-graph.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/query-graph.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-review-context.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-impact-radius.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/find-large-functions.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/semantic-search-nodes.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/list-graph-stats.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts"
+      ],
+      "entities": [
+        {
+          "name": "main",
+          "kind": "Function",
+          "lineStart": 284,
+          "lineEnd": 287,
+          "lines": 4
+        }
+      ]
+    },
+    {
       "id": "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
       "label": "store.ts",
       "path": "graph/src/store.ts",
@@ -760,6 +1366,61 @@
           "lineStart": 5,
           "lineEnd": 45,
           "lines": 41
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts",
+      "label": "generate-graph-html.ts",
+      "path": "graph/src/tools/generate-graph-html.ts",
+      "cat": "source",
+      "lines": 345,
+      "functions": 4,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "typescript",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
+        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
+      ],
+      "entities": [
+        {
+          "name": "CategoryRule",
+          "kind": "Type",
+          "lineStart": 23,
+          "lineEnd": 26,
+          "lines": 4
+        },
+        {
+          "name": "detectCategory",
+          "kind": "Function",
+          "lineStart": 134,
+          "lineEnd": 140,
+          "lines": 7
+        },
+        {
+          "name": "resolveImportTarget",
+          "kind": "Function",
+          "lineStart": 152,
+          "lineEnd": 180,
+          "lines": 29
+        },
+        {
+          "name": "extractVisNodes",
+          "kind": "Function",
+          "lineStart": 184,
+          "lineEnd": 266,
+          "lines": 83
+        },
+        {
+          "name": "generateGraphHtmlTool",
+          "kind": "Function",
+          "lineStart": 270,
+          "lineEnd": 344,
+          "lines": 75
         }
       ]
     },
@@ -1049,37 +1710,6 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/src/server.ts",
-      "label": "server.ts",
-      "path": "graph/src/server.ts",
-      "cat": "source",
-      "lines": 293,
-      "functions": 1,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "typescript",
-      "imports": [
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/build-or-update-graph.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/query-graph.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-review-context.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/get-impact-radius.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/find-large-functions.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/semantic-search-nodes.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/list-graph-stats.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts"
-      ],
-      "entities": [
-        {
-          "name": "main",
-          "kind": "Function",
-          "lineStart": 284,
-          "lineEnd": 287,
-          "lines": 4
-        }
-      ]
-    },
-    {
       "id": "/Users/helderrodrigues/Projects/composure/graph/src/view-graph.ts",
       "label": "view-graph.ts",
       "path": "graph/src/view-graph.ts",
@@ -1105,400 +1735,59 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/esbuild.config.js",
-      "label": "esbuild.config.js",
-      "path": "graph/esbuild.config.js",
-      "cat": "config",
-      "lines": 94,
-      "functions": 1,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "javascript",
-      "imports": [],
-      "entities": [
-        {
-          "name": "main",
-          "kind": "Function",
-          "lineStart": 35,
-          "lineEnd": 88,
-          "lines": 54
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/src/tools/generate-graph-html.ts",
-      "label": "generate-graph-html.ts",
-      "path": "graph/src/tools/generate-graph-html.ts",
-      "cat": "source",
-      "lines": 345,
-      "functions": 4,
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tree-explorer.tsx",
+      "label": "tree-explorer.tsx",
+      "path": "app/src/components/tree-explorer.tsx",
+      "cat": "components",
+      "lines": 169,
+      "functions": 5,
       "classes": 0,
       "types": 1,
       "isTest": false,
-      "language": "typescript",
-      "imports": [
-        "/Users/helderrodrigues/Projects/composure/graph/src/store.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/incremental.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
-        "/Users/helderrodrigues/Projects/composure/graph/src/types.ts"
-      ],
+      "language": "tsx",
+      "imports": [],
       "entities": [
         {
-          "name": "CategoryRule",
+          "name": "TreeExplorerProps",
           "kind": "Type",
-          "lineStart": 23,
-          "lineEnd": 26,
-          "lines": 4
+          "lineStart": 6,
+          "lineEnd": 11,
+          "lines": 6
         },
         {
-          "name": "detectCategory",
+          "name": "buildTree",
           "kind": "Function",
-          "lineStart": 134,
-          "lineEnd": 140,
-          "lines": 7
-        },
-        {
-          "name": "resolveImportTarget",
-          "kind": "Function",
-          "lineStart": 152,
-          "lineEnd": 180,
+          "lineStart": 13,
+          "lineEnd": 41,
           "lines": 29
         },
         {
-          "name": "extractVisNodes",
+          "name": "calcStats",
           "kind": "Function",
-          "lineStart": 184,
-          "lineEnd": 266,
-          "lines": 83
+          "lineStart": 28,
+          "lineEnd": 38,
+          "lines": 11
         },
         {
-          "name": "generateGraphHtmlTool",
+          "name": "DirNode",
           "kind": "Function",
-          "lineStart": 270,
-          "lineEnd": 344,
-          "lines": 75
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/src/html-template.ts",
-      "label": "html-template.ts",
-      "path": "graph/src/html-template.ts",
-      "cat": "source",
-      "lines": 664,
-      "functions": 15,
-      "classes": 0,
-      "types": 2,
-      "isTest": false,
-      "language": "typescript",
-      "imports": [],
-      "entities": [
-        {
-          "name": "VisNode",
-          "kind": "Type",
-          "lineStart": 11,
-          "lineEnd": 23,
-          "lines": 13
+          "lineStart": 43,
+          "lineEnd": 102,
+          "lines": 60
         },
         {
-          "name": "GraphHtmlData",
-          "kind": "Type",
-          "lineStart": 25,
-          "lineEnd": 34,
-          "lines": 10
+          "name": "FileNode",
+          "kind": "Function",
+          "lineStart": 104,
+          "lineEnd": 132,
+          "lines": 29
         },
         {
-          "name": "generateGraphHtml",
+          "name": "TreeExplorer",
           "kind": "Function",
-          "lineStart": 38,
-          "lineEnd": 84,
-          "lines": 47
-        },
-        {
-          "name": "esc",
-          "kind": "Function",
-          "lineStart": 112,
-          "lineEnd": 114,
-          "lines": 3
-        },
-        {
-          "name": "jsonInject",
-          "kind": "Function",
-          "lineStart": 116,
-          "lineEnd": 118,
-          "lines": 3
-        },
-        {
-          "name": "buildStyles",
-          "kind": "Function",
-          "lineStart": 122,
-          "lineEnd": 250,
-          "lines": 129
-        },
-        {
-          "name": "buildHeader",
-          "kind": "Function",
-          "lineStart": 254,
-          "lineEnd": 289,
-          "lines": 36
-        },
-        {
-          "name": "buildControls",
-          "kind": "Function",
-          "lineStart": 291,
-          "lineEnd": 293,
-          "lines": 3
-        },
-        {
-          "name": "buildLegend",
-          "kind": "Function",
-          "lineStart": 295,
-          "lineEnd": 312,
-          "lines": 18
-        },
-        {
-          "name": "buildZoomControls",
-          "kind": "Function",
-          "lineStart": 314,
-          "lineEnd": 320,
-          "lines": 7
-        },
-        {
-          "name": "buildScriptData",
-          "kind": "Function",
-          "lineStart": 328,
-          "lineEnd": 347,
-          "lines": 20
-        },
-        {
-          "name": "buildScriptControls",
-          "kind": "Function",
-          "lineStart": 350,
-          "lineEnd": 404,
-          "lines": 55
-        },
-        {
-          "name": "buildScriptGraphLogic",
-          "kind": "Function",
-          "lineStart": 407,
-          "lineEnd": 433,
-          "lines": 27
-        },
-        {
-          "name": "buildScriptDetailPanel",
-          "kind": "Function",
-          "lineStart": 436,
-          "lineEnd": 485,
-          "lines": 50
-        },
-        {
-          "name": "buildScriptTreeView",
-          "kind": "Function",
-          "lineStart": 488,
-          "lineEnd": 591,
-          "lines": 104
-        },
-        {
-          "name": "buildScriptRender",
-          "kind": "Function",
-          "lineStart": 594,
-          "lineEnd": 651,
-          "lines": 58
-        },
-        {
-          "name": "buildScript",
-          "kind": "Function",
-          "lineStart": 654,
-          "lineEnd": 663,
-          "lines": 10
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/ui/vite.config.ts",
-      "label": "vite.config.ts",
-      "path": "graph/ui/vite.config.ts",
-      "cat": "config",
-      "lines": 14,
-      "functions": 0,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "typescript",
-      "imports": []
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/graph/ui/src/components/activity-bar.tsx",
-      "label": "activity-bar.tsx",
-      "path": "graph/ui/src/components/activity-bar.tsx",
-      "cat": "components",
-      "lines": 53,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "ActivityBarProps",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 10,
-          "lines": 6
-        },
-        {
-          "name": "ActivityBar",
-          "kind": "Function",
-          "lineStart": 18,
-          "lineEnd": 52,
+          "lineStart": 134,
+          "lineEnd": 168,
           "lines": 35
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-controls.tsx",
-      "label": "graph-controls.tsx",
-      "path": "app/src/components/graph-controls.tsx",
-      "cat": "components",
-      "lines": 25,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "GraphControlsProps",
-          "kind": "Type",
-          "lineStart": 3,
-          "lineEnd": 8,
-          "lines": 6
-        },
-        {
-          "name": "GraphControls",
-          "kind": "Function",
-          "lineStart": 10,
-          "lineEnd": 24,
-          "lines": 15
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/activity-bar.tsx",
-      "label": "activity-bar.tsx",
-      "path": "app/src/components/activity-bar.tsx",
-      "cat": "components",
-      "lines": 53,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "ActivityBarProps",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 10,
-          "lines": 6
-        },
-        {
-          "name": "ActivityBar",
-          "kind": "Function",
-          "lineStart": 18,
-          "lineEnd": 52,
-          "lines": 35
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/hooks/use-graph-data.ts",
-      "label": "use-graph-data.ts",
-      "path": "app/src/hooks/use-graph-data.ts",
-      "cat": "hooks",
-      "lines": 55,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "typescript",
-      "imports": [],
-      "entities": [
-        {
-          "name": "Window",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 7,
-          "lines": 3
-        },
-        {
-          "name": "useGraphData",
-          "kind": "Function",
-          "lineStart": 10,
-          "lineEnd": 54,
-          "lines": 45
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/status-bar.tsx",
-      "label": "status-bar.tsx",
-      "path": "app/src/components/status-bar.tsx",
-      "cat": "components",
-      "lines": 17,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "StatusBarProps",
-          "kind": "Type",
-          "lineStart": 1,
-          "lineEnd": 5,
-          "lines": 5
-        },
-        {
-          "name": "StatusBar",
-          "kind": "Function",
-          "lineStart": 7,
-          "lineEnd": 16,
-          "lines": 10
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tab-bar.tsx",
-      "label": "tab-bar.tsx",
-      "path": "app/src/components/tab-bar.tsx",
-      "cat": "components",
-      "lines": 49,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "TabBarProps",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 10,
-          "lines": 6
-        },
-        {
-          "name": "TabBar",
-          "kind": "Function",
-          "lineStart": 12,
-          "lineEnd": 48,
-          "lines": 37
         }
       ]
     },
@@ -1574,6 +1863,131 @@
       ]
     },
     {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tab-bar.tsx",
+      "label": "tab-bar.tsx",
+      "path": "app/src/components/tab-bar.tsx",
+      "cat": "components",
+      "lines": 49,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "TabBarProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 10,
+          "lines": 6
+        },
+        {
+          "name": "TabBar",
+          "kind": "Function",
+          "lineStart": 12,
+          "lineEnd": 48,
+          "lines": 37
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/floating-legend.tsx",
+      "label": "floating-legend.tsx",
+      "path": "app/src/components/floating-legend.tsx",
+      "cat": "components",
+      "lines": 53,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "FloatingLegendProps",
+          "kind": "Type",
+          "lineStart": 5,
+          "lineEnd": 9,
+          "lines": 5
+        },
+        {
+          "name": "FloatingLegend",
+          "kind": "Function",
+          "lineStart": 11,
+          "lineEnd": 52,
+          "lines": 42
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-controls.tsx",
+      "label": "graph-controls.tsx",
+      "path": "app/src/components/graph-controls.tsx",
+      "cat": "components",
+      "lines": 29,
+      "functions": 2,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [],
+      "entities": [
+        {
+          "name": "GraphControlsProps",
+          "kind": "Type",
+          "lineStart": 1,
+          "lineEnd": 6,
+          "lines": 6
+        },
+        {
+          "name": "GraphControls",
+          "kind": "Function",
+          "lineStart": 8,
+          "lineEnd": 16,
+          "lines": 9
+        },
+        {
+          "name": "ZoomBtn",
+          "kind": "Function",
+          "lineStart": 18,
+          "lineEnd": 28,
+          "lines": 11
+        }
+      ]
+    },
+    {
+      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/layout/app-layout.tsx",
+      "label": "app-layout.tsx",
+      "path": "app/src/components/layout/app-layout.tsx",
+      "cat": "components",
+      "lines": 85,
+      "functions": 1,
+      "classes": 0,
+      "types": 1,
+      "isTest": false,
+      "language": "tsx",
+      "imports": [
+        "/Users/helderrodrigues/Projects/composure/app/src/components/layout/header.tsx"
+      ],
+      "entities": [
+        {
+          "name": "AppLayoutProps",
+          "kind": "Type",
+          "lineStart": 7,
+          "lineEnd": 25,
+          "lines": 19
+        },
+        {
+          "name": "AppLayout",
+          "kind": "Function",
+          "lineStart": 27,
+          "lineEnd": 84,
+          "lines": 58
+        }
+      ]
+    },
+    {
       "id": "/Users/helderrodrigues/Projects/composure/app/src/components/graph-canvas.tsx",
       "label": "graph-canvas.tsx",
       "path": "app/src/components/graph-canvas.tsx",
@@ -1612,248 +2026,6 @@
       ]
     },
     {
-      "id": "/Users/helderrodrigues/Projects/composure/app/scripts/extract-graph.js",
-      "label": "extract-graph.js",
-      "path": "app/scripts/extract-graph.js",
-      "cat": "source",
-      "lines": 220,
-      "functions": 1,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "javascript",
-      "imports": [],
-      "entities": [
-        {
-          "name": "detectCategory",
-          "kind": "Function",
-          "lineStart": 72,
-          "lineEnd": 78,
-          "lines": 7
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/data/mock.ts",
-      "label": "mock.ts",
-      "path": "app/src/data/mock.ts",
-      "cat": "source",
-      "lines": 26,
-      "functions": 0,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "typescript",
-      "imports": []
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/tree-explorer.tsx",
-      "label": "tree-explorer.tsx",
-      "path": "app/src/components/tree-explorer.tsx",
-      "cat": "components",
-      "lines": 169,
-      "functions": 5,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "TreeExplorerProps",
-          "kind": "Type",
-          "lineStart": 6,
-          "lineEnd": 11,
-          "lines": 6
-        },
-        {
-          "name": "buildTree",
-          "kind": "Function",
-          "lineStart": 13,
-          "lineEnd": 41,
-          "lines": 29
-        },
-        {
-          "name": "calcStats",
-          "kind": "Function",
-          "lineStart": 28,
-          "lineEnd": 38,
-          "lines": 11
-        },
-        {
-          "name": "DirNode",
-          "kind": "Function",
-          "lineStart": 43,
-          "lineEnd": 102,
-          "lines": 60
-        },
-        {
-          "name": "FileNode",
-          "kind": "Function",
-          "lineStart": 104,
-          "lineEnd": 132,
-          "lines": 29
-        },
-        {
-          "name": "TreeExplorer",
-          "kind": "Function",
-          "lineStart": 134,
-          "lineEnd": 168,
-          "lines": 35
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/legend-panel.tsx",
-      "label": "legend-panel.tsx",
-      "path": "app/src/components/legend-panel.tsx",
-      "cat": "components",
-      "lines": 93,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "LegendPanelProps",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 10,
-          "lines": 6
-        },
-        {
-          "name": "LegendPanel",
-          "kind": "Function",
-          "lineStart": 12,
-          "lineEnd": 92,
-          "lines": 81
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/lib/types.ts",
-      "label": "types.ts",
-      "path": "app/src/lib/types.ts",
-      "cat": "lib",
-      "lines": 167,
-      "functions": 3,
-      "classes": 0,
-      "types": 7,
-      "isTest": false,
-      "language": "typescript",
-      "imports": [],
-      "entities": [
-        {
-          "name": "VisNode",
-          "kind": "Type",
-          "lineStart": 2,
-          "lineEnd": 16,
-          "lines": 15
-        },
-        {
-          "name": "VisEntity",
-          "kind": "Type",
-          "lineStart": 19,
-          "lineEnd": 25,
-          "lines": 7
-        },
-        {
-          "name": "GraphData",
-          "kind": "Type",
-          "lineStart": 27,
-          "lineEnd": 39,
-          "lines": 13
-        },
-        {
-          "name": "CategoryInfo",
-          "kind": "Type",
-          "lineStart": 41,
-          "lineEnd": 46,
-          "lines": 6
-        },
-        {
-          "name": "TreeDir",
-          "kind": "Type",
-          "lineStart": 48,
-          "lineEnd": 53,
-          "lines": 6
-        },
-        {
-          "name": "Activity",
-          "kind": "Type",
-          "lineStart": 55,
-          "lineEnd": 55,
-          "lines": 1
-        },
-        {
-          "name": "View",
-          "kind": "Type",
-          "lineStart": 56,
-          "lineEnd": 56,
-          "lines": 1
-        },
-        {
-          "name": "getCategoryMeta",
-          "kind": "Function",
-          "lineStart": 112,
-          "lineEnd": 120,
-          "lines": 9
-        },
-        {
-          "name": "buildCategoryMeta",
-          "kind": "Function",
-          "lineStart": 126,
-          "lineEnd": 136,
-          "lines": 11
-        },
-        {
-          "name": "orderCategories",
-          "kind": "Function",
-          "lineStart": 158,
-          "lineEnd": 162,
-          "lines": 5
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/providers/theme-provider.tsx",
-      "label": "theme-provider.tsx",
-      "path": "app/src/providers/theme-provider.tsx",
-      "cat": "providers",
-      "lines": 42,
-      "functions": 2,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "ThemeContextValue",
-          "kind": "Type",
-          "lineStart": 3,
-          "lineEnd": 6,
-          "lines": 4
-        },
-        {
-          "name": "ThemeProvider",
-          "kind": "Function",
-          "lineStart": 10,
-          "lineEnd": 35,
-          "lines": 26
-        },
-        {
-          "name": "useTheme",
-          "kind": "Function",
-          "lineStart": 37,
-          "lineEnd": 41,
-          "lines": 5
-        }
-      ]
-    },
-    {
       "id": "/Users/helderrodrigues/Projects/composure/app/src/components/layout/header.tsx",
       "label": "header.tsx",
       "path": "app/src/components/layout/header.tsx",
@@ -1886,95 +2058,6 @@
           "lineStart": 70,
           "lineEnd": 101,
           "lines": 32
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/floating-legend.tsx",
-      "label": "floating-legend.tsx",
-      "path": "app/src/components/floating-legend.tsx",
-      "cat": "components",
-      "lines": 53,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "FloatingLegendProps",
-          "kind": "Type",
-          "lineStart": 5,
-          "lineEnd": 9,
-          "lines": 5
-        },
-        {
-          "name": "FloatingLegend",
-          "kind": "Function",
-          "lineStart": 11,
-          "lineEnd": 52,
-          "lines": 42
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/components/layout/app-layout.tsx",
-      "label": "app-layout.tsx",
-      "path": "app/src/components/layout/app-layout.tsx",
-      "cat": "components",
-      "lines": 85,
-      "functions": 1,
-      "classes": 0,
-      "types": 1,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [
-        "/Users/helderrodrigues/Projects/composure/app/src/components/layout/header.tsx"
-      ],
-      "entities": [
-        {
-          "name": "AppLayoutProps",
-          "kind": "Type",
-          "lineStart": 7,
-          "lineEnd": 25,
-          "lines": 19
-        },
-        {
-          "name": "AppLayout",
-          "kind": "Function",
-          "lineStart": 27,
-          "lineEnd": 84,
-          "lines": 58
-        }
-      ]
-    },
-    {
-      "id": "/Users/helderrodrigues/Projects/composure/app/src/App.tsx",
-      "label": "App.tsx",
-      "path": "app/src/App.tsx",
-      "cat": "source",
-      "lines": 132,
-      "functions": 2,
-      "classes": 0,
-      "types": 0,
-      "isTest": false,
-      "language": "tsx",
-      "imports": [],
-      "entities": [
-        {
-          "name": "App",
-          "kind": "Function",
-          "lineStart": 12,
-          "lineEnd": 20,
-          "lines": 9
-        },
-        {
-          "name": "GraphApp",
-          "kind": "Function",
-          "lineStart": 22,
-          "lineEnd": 131,
-          "lines": 110
         }
       ]
     }
