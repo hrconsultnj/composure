@@ -1,10 +1,10 @@
 ---
-name: update
+name: update-project
 description: Refresh Composure config, hooks, or reference docs without full re-initialization. Targets only what changed.
 argument-hint: "[docs] [hooks] [stack] [all]"
 ---
 
-# Composure Update
+# Composure Update Project
 
 Lightweight refresh for an already-initialized project. Unlike `/initialize`, this skips first-time setup (Context7 install, task queue creation, graph bootstrap) and only updates what's stale or explicitly requested.
 
@@ -20,7 +20,7 @@ Lightweight refresh for an already-initialized project. Unlike `/initialize`, th
 | `all` | All of the above |
 | *(no argument)* | Same as `all` |
 
-Arguments can be combined: `/update docs hooks`
+Arguments can be combined: `/update-project docs hooks`
 
 ## Workflow
 
