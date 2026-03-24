@@ -7,14 +7,17 @@ import { DatabaseSync } from "node:sqlite";
 import { writeFileSync, existsSync } from "node:fs";
 import { basename, relative, resolve, dirname, join } from "node:path";
 
-const REPO_ROOT = resolve(import.meta.dirname, "../..");
-const DB_PATH = join(REPO_ROOT, ".code-review-graph/graph.db");
+// PROJECT_ROOT: the user's project (where the graph DB lives)
+// Falls back to two levels up from this script (works when running from plugin repo itself)
+const PROJECT_ROOT = process.env.PROJECT_ROOT || resolve(import.meta.dirname, "../..");
+const DB_PATH = join(PROJECT_ROOT, ".code-review-graph/graph.db");
+// Output always goes to the plugin's app/public/ (next to this script)
 const OUT_PATH = join(import.meta.dirname, "../public/graph-data.json");
 
 if (!existsSync(DB_PATH)) {
   console.log("No graph DB found — run /build-graph first. Using empty data.");
   writeFileSync(OUT_PATH, JSON.stringify({
-    repoName: basename(REPO_ROOT),
+    repoName: basename(PROJECT_ROOT),
     generatedAt: new Date().toISOString().slice(0, 10),
     stats: { totalNodes: 0, totalEdges: 0, filesCount: 0 },
     nodes: [],
@@ -169,7 +172,7 @@ for (const e of entityRows) {
 
 // Build VisNode array with entities
 const nodes = files.map(f => {
-  const relPath = relative(REPO_ROOT, f.file_path);
+  const relPath = relative(PROJECT_ROOT, f.file_path);
   const counts = countMap[f.file_path] || { functions: 0, classes: 0, types: 0 };
   const imports = [...(importMap[f.file_path] || [])];
 
@@ -201,7 +204,7 @@ const categories = [...catCounts.entries()]
   .sort((a, b) => b.count - a.count);
 
 const data = {
-  repoName: basename(REPO_ROOT),
+  repoName: basename(PROJECT_ROOT),
   generatedAt: new Date().toISOString().slice(0, 10),
   stats: {
     totalNodes: nodes.length,

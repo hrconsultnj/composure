@@ -1,6 +1,6 @@
 # Generated Reference Doc Template
 
-> **This file is a template for Context7 agents.** It defines the structure, frontmatter, and content expectations for every generated reference doc in this skill. Agents MUST follow this template exactly.
+> **This file is the template for Context7-generated reference docs.** It defines the structure, frontmatter, and content expectations for every generated reference doc in this skill. The main conversation queries Context7 and formats docs according to this template — MCP tool permissions are session-scoped and not delegated to subagents.
 
 ## Filename Convention (required)
 
