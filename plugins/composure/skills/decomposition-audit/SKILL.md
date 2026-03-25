@@ -1,6 +1,6 @@
 ---
 name: decomposition-audit
-description: Audit a codebase for decomposition violations — oversized files, large functions, mixed concerns, inline types. Produces a prioritized remediation plan. Works with or without code-review-graph plugin.
+description: Audit a codebase for decomposition violations — oversized files, large functions, mixed concerns, inline types, ghost duplicates. Produces a prioritized remediation plan. Works with or without code-review-graph plugin (ghost detection requires graph).
 argument-hint: "[path or glob pattern] [--threshold N]"
 ---
 
@@ -60,6 +60,60 @@ For each file over 200 lines, check for these violations using Grep:
    grep -rn 'function render\|const render' --include="*.tsx"
    ```
 
+### Step 2b: Detect Ghost Duplicates (requires graph)
+
+A **ghost duplicate** is when a file was decomposed into a module folder, but the original monolithic file was never cleaned up. Both export the same functions, different consumers import from different paths, and the code diverges over time.
+
+**Skip this step if the code-review graph is not available.**
+
+**Detection algorithm:**
+
+1. **Find candidate pairs** — look for files that share a name with a directory:
+   ```bash
+   # Find files where a sibling directory has the same base name
+   for f in $(find . -name "*.ts" -o -name "*.tsx" | grep -v node_modules | grep -v .next | grep -v dist); do
+     base=$(basename "$f" | sed 's/\.[^.]*$//')
+     dir=$(dirname "$f")
+     if [ -d "$dir/$base" ]; then
+       echo "CANDIDATE: $f ↔ $dir/$base/"
+     fi
+   done
+   ```
+
+2. **For each candidate pair**, use the graph to confirm duplication:
+   - Call `query_graph({ pattern: "file_summary", target: <monolith_file> })` to get its exports
+   - Call `query_graph({ pattern: "file_summary", target: <module_index> })` to get the module folder's exports
+   - If 50%+ of exported function names overlap → **confirmed ghost duplicate**
+
+3. **Assess risk** for each ghost:
+   - Call `query_graph({ pattern: "importers_of", target: <monolith_file> })` — count consumers of the old path
+   - Call `query_graph({ pattern: "importers_of", target: <module_index> })` — count consumers of the new path
+   - Compare line counts: ghost is typically the larger monolithic version
+
+4. **Also check across directories** — ghosts can live in different folders:
+   - Use `semantic_search_nodes({ query: <function_name> })` for any function exported by a large file (>300 lines)
+   - If the same function name appears in 2+ files with different paths → investigate as potential ghost
+
+5. **Report each ghost** with:
+   - Ghost file path + line count
+   - Canonical module folder path
+   - Number of consumers importing from each path
+   - Overlapping exports (the duplicated functions)
+
+**Consolidation plan** (included in remediation output for each ghost):
+```
+Ghost: lib/ai/diagnostic-orchestrator.ts (1108 lines)
+Canonical: lib/ai/diagnostic-orchestrator/ (8 modules)
+Consumers: 5 files import from ghost, 12 from canonical
+
+Fix:
+1. Verify all ghost exports exist in canonical module
+2. Replace ghost file contents with barrel re-exports:
+   export { processDiagnosticRequest, ... } from './diagnostic-orchestrator/index'
+3. Both import paths keep working — zero consumer changes needed
+4. Delete any functions in the ghost that have no importers (dead code)
+```
+
 ### Step 3: Persist Results to Plan File (MANDATORY)
 
 **BEFORE reporting to the user**, write findings to a plan file:
@@ -106,11 +160,18 @@ Output a structured report with three tiers:
 ## Moderate (Consider — 1-1.5x limits)
 ...
 
+## Ghost Duplicates (decomposed but not cleaned up)
+
+| # | Ghost File | Lines | Canonical Module | Consumers (ghost → canonical) | Fix |
+|---|-----------|-------|-----------------|-------------------------------|-----|
+| 1 | `lib/ai/orchestrator.ts` | 1,108 | `lib/ai/orchestrator/` (8 modules) | 5 → 12 | Replace with barrel re-export |
+
 ## Summary
 
 - **Critical**: N files → TaskCreate entries created
 - **High**: N files → TaskCreate entries created
 - **Moderate**: N files → plan file only
+- **Ghost duplicates**: N found → consolidation plans in report
 - **Plan file**: `tasks-plans/decomposition-audit-{date}.md`
 ```
 
