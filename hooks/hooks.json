@@ -39,6 +39,12 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-guide.sh\"",
+            "timeout": 5,
+            "statusMessage": "Checking decomposition..."
+          },
+          {
+            "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\"",
             "timeout": 5,
             "statusMessage": "Checking for band-aid fixes..."
