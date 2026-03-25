@@ -16,7 +16,23 @@ Bootstrap Composure project-level configuration by detecting the tech stack, que
 
 ## Workflow
 
-### Step 0: Ensure Context7 MCP
+### Step 0: Ensure MCP Servers
+
+#### 0a. composure-graph (bundled)
+
+The `composure-graph` MCP server is **bundled with the Composure plugin** — it is NOT an npm package. Do NOT try to install it via npm/pip/cargo. It is declared in the plugin's `plugin.json` and auto-registered when the plugin is installed.
+
+1. Check if it's available by calling `list_graph_stats`
+2. **If available**: report "composure-graph MCP: ready"
+3. **If NOT available**, diagnose the problem:
+   - Run `node --version` via Bash
+   - **If Node < 22.5.0**: tell the user:
+     > "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
+   - **If Node >= 22.5.0**: tell the user:
+     > "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server. If the problem persists, verify the plugin is installed by running `claude plugin list`."
+   - **STOP.** Do NOT continue without the graph. Do NOT offer alternatives or workarounds.
+
+#### 0b. Context7
 
 Context7 provides up-to-date library documentation. Step 3 uses it to generate framework reference docs.
 

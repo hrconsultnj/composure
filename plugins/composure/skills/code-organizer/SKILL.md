@@ -14,7 +14,7 @@ Restructure a disorganized project into a clean, conventional file layout. Detec
 - `--aggressive` — Also split large files (>300 lines) and extract shared utilities using decomposition patterns from `app-architecture/frontend/typescript/01-component-decomposition.md`
 - `--naming kebab|camel|pascal` — Enforce file naming convention (default: detect dominant convention in project)
 - `--preserve path,path` — Comma-separated paths to skip entirely (user's intentional structure)
-- `--no-graph` — Skip graph requirement and use grep-based import scanning (riskier, not recommended)
+- `--no-graph` — Use grep-based import scanning instead of the graph. **Only valid with `--dry-run`** — actual file moves always require the graph
 
 ## Workflow
 
@@ -24,13 +24,14 @@ Restructure a disorganized project into a clean, conventional file layout. Detec
 
 1. Read `.claude/no-bandaids.json` from the project root
 2. Extract: `frameworks`, `frontend`, `backend`, `monorepo`, `packageManager`
-3. If the file is missing, stop:
-   > "No stack detected. Run `/composure:initialize` first to detect your framework and generate config."
+3. If the file is missing, **run `/composure:initialize` automatically** — do NOT stop and ask the user. Report: "No stack config found — running initialize first." After initialize completes, re-read the config and continue.
 4. If `monorepo: true` with multiple app paths, ask the user which app to organize. Accept `--all` to process each app root independently. Never reorganize across app boundaries.
 
 #### 0b. Ensure code graph exists (safety prerequisite)
 
 The code graph provides **exact import dependency data** — which files import which. Without it, import path updates during file moves rely on grep, which can miss barrel re-exports, dynamic imports, and aliased paths. For a mass restructure, this is the difference between clean moves and broken imports.
+
+**The `composure-graph` MCP server is bundled with the Composure plugin.** It is NOT an npm package — do NOT try to `npm install` it. It is declared in the plugin's `plugin.json` and should be auto-registered when the plugin is installed. If tools are unavailable, the server failed to start or the plugin wasn't installed correctly.
 
 1. Check if `composure-graph` MCP tools are available by calling `list_graph_stats`
 2. **If tools available + graph exists** (`last_updated` is not null): proceed. Report: "Graph ready: {N} files indexed"
@@ -38,10 +39,12 @@ The code graph provides **exact import dependency data** — which files import 
    - Call `build_or_update_graph({ full_rebuild: true })`
    - Report: "Built code graph: {N} files, {M} nodes, {K} edges — import dependencies now tracked"
    - This is non-optional. The graph must exist before we move files.
-4. **If tools unavailable** (MCP server not running): warn and require explicit opt-in:
-   > "Code review graph not available. Moving files without exact import data increases risk of broken imports. To proceed anyway, re-run with `--no-graph`. Recommended: ensure the composure-graph MCP server is running, or run `/composure:build-graph` first."
-   - If `--no-graph` was NOT passed, **stop here**. Do not proceed without the graph unless the user explicitly accepts the risk.
-   - If `--no-graph` was passed, continue with grep-based fallback and add a warning to the plan output.
+4. **If tools unavailable** (MCP server not running):
+   - **Do NOT offer choices.** Do NOT ask "would you like to proceed without the graph." Do NOT try to `npm install` anything — the server is bundled with the plugin.
+   - Diagnose the problem by running `node --version` via Bash:
+     - **If Node < 22.5.0**: tell the user: "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
+     - **If Node >= 22.5.0**: tell the user: "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server."
+   - **Stop here.** The graph is required. The `--no-graph` flag exists only for analysis (`--dry-run`) — never for actual file moves.
 
 ### Step 1: Load Conventions
 
@@ -71,6 +74,8 @@ find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx"
   | grep -v node_modules | grep -v .next | grep -v dist | grep -v __pycache__ | grep -v vendor | grep -v target | grep -v .git \
   | sort
 ```
+
+If **zero source files** are found, stop: "No source files found in this project. Nothing to reorganize." Do not proceed to Step 3.
 
 Count files per directory. Flag directories with 15+ flat files as "overcrowded."
 
@@ -310,7 +315,7 @@ If yes:
 ## Tips
 
 - **Run `/composure:initialize` first** if you haven't — code-organizer needs the stack detection config
-- **The code graph is required by default** — it provides exact import data so moves don't break things. The skill auto-builds it if missing. Use `--no-graph` only if the MCP server isn't available and you accept the risk.
+- **The code graph is required** — it provides exact import data so moves don't break things. The skill auto-builds it if the MCP server is running but no graph exists yet. `--no-graph` is only valid with `--dry-run` for analysis.
 - **Start with `--dry-run`** to preview what would change before committing to it
 - **Use `--preserve`** for directories you've intentionally organized differently
 - **After organizing**, `/decomposition-audit` can catch remaining size violations within the now-properly-placed files

@@ -8,6 +8,14 @@ argument-hint: "[PR number or branch name]"
 
 Perform a comprehensive code review of a pull request using the knowledge graph.
 
+## Prerequisites
+
+The `composure-graph` MCP server must be running. It is **bundled with the Composure plugin** — do NOT try to `npm install` it. If MCP tools are unavailable when you call `build_or_update_graph`, diagnose:
+1. Run `node --version` via Bash
+2. If Node < 22.5.0: "composure-graph requires Node 22.5+ (for built-in SQLite). You have Node {version}. Update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
+3. If Node >= 22.5.0: "Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server."
+4. **STOP.** Do not proceed without the graph.
+
 ## Steps
 
 1. **Identify the changes** for the PR:
