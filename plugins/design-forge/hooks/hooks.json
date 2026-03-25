@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Design Forge plugin active. Components: GenerativeCanvas, GlassPanel, CustomCursor, ScrollProgress, HoverCardCanvas, Scanlines, Typewriter, HeroScene, useSoundLayer. Presets: grid-field, orbital-ellipses, point-cloud, particle-system. Guides: animation-recipes, 3d-integration, micro-interactions, accessibility, nextjs-conf-patterns, design-patterns, canvas-system, gsap-framework-patterns, gsap-plugins, gsap-scrolltrigger-advanced. Use /design-forge to browse or ask about any pattern.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'PRESERVE: Design Forge plugin is active. Components at ${CLAUDE_PLUGIN_ROOT}/components/: canvas system (GenerativeCanvas + useCanvas + presets), glassmorphism (GlassPanel), custom cursor (CustomCursor), scroll effects (ScrollProgress + useNavbarCompact), hover cards (HoverCardCanvas), sound (useSoundLayer), effects (Scanlines, Typewriter), scenes (HeroScene). References at ${CLAUDE_PLUGIN_ROOT}/skills/design-forge/references/: canvas-system, design-patterns, animation-recipes, 3d-integration, micro-interactions, accessibility, nextjs-conf-patterns, gsap-framework-patterns, gsap-plugins, gsap-scrolltrigger-advanced.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if the code being written contains canvas animations or requestAnimationFrame loops. If so, verify it includes: (1) IntersectionObserver visibility gating, (2) prefers-reduced-motion check, (3) DPR cap at Math.min(window.devicePixelRatio, 2). If all three are present or the code is not canvas-related, return 'approve'. If canvas animation code is missing any of these, return a reminder about which ones are missing.",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

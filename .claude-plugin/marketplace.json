@@ -1,19 +1,19 @@
 {
-  "name": "composure",
+  "name": "my-claude-plugins",
   "owner": {
     "name": "Helder Rodrigues",
     "email": "hrconsultnj@gmail.com"
   },
   "metadata": {
-    "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue. Go with the grain.",
-    "version": "1.2.34"
+    "description": "Code quality, architecture enforcement, and premium design patterns for Claude Code.",
+    "version": "1.2.38"
   },
   "plugins": [
     {
       "name": "composure",
-      "source": "./",
+      "source": "./plugins/composure",
       "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue",
-      "version": "1.2.34",
+      "version": "1.2.38",
       "category": "development",
       "keywords": [
         "architecture",
@@ -23,6 +23,26 @@
         "typescript",
         "react",
         "next-js"
+      ]
+    },
+    {
+      "name": "design-forge",
+      "source": "./plugins/design-forge",
+      "description": "Premium web design patterns — 33 production components, 10 reference guides, canvas presets, animation recipes, 3D integration, accessibility, AI design research",
+      "version": "2.1.0",
+      "category": "design",
+      "keywords": [
+        "design",
+        "canvas",
+        "generative-art",
+        "glassmorphism",
+        "three-js",
+        "framer-motion",
+        "gsap",
+        "animations",
+        "accessibility",
+        "micro-interactions",
+        "premium-ui"
       ]
     }
   ]
