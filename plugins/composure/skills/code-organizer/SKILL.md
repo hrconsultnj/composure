@@ -67,6 +67,8 @@ This keeps token cost low — one framework's conventions, not all of them.
 
 Run all six checks. This is the diagnostic — no files are moved yet.
 
+**Windows compatibility:** Do NOT use `grep -P` (Perl regex) — it fails on Windows Git Bash with "supports only unibyte and UTF-8 locales." Use `grep -E` (extended regex) instead, or use the built-in Grep tool which works cross-platform. All patterns in this skill are compatible with `-E`.
+
 #### 2a. Directory Inventory
 
 Build a map of `directory → [source files]`:
