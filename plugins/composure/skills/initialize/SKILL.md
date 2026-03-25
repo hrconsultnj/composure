@@ -10,7 +10,7 @@ Bootstrap Composure project-level configuration by detecting the tech stack, que
 
 ## Arguments
 
-- `--force` — Overwrite existing `.claude/no-bandaids.json` and regenerate framework docs even if they exist
+- `--force` — Overwrite existing `.claude/no-bandaids.json`, force full graph rebuild, and regenerate framework docs older than 7 days
 - `--dry-run` — Show what would be generated without writing files
 - `--skip-context7` — Skip Context7 queries (for offline/CI use)
 
@@ -24,13 +24,44 @@ The `composure-graph` MCP server is **bundled with the Composure plugin** — it
 
 1. Check if it's available by calling `list_graph_stats`
 2. **If available**: report "composure-graph MCP: ready"
-3. **If NOT available**, diagnose the problem:
-   - Run `node --version` via Bash
-   - **If Node < 22.5.0**: tell the user:
-     > "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
-   - **If Node >= 22.5.0**: tell the user:
-     > "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server. If the problem persists, verify the plugin is installed by running `claude plugin list`."
-   - **STOP.** Do NOT continue without the graph. Do NOT offer alternatives or workarounds.
+3. **If NOT available**, run the auto-fix chain below. Do NOT stop and ask the user — fix it yourself:
+
+   **Step A — Check Node version:**
+   ```bash
+   node --version
+   ```
+   If Node < 22.5.0: "composure-graph requires Node 22.5+ (for built-in SQLite). You have Node {version}. Update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`." → **STOP** (can't auto-fix this).
+
+   **Step B — Find the plugin install path and register the MCP server:**
+
+   The plugin system caches composure under `~/.claude/plugins/cache/` but does NOT always auto-register the bundled MCP server. Fix this by manually registering it:
+
+   ```bash
+   # Find the composure plugin install path
+   COMPOSURE_PATH=$(claude plugin list --json 2>/dev/null | node -e "
+     const plugins = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+     const c = plugins.find(p => p.id.startsWith('composure') && p.enabled);
+     if (c) console.log(c.installPath);
+   ")
+
+   # Verify the server binary exists
+   ls "$COMPOSURE_PATH/graph/dist/server.js"
+   ```
+
+   If the path is found and `server.js` exists, register the MCP server:
+   ```bash
+   claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"
+   ```
+
+   Report: "Registered composure-graph MCP server from plugin cache."
+
+   **Then tell the user**: "The composure-graph MCP server has been registered. Exit Claude Code (Ctrl+C) and reopen it with `claude` for it to start."
+   → **STOP** (restart needed for MCP to connect).
+
+   **Step C — Plugin not installed at all:**
+   If `claude plugin list --json` has no composure entry: "Composure plugin is not installed. Install it with: `claude plugin install composure@my-claude-plugins`" → **STOP.**
+
+   **After restart**, the MCP server will be available. This registration only needs to happen once — subsequent sessions will find it via `claude mcp list`.
 
 #### 0b. Context7
 
@@ -203,7 +234,23 @@ Based on detected frameworks (merged across all detected languages):
 
 **This step is required.** Claude's training data is 10+ months behind. Context7 provides the current API surface. Use `--skip-context7` only in offline/CI environments.
 
-**Query from the main conversation** — MCP tool permissions are session-scoped and not delegated to subagents. The main conversation already has Context7 loaded and permitted, so querying here avoids the ~80-100K token overhead of bootstrapping each subagent only for MCP calls to be denied. Batch multiple tool calls per message for parallelism within a single turn.
+**Query from the main conversation** — MCP tool permissions are session-scoped and not delegated to subagents. The main conversation already has Context7 loaded and permitted, so querying here avoids the ~80-100K token overhead of bootstrapping each subagent only for MCP calls to be denied.
+
+#### Freshness check (skip recent docs)
+
+Before querying Context7 for a library, check if a generated doc already exists for it:
+
+```bash
+# Get file age in days (works on macOS and Linux)
+stat -f "%m" {file} 2>/dev/null || stat -c "%Y" {file} 2>/dev/null
+```
+
+- **If the doc exists and is < 7 days old**: skip that library. Report: "{library} docs are fresh ({N} days old) — skipping"
+- **If the doc exists and is >= 7 days old**: regenerate it
+- **If `--force` is passed**: regenerate docs >= 7 days old. Docs < 7 days old are STILL skipped — there's no reason to re-query what was just generated
+- **If the doc doesn't exist**: generate it
+
+This prevents unnecessary re-generation on repeated `/initialize` or `/initialize --force` runs.
 
 #### 3a. Create the categorized folder structure
 
@@ -360,7 +407,7 @@ SDKs (cross-cutting)
 
 **Only include libraries matching the detected `frontend`/`backend` values.** Do not query Next.js for a Vite project.
 
-#### 3c. Query Context7 from the main conversation
+#### 3c. Query Context7 and write — one library at a time
 
 > **Why not subagents?** MCP tool permissions are session-scoped and NOT delegated to
 > subagents — even with `bypassPermissions` or `auto` mode. Subagents can discover
@@ -371,42 +418,25 @@ SDKs (cross-cutting)
 **Read the template first**: Read `skills/app-architecture/GENERATED-DOC-TEMPLATE.md` — it defines
 the exact structure, frontmatter, sections, and rules for generated docs.
 
-**Per-library workflow:**
+**CRITICAL: Process one library at a time. Do NOT batch reads then batch writes.**
 
-1. Call `resolve-library-id` with `libraryName="{library}"` — pick the highest benchmark score
-   with "High" reputation. If a version-specific ID exists, prefer it.
-2. Call `query-docs` (BROAD): setup, key patterns, breaking changes.
-   Focus areas: `{focusAreas}`
-3. Call `query-docs` (TARGETED): query specifically for the focus areas that the first
-   query didn't fully cover — anti-patterns, migration steps, advanced config
-4. If results are still sparse, try a DIFFERENT library ID from the resolve results
-   (e.g., /websites/ variant instead of /org/repo) and query again
+For each library in the task list (from 3b), if it passed the freshness check:
 
-**Parallelism strategy**: Batch all `resolve-library-id` calls together in one message (they're independent). Then batch all `query-docs` calls (they depend on resolved IDs, but are independent of each other).
-
-**Example**: For a Vite + React + Tailwind + shadcn project:
-
-```
-Message 1 (parallel): resolve-library-id × 4 (typescript, shadcn, tailwind, vite)
-Message 2 (parallel): query-docs × 4 (broad, one per library using resolved IDs)
-Message 3 (parallel): query-docs × 4 (targeted, for gaps from message 2)
-```
-
-This achieves similar parallelism to subagents without the MCP permission barrier or token overhead.
-
-#### 3d. Format, validate, and write
-
-After collecting all Context7 results:
-
-1. **Format** each library's results into the template structure (from `GENERATED-DOC-TEMPLATE.md`)
-2. **Validate** before writing:
+1. **Resolve**: Call `resolve-library-id` with `libraryName="{library}"` — pick the highest benchmark score with "High" reputation. If a version-specific ID exists, prefer it.
+2. **Query (BROAD)**: Call `query-docs` — setup, key patterns, breaking changes. Focus areas: `{focusAreas}`
+3. **Query (TARGETED)**: Call `query-docs` — specifically for focus areas the first query didn't fully cover (anti-patterns, migration steps, advanced config)
+4. If results are still sparse, try a DIFFERENT library ID from the resolve results (e.g., /websites/ variant instead of /org/repo) and query again
+5. **Validate** before writing:
    - If Context7 returned no data after 3+ attempts → skip, report as "no Context7 data available"
    - If `resolve-library-id` returned no results → skip, report as "library not found in Context7"
    - If `context7_library_id` in frontmatter would be `manual`, `n/a`, or missing → **REJECT**. Report as "fabricated, discarded"
    - If the content contains no code blocks from Context7 → **REJECT** — likely fabricated
-3. **Create directories** — `mkdir -p` for each output path
-4. **Write** validated files
-5. **Report** which docs were written, which returned NO_DATA, and which were rejected
+6. **Write the doc immediately** — `mkdir -p` for the output path, then write the file
+7. **Move to the next library.** Do NOT hold multiple libraries' query results in memory.
+
+**Why sequential?** When querying 5-6 libraries and writing all docs at the end, the model must reconstruct earlier query results from memory — this creates fabrication opportunities. By writing each doc immediately after querying, the Context7 results are still in the current context window. One read → one write → next.
+
+**Parallelism is limited to resolve calls only**: You may batch all `resolve-library-id` calls together (they're independent and return only IDs). But `query-docs` + write must be sequential per library.
 
 **MUST rules (non-negotiable):**
 - MUST source ALL content from Context7 query-docs results. NEVER use training data.
@@ -455,12 +485,12 @@ The `frameworks` field tells `no-bandaids.sh` which rules to apply based on file
 
 ### Step 5: Build Code Graph
 
-If the composure-graph MCP server is available (check if `composure-graph` tools like `list_graph_stats` are callable):
+The composure-graph MCP server was already verified in Step 0a.
 
 1. Call `list_graph_stats` to check if a graph already exists
-2. If no graph exists (`last_updated` is null), call `build_or_update_graph({ full_rebuild: true })` to do an initial full build
-3. Report: "Graph built: N files, M nodes, K edges" or "Graph already exists: N nodes, last updated X"
-4. If the MCP tools aren't available, skip and note: "Code review graph not configured — run /build-graph manually after plugin setup"
+2. If no graph exists (`last_updated` is null), or if `--force` was passed: call `build_or_update_graph({ full_rebuild: true })`
+3. If graph exists and no `--force`: call `build_or_update_graph()` (incremental update)
+4. Report: "Graph built: N files, M nodes, K edges" or "Graph updated: N nodes, last updated X"
 
 ### Step 6: Ensure Task Queue
 
@@ -520,7 +550,7 @@ Available skills:
 ## Notes
 
 - This skill is idempotent — running it again updates the config based on current stack
-- With `--force`, it overwrites config AND regenerates all framework reference docs
+- With `--force`, it overwrites config, force-rebuilds the graph, and regenerates framework docs older than 7 days (fresh docs are still skipped)
 - With `--dry-run`, it prints what would be generated without writing files
 - With `--skip-context7`, it skips Context7 queries (framework docs not generated)
 - The skill does NOT modify CLAUDE.md — that's the project's responsibility

@@ -12,11 +12,11 @@ Build or incrementally update the persistent code knowledge graph, generate a st
 
 The `composure-graph` MCP server is **bundled with the Composure plugin** — it is NOT an npm package. Do NOT try to `npm install` it. It is declared in the plugin's `plugin.json` and auto-registered when the plugin is installed.
 
-If the MCP tools are unavailable when you call `list_graph_stats`, diagnose the problem:
-1. Run `node --version` via Bash
-2. **If Node < 22.5.0**: tell the user: "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
-3. **If Node >= 22.5.0**: tell the user: "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server. If the problem persists, verify the plugin is installed by running `claude plugin list`."
-4. **STOP.** Do NOT offer alternatives or workarounds — the server must be running.
+If the MCP tools are unavailable when you call `list_graph_stats`, run the auto-fix from `/composure:initialize` Step 0a:
+1. **A.** Check `node --version` — must be >= 22.5.0. If too old → tell user to update Node + restart.
+2. **B.** Find the plugin install path via `claude plugin list --json`, verify `graph/dist/server.js` exists, then register it: `claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"`. Tell user to restart Claude Code (Ctrl+C then `claude`).
+3. **C.** If plugin not installed → tell user to install it.
+**STOP** after registering. Do NOT offer alternatives — the server must be running.
 
 ## Steps
 

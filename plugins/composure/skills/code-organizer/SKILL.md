@@ -41,9 +41,11 @@ The code graph provides **exact import dependency data** — which files import 
    - This is non-optional. The graph must exist before we move files.
 4. **If tools unavailable** (MCP server not running):
    - **Do NOT offer choices.** Do NOT ask "would you like to proceed without the graph." Do NOT try to `npm install` anything — the server is bundled with the plugin.
-   - Diagnose the problem by running `node --version` via Bash:
-     - **If Node < 22.5.0**: tell the user: "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
-     - **If Node >= 22.5.0**: tell the user: "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server."
+   - Run the auto-fix from `/composure:initialize` Step 0a:
+     - **A.** Check `node --version` — must be >= 22.5.0
+     - **B.** Find plugin path via `claude plugin list --json`, locate `graph/dist/server.js`, and register it: `claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"`
+     - **C.** If plugin not installed at all → tell user to install it
+   - After registering, tell user to restart Claude Code (Ctrl+C then `claude`).
    - **Stop here.** The graph is required. The `--no-graph` flag exists only for analysis (`--dry-run`) — never for actual file moves.
 
 ### Step 1: Load Conventions
