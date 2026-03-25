@@ -159,6 +159,34 @@ The graph was ensured in Step 0b. Use it as the **primary** source of import dat
 - Skip this step entirely. Import scanning will happen during execution (Step 4) using grep.
 - The plan will show "?" in the Risk column and include a warning: "Import counts unavailable — moves may require manual import fixes."
 
+#### 2h. Root Clutter & Build Artifacts
+
+Scan the **project root** for files that don't belong there. This catches non-code issues the source file inventory (2a) misses.
+
+```bash
+# List all files at project root (not recursive, not directories)
+find . -maxdepth 1 -type f | grep -v node_modules | grep -v .git | sort
+```
+
+**Flag these categories:**
+
+| Category | Pattern | Action |
+|----------|---------|--------|
+| **Loose assets** | `*.png`, `*.jpg`, `*.jpeg`, `*.gif`, `*.svg`, `*.ico`, `*.webp`, `*.mp4`, `*.mp3`, `*.woff`, `*.woff2`, `*.ttf`, `*.otf` | Move to `public/` or `assets/` |
+| **Build artifacts** | `tsconfig.tsbuildinfo`, `*.tsbuildinfo`, `.turbo/`, `*.log`, `.cache/` | Add to `.gitignore` |
+| **Large files** | Any file > 500KB at root | Flag for review — likely an asset that should be in `public/` or LFS |
+| **Environment samples** | `.env.example`, `.env.sample` | OK at root (don't flag) |
+| **Config files** | See Universal Never-Move List in conventions.md | OK at root (don't flag) |
+
+**For build artifacts**: check if they're already in `.gitignore`. If not, suggest adding them.
+
+```bash
+# Check if tsconfig.tsbuildinfo is gitignored
+git check-ignore tsconfig.tsbuildinfo 2>/dev/null || echo "NOT IGNORED"
+```
+
+Report findings as a separate section in the plan — these don't need import updates, just moves or .gitignore additions.
+
 ### Step 3: Generate Reorganization Plan
 
 Compile all findings into a structured plan. Present it to the user:
@@ -184,6 +212,12 @@ Compile all findings into a structured plan. Present it to the user:
 ### Barrel exports to create
 - {dir}/index.ts (re-exports: {list})
 
+### Root clutter
+| # | File | Size | Issue | Action |
+|---|------|------|-------|--------|
+| 1 | `Logo.png` | 1.2MB | Loose asset at root | Move to `public/` |
+| 2 | `tsconfig.tsbuildinfo` | 48KB | Build artifact, not gitignored | Add to `.gitignore` |
+
 ### Warnings
 - {any dynamic imports, alias edge cases, or files that need manual review}
 
@@ -192,6 +226,7 @@ Compile all findings into a structured plan. Present it to the user:
 - {M} files to rename
 - {K} new directories
 - ~{P} files need import path updates
+- {Q} root clutter items (assets to move, artifacts to gitignore)
 ```
 
 **STOP HERE.** Present the plan and wait for user approval.
