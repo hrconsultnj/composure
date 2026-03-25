@@ -1,8 +1,7 @@
-graph/node_modules/
-graph/pnpm-workspace.yaml
+node_modules/
 .code-review-graph/
 tasks-plans/
 docs/
-app/node_modules/
-app/dist/
 *.DS_Store
+plugins/composure/app/dist/
+plugins/composure/graph/pnpm-workspace.yaml
