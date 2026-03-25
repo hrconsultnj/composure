@@ -48,6 +48,50 @@ claude plugin install design-forge@my-claude-plugins
 /ux-researcher                   # Research design patterns and competitors
 ```
 
+## Troubleshooting
+
+### Reinstall a plugin
+
+```bash
+# Uninstall
+claude plugin uninstall composure
+# Reinstall
+claude plugin install composure@my-claude-plugins
+# Restart Claude Code (exit and reopen)
+```
+
+### Code review graph not working
+
+Composure's code graph requires **Node.js 22.5+**. Check with `node --version`.
+
+If Node is fine but the graph still doesn't work, register the MCP server manually:
+
+```bash
+# Find your plugin path
+claude plugin list --json
+
+# Register the graph server (replace PATH with installPath from above)
+claude mcp add composure-graph -- node --experimental-sqlite "PATH/graph/dist/server.js"
+
+# Restart Claude Code
+```
+
+Or let Composure do it for you — run `/composure:initialize` and it will auto-register the server.
+
+### Remove everything (full reset)
+
+```bash
+# Remove plugins
+claude plugin uninstall composure
+claude plugin uninstall design-forge
+
+# Remove the MCP server (if registered)
+claude mcp remove composure-graph
+
+# Remove the marketplace
+claude plugin marketplace remove my-claude-plugins
+```
+
 ## Licensing
 
 - **Composure** — [PolyForm Noncommercial 1.0.0](plugins/composure/LICENSE) (free for personal use). [Pro license ($39)](https://composure.lemonsqueezy.com) for commercial use + battle-tested data architecture patterns.
