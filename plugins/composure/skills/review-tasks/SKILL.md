@@ -77,6 +77,9 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 4. Does NOT execute any fixes
 
 #### `batch` — Process tasks sequentially
+
+**The graph is helpful but not required.** If available, use `query_graph({ pattern: "importers_of" })` for import updates. If not, use Grep as fallback — the tasks are pre-analyzed, so you know what to do. Do NOT stop if the graph is unavailable.
+
 1. Start with Critical tasks first
 2. For each task, read the file, check `tasks-plans/` for detailed guidance, apply the decomposition pattern:
    - Create feature folder
@@ -89,6 +92,9 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 5. Run `pnpm typecheck` after each decomposition to verify
 
 #### `delegate` — Dispatch sub-agents in parallel
+
+**This mode does NOT require the code graph.** The analysis was already done (by decomposition-audit or batch mode, which used the graph). Delegate mode executes pre-analyzed tasks — the sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching sub-agents.
+
 1. Create TaskCreate entries first (sync step)
 2. Group tasks by independence (files that don't import each other can be done in parallel)
 3. Launch sub-agents for independent groups — **include decomposition details from `tasks-plans/` in the agent prompt**:
@@ -105,8 +111,9 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
    - Run typecheck on the affected files
 
 5. **After all sub-agents complete and changes are merged back** (especially from worktrees):
-   - Call `build_or_update_graph({ full_rebuild: true })` — worktrees don't have the graph database (it's gitignored), so per-file hooks didn't update it during the sub-agents' work. A full rebuild re-indexes all the new/moved/split files at once.
-   - Run `/composure:review-delta` to verify the merged changes look correct
+   - If the graph MCP is available: call `build_or_update_graph({ full_rebuild: true })` — worktrees don't have the graph database (it's gitignored), so per-file hooks didn't update it during the sub-agents' work. A full rebuild re-indexes all the new/moved/split files at once.
+   - If the graph MCP is NOT available: remind the user that the graph will auto-register on next restart, and suggest running `/composure:build-graph` then
+   - Run `/composure:review-delta` to verify the merged changes (if graph available)
    - This is the parent agent's responsibility, not the sub-agents'
 
 #### `verify` — Check file sizes against audit items, mark done

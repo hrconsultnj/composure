@@ -78,6 +78,14 @@ claude mcp add composure-graph -- node --experimental-sqlite "PATH/graph/dist/se
 
 Or let Composure do it for you — run `/composure:initialize` and it will auto-register the server.
 
+### Graph stops working after plugin update
+
+If you run `claude plugin update composure` mid-session, the graph MCP server will disconnect — the old process dies but the new version's server doesn't auto-start until next session. This is expected.
+
+**Fix:** Exit Claude Code (Ctrl+C) and reopen it with `claude`. The updated server will start automatically.
+
+**To avoid this:** Update plugins between sessions, not during active work.
+
 ### Remove everything (full reset)
 
 ```bash
