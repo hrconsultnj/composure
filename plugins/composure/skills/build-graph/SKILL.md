@@ -8,6 +8,16 @@ argument-hint: "[full] [--no-open]"
 
 Build or incrementally update the persistent code knowledge graph, generate a standalone HTML visualization, and open it in the browser.
 
+## Prerequisites
+
+The `composure-graph` MCP server is **bundled with the Composure plugin** — it is NOT an npm package. Do NOT try to `npm install` it. It is declared in the plugin's `plugin.json` and auto-registered when the plugin is installed.
+
+If the MCP tools are unavailable when you call `list_graph_stats`, diagnose the problem:
+1. Run `node --version` via Bash
+2. **If Node < 22.5.0**: tell the user: "composure-graph requires Node 22.5 or newer (for built-in SQLite support). You have Node {version}. Please update Node, then exit Claude Code (Ctrl+C) and reopen it with `claude`."
+3. **If Node >= 22.5.0**: tell the user: "The composure-graph MCP server isn't starting. Exit Claude Code (Ctrl+C) and reopen it with `claude` to restart the plugin's MCP server. If the problem persists, verify the plugin is installed by running `claude plugin list`."
+4. **STOP.** Do NOT offer alternatives or workarounds — the server must be running.
+
 ## Steps
 
 1. **Check graph status** by calling the `list_graph_stats` MCP tool.
