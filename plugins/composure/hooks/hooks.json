@@ -6,8 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/skills/app-architecture/SKILL.md\"",
-            "timeout": 5
+            "command": "cat \"${CLAUDE_PLUGIN_ROOT}/skills/app-architecture/SKILL.md\" 2>/dev/null || echo '[composure:session-start:arch-loader] CLAUDE_PLUGIN_ROOT not set or SKILL.md missing' >&2",
+            "timeout": 5,
+            "statusMessage": "Loading architecture skill..."
           }
         ]
       },
@@ -17,7 +18,8 @@
           {
             "type": "agent",
             "prompt": "Quick session resume check (be brief, just report counts):\n\n1. TASKS: Read tasks-plans/tasks.md. If it has open items (- [ ]), for each DECOMPOSE item check the current file size with wc -l vs the limit. Mark [x] if now under limit. Report: N open, M resolved, K remaining.\n\n2. GRAPH: If .code-review-graph/graph.db exists, check its staleness — read the last_updated metadata. If more than 24h old or if `git log --oneline -1 --format=%ci` is newer than last_updated, suggest running /build-graph. If graph.db doesn't exist, mention /build-graph is available.\n\nIf tasks.md has no open items AND graph is fresh, say nothing.",
-            "timeout": 30
+            "timeout": 60,
+            "statusMessage": "Composure resume check..."
           }
         ]
       }
@@ -28,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/architecture-skill-trigger.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/architecture-skill-trigger.sh\" 2>&1 || echo '[composure:pre:arch-trigger] hook failed' >&2",
             "timeout": 5,
             "statusMessage": "Checking architecture..."
           }
@@ -39,13 +41,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-guide.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-guide.sh\" 2>&1 || echo '[composure:pre:decomp-guide] hook failed' >&2",
             "timeout": 5,
             "statusMessage": "Checking decomposition..."
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\" 2>&1 || echo '[composure:pre:no-bandaids] hook failed' >&2",
             "timeout": 5,
             "statusMessage": "Checking for band-aid fixes..."
           },
@@ -64,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-check.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-check.sh\" 2>&1 || echo '[composure:post:decomp-check] hook failed' >&2",
             "timeout": 10,
             "statusMessage": "Checking code quality..."
           }
@@ -75,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-update.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-update.sh\" 2>&1 || echo '[composure:post:graph-update] hook failed' >&2",
             "timeout": 15,
             "statusMessage": "Updating code graph..."
           }
