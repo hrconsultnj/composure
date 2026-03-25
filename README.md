@@ -64,27 +64,29 @@ claude plugin install composure@my-claude-plugins
 
 Composure's code graph requires **Node.js 22.5+**. Check with `node --version`.
 
-If Node is fine but the graph still doesn't work, register the MCP server manually:
+If Node is fine but the graph still doesn't work, run `/composure:initialize` — it will auto-register the server and survive future plugin updates.
+
+Or register manually:
 
 ```bash
 # Find your plugin path
-claude plugin list --json
+COMPOSURE_PATH=$(claude plugin list --json | node -e "
+  const p = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  const c = p.find(x => x.id.startsWith('composure') && x.enabled);
+  if (c) console.log(c.installPath);
+")
 
-# Register the graph server (replace PATH with installPath from above)
-claude mcp add composure-graph -- node --experimental-sqlite "PATH/graph/dist/server.js"
+# Copy launcher to stable location + register
+cp "$COMPOSURE_PATH/scripts/launch-graph-server.sh" ~/.claude/plugins/composure-graph-launcher.sh
+chmod +x ~/.claude/plugins/composure-graph-launcher.sh
+claude mcp add composure-graph -- bash ~/.claude/plugins/composure-graph-launcher.sh
 
 # Restart Claude Code
 ```
 
-Or let Composure do it for you — run `/composure:initialize` and it will auto-register the server.
-
 ### Graph stops working after plugin update
 
-If you run `claude plugin update composure` mid-session, the graph MCP server will disconnect — the old process dies but the new version's server doesn't auto-start until next session. This is expected.
-
-**Fix:** Exit Claude Code (Ctrl+C) and reopen it with `claude`. The updated server will start automatically.
-
-**To avoid this:** Update plugins between sessions, not during active work.
+After `claude plugin update composure`, just restart Claude Code (Ctrl+C → `claude`). The launcher resolves the latest cached version at startup — no re-registration needed.
 
 ### Remove everything (full reset)
 
