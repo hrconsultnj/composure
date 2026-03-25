@@ -120,7 +120,16 @@ Build a stack profile:
         "react": "19.2",
         "next": "16.1",
         "tailwindcss": "4.2",
-        "shadcn": "4.1"
+        "shadcn": "4.1",
+        "supabase-js": "2.93"
+      }
+    },
+    "supabase": {
+      "paths": ["apps/web", "apps/mobile"],
+      "frontend": null,
+      "backend": "supabase",
+      "versions": {
+        "supabase-js": "2.93"
       }
     },
     "python": {
@@ -163,6 +172,7 @@ Build a stack profile:
 
 | Dependency / File | `backend` value |
 |------------------|----------------|
+| `@supabase/supabase-js` or `supabase/config.toml` | `"supabase"` |
 | `express` | `"express"` |
 | `fastify` | `"fastify"` |
 | `hono` | `"hono"` |
@@ -172,7 +182,14 @@ Build a stack profile:
 | `gin` / `echo` / `chi` (Go) | `"gin"` / `"echo"` / `"chi"` |
 | `axum` / `actix-web` (Rust) | `"axum"` / `"actix"` |
 | Go stdlib only | `"stdlib"` |
+| `prisma` or `@prisma/client` | `"prisma"` |
+| `drizzle-orm` | `"drizzle"` |
+| Raw `pg` / `postgres` / `mysql2` / `mongoose` | `"postgresql"` / `"mysql"` / `"mongodb"` |
 | None detected | `null` |
+
+**Supabase is a backend, not just a client SDK.** When `@supabase/supabase-js` is detected, create a separate `"supabase"` entry in `frameworks` — this routes to `backend/supabase/` docs (RLS policies, auth helpers, realtime, edge functions). The `supabase-js` version can also appear in the frontend's `versions` for client-side reference, but the backend entry is what loads the database patterns.
+
+**A project can have BOTH a frontend backend and a data backend.** For example, Next.js (frontend: `"nextjs"`) + Supabase (backend: `"supabase"`) are separate framework entries — they don't conflict.
 
 **Important**: In monorepos, different paths may have different frontends. When `paths` includes both `apps/web` (Next.js) and `apps/mobile` (Expo), split into separate entries:
 
