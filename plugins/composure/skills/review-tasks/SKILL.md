@@ -103,6 +103,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
    - Mark the task `[x]` in both `tasks-plans/tasks.md` and `tasks-plans/` when done
    - Update TaskCreate status to `completed`
    - Run typecheck on the affected files
+   - Call `build_or_update_graph()` (incremental) after all edits — the PostToolUse hook handles per-file updates, but a final incremental build catches any edge cases
 
 #### `verify` — Check file sizes against audit items, mark done
 1. Read all open tasks (`- [ ]`) from `tasks-plans/tasks.md` and `tasks-plans/*.md`
