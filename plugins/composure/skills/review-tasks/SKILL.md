@@ -103,7 +103,11 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
    - Mark the task `[x]` in both `tasks-plans/tasks.md` and `tasks-plans/` when done
    - Update TaskCreate status to `completed`
    - Run typecheck on the affected files
-   - Call `build_or_update_graph()` (incremental) after all edits — the PostToolUse hook handles per-file updates, but a final incremental build catches any edge cases
+
+5. **After all sub-agents complete and changes are merged back** (especially from worktrees):
+   - Call `build_or_update_graph({ full_rebuild: true })` — worktrees don't have the graph database (it's gitignored), so per-file hooks didn't update it during the sub-agents' work. A full rebuild re-indexes all the new/moved/split files at once.
+   - Run `/composure:review-delta` to verify the merged changes look correct
+   - This is the parent agent's responsibility, not the sub-agents'
 
 #### `verify` — Check file sizes against audit items, mark done
 1. Read all open tasks (`- [ ]`) from `tasks-plans/tasks.md` and `tasks-plans/*.md`
