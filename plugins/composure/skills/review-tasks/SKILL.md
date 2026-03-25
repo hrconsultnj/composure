@@ -78,7 +78,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 
 #### `batch` — Process tasks sequentially
 
-**The graph is helpful but not required.** If available, use `query_graph({ pattern: "importers_of" })` for import updates. If not, use Grep as fallback — the tasks are pre-analyzed, so you know what to do. Do NOT stop if the graph is unavailable.
+**Requires the code graph.** Batch mode moves files and updates imports across the codebase — the graph provides exact importer data to do this safely. If the graph MCP is unavailable, run the auto-fix from `/composure:initialize` Step 0a (check Node version, find plugin path, register via `claude mcp add`). If it still can't connect, **stop** — tell the user to restart Claude Code and re-run.
 
 1. Start with Critical tasks first
 2. For each task, read the file, check `tasks-plans/` for detailed guidance, apply the decomposition pattern:
@@ -93,7 +93,11 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 
 #### `delegate` — Dispatch sub-agents in parallel
 
-**This mode does NOT require the code graph.** The analysis was already done (by decomposition-audit or batch mode, which used the graph). Delegate mode executes pre-analyzed tasks — the sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching sub-agents.
+**Prerequisites:**
+- **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/*.md` audit files have open items, stop: "No tasks to delegate. Run `/composure:decomposition-audit` first to identify what needs decomposing."
+- **The code graph is NOT required for dispatching.** The analysis was already done (by decomposition-audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching.
+
+**Dependency chain:** `/decomposition-audit` (analyzes, creates tasks) → `/review-tasks delegate` (executes tasks) → `/review-tasks verify` (confirms results)
 
 1. Create TaskCreate entries first (sync step)
 2. Group tasks by independence (files that don't import each other can be done in parallel)
