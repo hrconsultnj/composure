@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue. Go with the grain.",
-    "version": "1.2.31"
+    "version": "1.2.32"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./",
       "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue",
-      "version": "1.2.31",
+      "version": "1.2.32",
       "category": "development",
       "keywords": [
         "architecture",

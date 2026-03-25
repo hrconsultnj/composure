@@ -26,3 +26,28 @@
 Also check `.claude/frameworks/frontend/` for project-specific docs:
 - `generated/` — Context7 docs (typescript, shadcn, tailwind, etc.)
 - `project/` — team-written conventions
+
+## Design & Visual Quality
+
+For premium UI patterns beyond standard components — generative backgrounds, glassmorphism, custom cursors, scroll animations, 3D integration, micro-interactions — use the **Design Forge** plugin (`/design-forge`). It provides production-ready components with accessibility built in.
+
+**Components:** GenerativeCanvas, GlassPanel, CustomCursor, ScrollProgress, HoverCardCanvas, Scanlines, Typewriter, HeroScene (R3F), useSoundLayer
+**Presets:** grid-field, orbital-ellipses, point-cloud, particle-system
+**Guides:** animation-recipes, 3d-integration, micro-interactions, accessibility, design-patterns, canvas-system
+
+### If Design Forge is not installed
+
+Install from the Claude Code plugin marketplace:
+
+```bash
+# Add the marketplace source
+claude plugin marketplace add hrconsultnj/design-forge
+
+# Install the plugin
+claude plugin install design-forge@design-forge
+```
+
+Then use `/design-forge` to browse patterns, or ask about any component directly.
+
+**Repository:** https://github.com/hrconsultnj/design-forge
+**License:** MIT (free for all use)
