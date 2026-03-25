@@ -34,7 +34,7 @@ The `composure-graph` MCP server is **bundled with the Composure plugin** — it
 
    **Step B — Find the plugin install path and register the MCP server:**
 
-   The plugin system caches composure under `~/.claude/plugins/cache/` but does NOT always auto-register the bundled MCP server. Fix this by manually registering it:
+   The plugin system caches composure under `~/.claude/plugins/cache/` but does NOT always auto-register the bundled MCP server. Fix this by registering a **launcher script** that dynamically resolves the latest cached version at startup — so it survives plugin updates without re-registration.
 
    ```bash
    # Find the composure plugin install path
@@ -44,16 +44,21 @@ The `composure-graph` MCP server is **bundled with the Composure plugin** — it
      if (c) console.log(c.installPath);
    ")
 
-   # Verify the server binary exists
-   ls "$COMPOSURE_PATH/graph/dist/server.js"
+   # Copy the launcher to a stable location (outside versioned cache)
+   LAUNCHER_DIR="${HOME}/.claude/plugins"
+   mkdir -p "$LAUNCHER_DIR"
+   cp "$COMPOSURE_PATH/scripts/launch-graph-server.sh" "$LAUNCHER_DIR/composure-graph-launcher.sh"
+   chmod +x "$LAUNCHER_DIR/composure-graph-launcher.sh"
    ```
 
-   If the path is found and `server.js` exists, register the MCP server:
+   Then register the MCP server using the stable launcher path:
    ```bash
-   claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"
+   claude mcp add composure-graph -- bash "${HOME}/.claude/plugins/composure-graph-launcher.sh"
    ```
 
-   Report: "Registered composure-graph MCP server from plugin cache."
+   **Why a launcher?** Registering `claude mcp add` with a versioned path like `composure/1.2.38/graph/dist/server.js` breaks on plugin update (the old version directory is replaced). The launcher resolves the latest version at startup, so `claude plugin update composure` + restart just works — no re-registration needed.
+
+   Report: "Registered composure-graph MCP server (launcher at ~/.claude/plugins/composure-graph-launcher.sh)."
 
    **Then tell the user**: "The composure-graph MCP server has been registered. Exit Claude Code (Ctrl+C) and reopen it with `claude` for it to start."
    → **STOP** (restart needed for MCP to connect).
