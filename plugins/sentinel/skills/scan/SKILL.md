@@ -157,11 +157,27 @@ Top priorities:
   3. Hardcoded JWT secret in src/auth/config.ts:12 — credential exposure
 ```
 
+### Step 6: Known Critical CVE Check (framework-specific)
+
+After the Semgrep + dependency audit, check for known critical CVEs that scanners may miss because they affect framework runtime, not dependencies:
+
+**React Server Components (if react >= 19.0.0 detected):**
+- CVE-2025-55182 (CVSS 10.0): Unauthenticated RCE via payload decoding in Server Functions. Fixed in react 19.0.1, 19.1.2, 19.2.1.
+- CVE-2025-XXXXX (CVSS High): DoS + source code exposure in Server Components. Fixed in 19.0.4, 19.1.5, 19.2.4.
+- Check: `grep -r "react.*19\.[0-2]\.[0-3]" package.json pnpm-lock.yaml` — if vulnerable version found, report as Critical.
+
+**Supabase (if @supabase/supabase-js detected):**
+- Check for `service_role` key usage in client-side code (not Edge Functions or server-only files). Bypasses ALL RLS.
+- Check for `.rpc()` calls without RLS policies on the underlying function.
+
+**This list should be refreshed via Context7 when staleness thresholds are exceeded** (see `.claude/sentinel.json` staleness config). Query Context7 for `{framework} security vulnerabilities CVE` to discover new entries.
+
 ## Notes
 
 - Findings are appended to `tasks-plans/tasks.md`, never overwritten — existing tasks are preserved
 - Duplicate findings (same rule + same file + same line) are skipped
 - Low-severity dependency vulnerabilities are omitted to reduce noise
+- The known CVE list (Step 6) is a point-in-time snapshot — Context7 queries keep it current based on staleness thresholds
 - If neither Semgrep nor a package manager audit is available, report what was skipped and why
 - The scan is read-only — it does not modify any project source files
 - For CI integration, the JSON output from Semgrep can be piped to other tools

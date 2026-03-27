@@ -82,7 +82,7 @@ printf '%s\n' "$CONTENT" | grep -qE 'aws_secret_access_key\s*=' && block "AWS Se
 printf '%s\n' "$CONTENT" | grep -qE 'gh[pousr]_[A-Za-z0-9]{36}' && block "GitHub Token"
 
 # OpenAI / Anthropic API keys (sk- followed by 20+ alphanumeric chars)
-printf '%s\n' "$CONTENT" | grep -qE 'sk-[A-Za-z0-9]{20,}' && block "API Secret Key (sk-)"
+printf '%s\n' "$CONTENT" | grep -qE 'sk-[A-Za-z0-9_-]{20,}' && block "API Secret Key (sk-)"
 
 # Anthropic-specific prefix (also caught above, but explicit for short keys)
 printf '%s\n' "$CONTENT" | grep -qE 'sk-ant-' && block "Anthropic API Key"
@@ -91,13 +91,46 @@ printf '%s\n' "$CONTENT" | grep -qE 'sk-ant-' && block "Anthropic API Key"
 printf '%s\n' "$CONTENT" | grep -qE '(sk_live_|sk_test_|rk_live_|rk_test_)' && block "Stripe Key"
 
 # Private key blocks (RSA, EC, DSA, OPENSSH, or plain PRIVATE KEY)
-printf '%s\n' "$CONTENT" | grep -qE '\-\-\-\-\-BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY\-\-\-\-\-' && block "Private Key"
+printf '%s\n' "$CONTENT" | grep -qE '\-\-\-\-\-BEGIN (RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED |PKCS7|PRIVATE )?PRIVATE KEY' && block "Private Key (SSH/RSA/EC/PGP)"
 
 # Database connection strings with embedded credentials
 printf '%s\n' "$CONTENT" | grep -qE '(postgres|mysql|mongodb|redis)://[^:]+:[^@]+@' && block "Database Credentials in URL"
 
 # JWT tokens (base64url-encoded header.payload.signature)
 printf '%s\n' "$CONTENT" | grep -qE 'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.' && block "JWT Token"
+
+# Supabase service role key hardcoded (not from env)
+# service_role keys bypass ALL RLS — must never be in client code
+if printf '%s\n' "$CONTENT" | grep -qE 'service_role' && ! printf '%s\n' "$CONTENT" | grep -qE '(process\.env|Deno\.env|import\.meta\.env|getenv|os\.environ)'; then
+  block "Supabase Service Role Key (bypasses RLS)"
+fi
+
+# Google Cloud / Firebase API key
+printf '%s\n' "$CONTENT" | grep -qE 'AIza[0-9A-Za-z_-]{35}' && block "Google Cloud/Firebase API Key"
+
+# GCP service account JSON embedded in source
+printf '%s\n' "$CONTENT" | grep -qE '"type"\s*:\s*"service_account"' && block "GCP Service Account JSON"
+
+# Azure connection string
+printf '%s\n' "$CONTENT" | grep -qE 'DefaultEndpointsProtocol=https;AccountName=.*AccountKey=' && block "Azure Storage Connection String"
+
+# SendGrid API key
+printf '%s\n' "$CONTENT" | grep -qE 'SG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}' && block "SendGrid API Key"
+
+# Twilio Account SID
+printf '%s\n' "$CONTENT" | grep -qE 'AC[0-9a-fA-F]{32}' && block "Twilio Account SID"
+
+# Resend API key
+printf '%s\n' "$CONTENT" | grep -qE 're_[A-Za-z0-9]{20,}' && block "Resend API Key"
+
+# GitLab personal access token
+printf '%s\n' "$CONTENT" | grep -qE 'glpat-[A-Za-z0-9_-]{20,}' && block "GitLab Personal Access Token"
+
+# npm auth token
+printf '%s\n' "$CONTENT" | grep -qE 'npm_[A-Za-z0-9]{36}' && block "npm Auth Token"
+
+# Google OAuth client secret
+printf '%s\n' "$CONTENT" | grep -qE 'GOCSPX-[A-Za-z0-9_-]{28}' && block "Google OAuth Client Secret"
 
 # Generic secrets: password/secret/token/api_key/apikey/auth_token = "value" (8+ chars)
 # Strip comment lines first to avoid false positives on documentation
