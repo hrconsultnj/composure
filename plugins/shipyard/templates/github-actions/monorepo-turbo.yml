@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, Typecheck, Test, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Needed for HEAD^ comparison in --filter
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Turborepo remote cache (optional -- remove if not using Vercel remote cache)
+      # - name: Configure turbo remote cache
+      #   run: echo "TURBO_TOKEN=${{ secrets.TURBO_TOKEN }}" >> $GITHUB_ENV
+
+      # Turborepo local cache
+      - uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
+
+      # Run all pipeline tasks -- turbo handles ordering and parallelism
+      # On PRs: only affected packages (changed since HEAD^)
+      # On main: full build
+      - name: Run affected checks (PR)
+        if: github.event_name == 'pull_request'
+        run: pnpm turbo run lint typecheck test build --filter=...[HEAD^]
+
+      - name: Run full checks (main)
+        if: github.event_name == 'push'
+        run: pnpm turbo run lint typecheck test build
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
+
+  # Optional: detect which packages changed and deploy only those
+  # affected:
+  #   name: Detect Affected Packages
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     packages: ${{ steps.detect.outputs.packages }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - id: detect
+  #       run: |
+  #         PACKAGES=$(pnpm turbo run build --filter=...[HEAD^] --dry-run=json | jq -c '[.packages[]]')
+  #         echo "packages=$PACKAGES" >> $GITHUB_OUTPUT

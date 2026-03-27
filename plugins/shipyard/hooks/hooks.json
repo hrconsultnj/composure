@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/init-check.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": "Checking Shipyard setup..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ci-syntax-guard.sh\" 2>&1 || { echo '[shipyard:ci-syntax] hook failed' >&2; exit 0; }",
+            "timeout": 10,
+            "statusMessage": "Validating CI config..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dockerfile-guard.sh\" 2>&1 || { echo '[shipyard:dockerfile] hook failed' >&2; exit 0; }",
+            "timeout": 5,
+            "statusMessage": "Validating Dockerfile..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'PRESERVE: Shipyard plugin is active. Skills: /shipyard:ci-generate, /shipyard:ci-validate, /shipyard:deps-check, /shipyard:dockerfile, /shipyard:preflight. Config at .claude/shipyard.json.'",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

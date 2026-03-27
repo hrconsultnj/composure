@@ -12,7 +12,7 @@ Claude Code plugins by [HR Business Consulting](https://github.com/hrconsultnj) 
 | **[Design Forge](plugins/design-forge/)** | Design | Premium web design patterns — 33 production components, canvas presets, animation recipes, 3D integration, accessibility. | Stable |
 | **[Sentinel](plugins/sentinel/)** | Security | Local-first security scanning — SAST, secret detection, dependency audit, HTTP header analysis. No cloud auth required. | New |
 | **[Testbench](plugins/testbench/)** | Testing | Convention-aware test generation, running, coverage nudges. Reads existing tests to match your project style. | New |
-| **Shipyard** | DevOps | CI/CD generation, Dockerfile validation, deployment config, production readiness checks. | Planned |
+| **[Shipyard](plugins/shipyard/)** | DevOps | CI/CD generation, Dockerfile validation, dependency health checks, production readiness. 7 workflow templates, 3 Dockerfiles. | New |
 
 ## How They Work Together
 
@@ -37,9 +37,15 @@ Testbench (testing layer)
   ├── /testbench:generate           ← Convention-aware test generation (reads existing tests first)
   └── /testbench:run                ← Run tests, parse failures with source context
 
-Shipyard (deployment layer) — planned
-  ├── ci-syntax-guard.sh            ← Validates CI config on every edit
-  └── /shipyard:ci-generate         ← GitHub Actions workflow from detected stack
+Shipyard (deployment layer)
+  ├── ci-syntax-guard.sh            ← Validates CI config on every edit (actionlint)
+  ├── dockerfile-guard.sh           ← Warns on Docker anti-patterns (non-blocking)
+  ├── /shipyard:initialize          ← Detect CI platform, deployment target, tools
+  ├── /shipyard:ci-generate         ← Generate CI workflow from detected stack
+  ├── /shipyard:ci-validate         ← Validate existing workflows (12 heuristic checks)
+  ├── /shipyard:deps-check          ← Dependency health — highest safe version, not just "latest"
+  ├── /shipyard:dockerfile          ← Generate/validate multi-stage Dockerfiles
+  └── /shipyard:preflight           ← Production readiness checklist (env, health, security, perf)
 ```
 
 ## Installation
@@ -53,11 +59,13 @@ claude plugin install composure@my-claude-plugins
 claude plugin install design-forge@my-claude-plugins
 claude plugin install sentinel@my-claude-plugins
 claude plugin install testbench@my-claude-plugins
+claude plugin install shipyard@my-claude-plugins
 
 # Initialize in your project
 /composure:initialize              # Stack detection, graph, config
 /sentinel:initialize               # Security config, tool detection
 /testbench:initialize              # Test framework detection, conventions
+/shipyard:initialize               # CI/CD platform, deployment target
 ```
 
 ## Quick Start
@@ -101,6 +109,21 @@ Sentinel also runs automatically via hooks:
 
 Testbench also runs automatically via hooks:
 - **test-coverage-nudge** — when you edit a source file with no tests, suggests `/testbench:generate` (once per file per session)
+
+### Shipyard
+
+```
+/shipyard:initialize             # Detect CI platform, deployment target, tools
+/shipyard:ci-generate            # Generate CI workflow (GH Actions, GitLab, Bitbucket)
+/shipyard:ci-validate            # Validate existing CI workflows (12 checks + actionlint)
+/shipyard:deps-check             # Dependency health — CVEs, safe version recommendations
+/shipyard:dockerfile             # Generate/validate multi-stage Dockerfiles
+/shipyard:preflight              # Production readiness checklist
+```
+
+Shipyard also runs automatically via hooks:
+- **ci-syntax-guard** — blocks broken CI workflow syntax on every edit (uses actionlint when available)
+- **dockerfile-guard** — warns on Docker anti-patterns (root user, `:latest` tags, poor layer caching)
 
 ### Design Forge
 
@@ -157,6 +180,7 @@ claude plugin uninstall composure
 claude plugin uninstall design-forge
 claude plugin uninstall sentinel
 claude plugin uninstall testbench
+claude plugin uninstall shipyard
 
 # Remove the MCP server (if registered)
 claude mcp remove composure-graph
@@ -171,5 +195,6 @@ claude plugin marketplace remove my-claude-plugins
 - **Design Forge** — [PolyForm Noncommercial 1.0.0](plugins/design-forge/LICENSE) (free for personal use).
 - **Sentinel** — [PolyForm Noncommercial 1.0.0](plugins/sentinel/LICENSE) (free for personal use).
 - **Testbench** — [PolyForm Noncommercial 1.0.0](plugins/testbench/LICENSE) (free for personal use).
+- **Shipyard** — [PolyForm Noncommercial 1.0.0](plugins/shipyard/LICENSE) (free for personal use).
 
 See each plugin's directory for full documentation.
