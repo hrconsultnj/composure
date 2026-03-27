@@ -1,15 +1,44 @@
 # HR Claude Plugins
 
-Claude Code plugins by [HR Business Consulting](https://github.com/hrconsultnj) — code quality enforcement, architecture patterns, and premium design.
+Claude Code plugins by [HR Business Consulting](https://github.com/hrconsultnj) — code quality, security, architecture, and premium design.
 
-> **⚠️ Important:** Make sure you trust a plugin before installing, updating, or using it. Anthropic does not control what MCP servers, files, or other software are included in plugins and cannot verify that they will work as intended or that they won't change. See each plugin's directory for more information.
+> **Warning:** Make sure you trust a plugin before installing, updating, or using it. Anthropic does not control what MCP servers, files, or other software are included in plugins and cannot verify that they will work as intended or that they won't change. See each plugin's directory for more information.
 
 ## Plugins
 
-| Plugin | Description | Category |
-|--------|-------------|----------|
-| **[Composure](plugins/composure/)** | Code quality enforcement — decomposition hooks, architecture skills, code review graph, severity-tracked task queue. 7 languages. | Development |
-| **[Design Forge](plugins/design-forge/)** | Premium web design patterns — 33 production components, canvas presets, animation recipes, 3D integration, accessibility, AI design research. | Design |
+| Plugin | Category | Description | Status |
+|--------|----------|-------------|--------|
+| **[Composure](plugins/composure/)** | Development | Code quality enforcement — decomposition hooks, architecture skills, code review graph, severity-tracked task queue. 7 languages. | Stable |
+| **[Design Forge](plugins/design-forge/)** | Design | Premium web design patterns — 33 production components, canvas presets, animation recipes, 3D integration, accessibility. | Stable |
+| **[Sentinel](plugins/sentinel/)** | Security | Local-first security scanning — SAST, secret detection, dependency audit, HTTP header analysis. No cloud auth required. | New |
+| **Testbench** | Testing | Test generation, running, coverage tracking. Convention-aware test gen that matches your project style. | Planned |
+| **Shipyard** | DevOps | CI/CD generation, Dockerfile validation, deployment config, production readiness checks. | Planned |
+
+## How They Work Together
+
+```
+Composure (foundation)
+  ├── .claude/no-bandaids.json      ← All plugins read this for stack detection
+  ├── tasks-plans/tasks.md          ← All plugins write findings here
+  ├── /composure:commit             ← Blocks on Critical findings from ANY plugin
+  └── composure-graph MCP           ← Testbench uses for coverage intelligence
+
+Sentinel (security layer)
+  ├── secret-guard.sh               ← Blocks exposed secrets on every Edit/Write
+  ├── insecure-pattern-guard.sh     ← Blocks insecure code patterns (22 patterns, 4 languages)
+  └── /sentinel:scan                ← Full SAST + dependency audit → tasks-plans/
+
+Design Forge (design layer)
+  └── /design-forge                 ← Premium components adapted to your stack
+
+Testbench (testing layer) — planned
+  ├── test-coverage-nudge.sh        ← Nudges when editing untested files
+  └── /testbench:generate           ← Convention-aware test generation
+
+Shipyard (deployment layer) — planned
+  ├── ci-syntax-guard.sh            ← Validates CI config on every edit
+  └── /shipyard:ci-generate         ← GitHub Actions workflow from detected stack
+```
 
 ## Installation
 
@@ -17,12 +46,14 @@ Claude Code plugins by [HR Business Consulting](https://github.com/hrconsultnj) 
 # Add the marketplace
 claude plugin marketplace add hrconsultnj/claude-plugins
 
-# Install plugins
+# Install plugins (pick what you need)
 claude plugin install composure@my-claude-plugins
 claude plugin install design-forge@my-claude-plugins
+claude plugin install sentinel@my-claude-plugins
 
-# Initialize Composure in your project
-/composure:initialize
+# Initialize in your project
+/composure:initialize              # Stack detection, graph, config
+/sentinel:initialize               # Security config, tool detection
 ```
 
 ## Quick Start
@@ -33,13 +64,28 @@ claude plugin install design-forge@my-claude-plugins
 /composure:initialize            # Detect stack, build graph, generate config
 /composure:app-architecture      # Feature-building guide — framework-specific refs
 /composure:commit                # Commit with auto task queue hygiene + graph update
-/composure:decomposition-audit   # Full codebase scan for size violations
+/composure:decomposition-audit   # Full codebase scan for size violations + ghost duplicates
 /composure:review-tasks          # Process task queue (verify, delegate, archive)
 /composure:review-pr             # PR review with blast-radius analysis
 /composure:review-delta          # Review changes since last commit
 /composure:build-graph           # Build/update code review knowledge graph
+/composure:code-organizer        # Restructure project layout to framework conventions
 /composure:update-project        # Refresh config, hooks, or docs without full re-init
 ```
+
+### Sentinel
+
+```
+/sentinel:initialize             # Detect stack, install security tools, generate config
+/sentinel:scan                   # Full SAST (Semgrep) + dependency audit
+/sentinel:audit-deps             # Focused dependency vulnerability scan
+/sentinel:headers                # HTTP security header analysis (context-aware grading)
+```
+
+Sentinel also runs automatically via hooks:
+- **secret-guard** — blocks exposed secrets on every Edit/Write (19 patterns: AWS, GitHub, Stripe, SSH keys, JWTs, Supabase service_role, and more)
+- **insecure-pattern-guard** — blocks insecure code patterns (eval, innerHTML, SQL injection, command injection across TypeScript, Python, Go, Rust)
+- **dep-freshness-check** — checks for known CVEs on session start
 
 ### Design Forge
 
@@ -94,6 +140,7 @@ After `claude plugin update composure`, just restart Claude Code (Ctrl+C → `cl
 # Remove plugins
 claude plugin uninstall composure
 claude plugin uninstall design-forge
+claude plugin uninstall sentinel
 
 # Remove the MCP server (if registered)
 claude mcp remove composure-graph
@@ -106,5 +153,6 @@ claude plugin marketplace remove my-claude-plugins
 
 - **Composure** — [PolyForm Noncommercial 1.0.0](plugins/composure/LICENSE) (free for personal use). [Pro license ($39)](https://composure.lemonsqueezy.com) for commercial use + battle-tested data architecture patterns.
 - **Design Forge** — [PolyForm Noncommercial 1.0.0](plugins/design-forge/LICENSE) (free for personal use).
+- **Sentinel** — [PolyForm Noncommercial 1.0.0](plugins/sentinel/LICENSE) (free for personal use).
 
 See each plugin's directory for full documentation.
