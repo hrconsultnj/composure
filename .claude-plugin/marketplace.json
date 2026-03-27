@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Code quality, architecture enforcement, and premium design patterns for Claude Code.",
-    "version": "1.2.59"
+    "version": "1.2.60"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
       "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue",
-      "version": "1.2.59",
+      "version": "1.2.60",
       "category": "development",
       "keywords": [
         "architecture",
@@ -82,6 +82,25 @@
         "e2e",
         "mocking",
         "test-generation"
+      ]
+    },
+    {
+      "name": "shipyard",
+      "source": "./plugins/shipyard",
+      "description": "CI/CD pipeline plugin — GitHub Actions workflows, Docker best practices, deployment principles, multi-stage Dockerfile templates, zero-downtime strategies",
+      "version": "1.0.0",
+      "category": "devops",
+      "keywords": [
+        "ci-cd",
+        "github-actions",
+        "docker",
+        "deployment",
+        "zero-downtime",
+        "pipelines",
+        "containers",
+        "vercel",
+        "turborepo",
+        "devops"
       ]
     }
   ]
