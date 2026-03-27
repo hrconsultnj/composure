@@ -1,0 +1,47 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/init-check.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": "Checking Sentinel setup..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dep-freshness-check.sh\" 2>&1 || { echo '[sentinel:dep-check] hook failed' >&2; exit 0; }",
+            "timeout": 10,
+            "statusMessage": "Checking dependency freshness..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/secret-guard.sh\" 2>&1 || { echo '[sentinel:secret-guard] hook failed' >&2; exit 0; }",
+            "timeout": 5,
+            "statusMessage": "Scanning for secrets..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/insecure-pattern-guard.sh\" 2>&1 || { echo '[sentinel:insecure-pattern] hook failed' >&2; exit 0; }",
+            "timeout": 5,
+            "statusMessage": "Checking for insecure patterns..."
+          }
+        ]
+      }
+    ]
+  }
+}
