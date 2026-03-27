@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Code quality, architecture enforcement, and premium design patterns for Claude Code.",
-    "version": "1.2.58"
+    "version": "1.2.59"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
       "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue",
-      "version": "1.2.58",
+      "version": "1.2.59",
       "category": "development",
       "keywords": [
         "architecture",
@@ -63,6 +63,25 @@
         "dependency-scanning",
         "xss",
         "injection"
+      ]
+    },
+    {
+      "name": "testbench",
+      "source": "./plugins/testbench",
+      "description": "Test generation and quality plugin — framework-aware templates, coverage nudging, testing principles reference docs for Vitest, Jest, Playwright, pytest",
+      "version": "1.0.0",
+      "category": "testing",
+      "keywords": [
+        "testing",
+        "vitest",
+        "jest",
+        "playwright",
+        "pytest",
+        "coverage",
+        "unit-tests",
+        "e2e",
+        "mocking",
+        "test-generation"
       ]
     }
   ]

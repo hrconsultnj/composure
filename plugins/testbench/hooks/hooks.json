@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [{
+          "type": "command",
+          "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/init-check.sh\" 2>&1 || exit 0",
+          "timeout": 3,
+          "statusMessage": "Checking Testbench setup..."
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{
+          "type": "command",
+          "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/test-coverage-nudge.sh\" 2>&1 || { echo '[testbench:coverage-nudge] hook failed' >&2; exit 0; }",
+          "timeout": 5,
+          "statusMessage": "Checking test coverage..."
+        }]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [{
+          "type": "command",
+          "command": "echo 'PRESERVE: Testbench plugin is active. Skills: /testbench:generate, /testbench:run. Config at .claude/testbench.json.'",
+          "timeout": 3
+        }]
+      }
+    ]
+  }
+}
