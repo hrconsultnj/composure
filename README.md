@@ -11,7 +11,7 @@ Claude Code plugins by [HR Business Consulting](https://github.com/hrconsultnj) 
 | **[Composure](plugins/composure/)** | Development | Code quality enforcement — decomposition hooks, architecture skills, code review graph, severity-tracked task queue. 7 languages. | Stable |
 | **[Design Forge](plugins/design-forge/)** | Design | Premium web design patterns — 33 production components, canvas presets, animation recipes, 3D integration, accessibility. | Stable |
 | **[Sentinel](plugins/sentinel/)** | Security | Local-first security scanning — SAST, secret detection, dependency audit, HTTP header analysis. No cloud auth required. | New |
-| **Testbench** | Testing | Test generation, running, coverage tracking. Convention-aware test gen that matches your project style. | Planned |
+| **[Testbench](plugins/testbench/)** | Testing | Convention-aware test generation, running, coverage nudges. Reads existing tests to match your project style. | New |
 | **Shipyard** | DevOps | CI/CD generation, Dockerfile validation, deployment config, production readiness checks. | Planned |
 
 ## How They Work Together
@@ -31,9 +31,11 @@ Sentinel (security layer)
 Design Forge (design layer)
   └── /design-forge                 ← Premium components adapted to your stack
 
-Testbench (testing layer) — planned
-  ├── test-coverage-nudge.sh        ← Nudges when editing untested files
-  └── /testbench:generate           ← Convention-aware test generation
+Testbench (testing layer)
+  ├── test-coverage-nudge.sh        ← Nudges when editing untested files (session-deduped)
+  ├── /testbench:initialize         ← Detect test framework + learn project conventions
+  ├── /testbench:generate           ← Convention-aware test generation (reads existing tests first)
+  └── /testbench:run                ← Run tests, parse failures with source context
 
 Shipyard (deployment layer) — planned
   ├── ci-syntax-guard.sh            ← Validates CI config on every edit
@@ -50,10 +52,12 @@ claude plugin marketplace add hrconsultnj/claude-plugins
 claude plugin install composure@my-claude-plugins
 claude plugin install design-forge@my-claude-plugins
 claude plugin install sentinel@my-claude-plugins
+claude plugin install testbench@my-claude-plugins
 
 # Initialize in your project
 /composure:initialize              # Stack detection, graph, config
 /sentinel:initialize               # Security config, tool detection
+/testbench:initialize              # Test framework detection, conventions
 ```
 
 ## Quick Start
@@ -86,6 +90,17 @@ Sentinel also runs automatically via hooks:
 - **secret-guard** — blocks exposed secrets on every Edit/Write (19 patterns: AWS, GitHub, Stripe, SSH keys, JWTs, Supabase service_role, and more)
 - **insecure-pattern-guard** — blocks insecure code patterns (eval, innerHTML, SQL injection, command injection across TypeScript, Python, Go, Rust)
 - **dep-freshness-check** — checks for known CVEs on session start
+
+### Testbench
+
+```
+/testbench:initialize            # Detect test framework, learn project conventions
+/testbench:generate <file>       # Generate tests matching your project style
+/testbench:run [all|changed]     # Run tests, parse failures with source context
+```
+
+Testbench also runs automatically via hooks:
+- **test-coverage-nudge** — when you edit a source file with no tests, suggests `/testbench:generate` (once per file per session)
 
 ### Design Forge
 
@@ -141,6 +156,7 @@ After `claude plugin update composure`, just restart Claude Code (Ctrl+C → `cl
 claude plugin uninstall composure
 claude plugin uninstall design-forge
 claude plugin uninstall sentinel
+claude plugin uninstall testbench
 
 # Remove the MCP server (if registered)
 claude mcp remove composure-graph
@@ -154,5 +170,6 @@ claude plugin marketplace remove my-claude-plugins
 - **Composure** — [PolyForm Noncommercial 1.0.0](plugins/composure/LICENSE) (free for personal use). [Pro license ($39)](https://composure.lemonsqueezy.com) for commercial use + battle-tested data architecture patterns.
 - **Design Forge** — [PolyForm Noncommercial 1.0.0](plugins/design-forge/LICENSE) (free for personal use).
 - **Sentinel** — [PolyForm Noncommercial 1.0.0](plugins/sentinel/LICENSE) (free for personal use).
+- **Testbench** — [PolyForm Noncommercial 1.0.0](plugins/testbench/LICENSE) (free for personal use).
 
 See each plugin's directory for full documentation.
