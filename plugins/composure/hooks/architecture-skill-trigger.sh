@@ -70,6 +70,17 @@ fi
 # Mark as triggered
 touch "$DEDUP_FILE"
 
+# ── Check if this is a NEW file creation (Write to non-existent path) ──
+IS_NEW_FILE=0
+if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
+  IS_NEW_FILE=1
+fi
+
 # ── Return system message ──
+if [ "$IS_NEW_FILE" -eq 1 ]; then
+  printf '{"systemMessage": "ARCHITECTURE REMINDER: You are about to CREATE a new source file. If you have not already loaded the /app-architecture skill this session, invoke it now. For non-trivial features (multi-file, new routes, new data models), consider running /blueprint first to plan the approach and identify impact before writing code."}'
+  exit 0
+fi
+
 printf '{"systemMessage": "ARCHITECTURE REMINDER: You are about to create/modify a source file. If you have not already loaded the /app-architecture skill this session, invoke it now. It contains the decomposition rules, size limits, query patterns, and folder conventions for this codebase."}'
 exit 0
