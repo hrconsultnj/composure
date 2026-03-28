@@ -34,18 +34,7 @@ Group open tasks (`- [ ]`) by severity:
 
 ### Step 3: Sync to TaskCreate (MANDATORY for `sync` and `delegate` modes)
 
-For Critical and High priority tasks, create `TaskCreate` entries so they're visible in the session:
-
-```
-TaskCreate({
-  subject: "Decompose {filename} ({lines}→{limit} lines)",
-  description: "File: {path}\nCurrent: {lines} lines\nLimit: {limit}\n\nSteps:\n{decomposition_steps_from_plan}",
-  activeForm: "Decomposing {filename}",
-  metadata: { priority: "critical"|"high", source: "tasks-plans/tasks.md"|"tasks-plans/audit.md" }
-})
-```
-
-**Key**: Pull decomposition details from the `tasks-plans/` file if available — it has richer context than `tasks-plans/tasks.md` entries.
+Use the native `TaskCreate` tool for each Critical and High priority task. Include the file path, current line count, limit, and decomposition steps from `tasks-plans/` if available. Claude knows the TaskCreate schema — just call the tool directly.
 
 ### Step 4: Present Summary
 
@@ -149,7 +138,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 When processing **SHARED** tasks (types duplicated from `@etal-crm/shared`):
 1. Read the shared package to find the canonical type definition
 2. Replace the inline type with an import: `import { TypeName } from '@etal-crm/shared'`
-3. If the type doesn't exist in shared but should, offer to add it to shared first
+3. If the type doesn't exist in shared but should, use AskUserQuestion to confirm before adding it
 
 ## Task Source Priority
 

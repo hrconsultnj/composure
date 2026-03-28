@@ -23,7 +23,34 @@ Invoke when you need research **before** designing:
 - "Find examples of [design pattern] in production"
 - "What's the product-market fit for [feature]?"
 
-**Output**: Actionable research reports that `/design-forge` uses to implement solutions.
+**Output**: Research is written to a document file — NOT dumped into the conversation. The conversation gets a short summary with the recommendation and a pointer to the full report.
+
+## Output Rules (MANDATORY)
+
+**ALWAYS write research to a file.** Never output full research reports into the conversation.
+
+1. Write the full report to `.claude/research/{topic}-{YYYY-MM-DD}.md`
+2. Create `.claude/research/` directory if it doesn't exist
+3. In the conversation, output ONLY:
+   - 3-5 line summary of the recommendation
+   - Key technology choice with one-line rationale
+   - Path to the full report
+   - "Read the report and run `/design-forge` to implement"
+
+**Why:** Research reports are 200-500 lines. Dumping them into the conversation wastes context tokens — they get compacted and lost. A file persists, can be re-read by `/design-forge`, and survives across sessions.
+
+**Example conversation output:**
+```
+UX Research: Dashboard Data Visualization
+
+Recommendation: Recharts + shadcn/ui cards for data display, Framer Motion
+for transitions. CSS grid bento layout. No 3D — performance cost outweighs
+value for dashboards.
+
+Full report: .claude/research/dashboard-dataviz-2026-03-28.md
+
+Read the report and run /design-forge to implement.
+```
 
 ## Relationship to design-forge
 
@@ -423,13 +450,14 @@ report_components:
 ```
 
 ### 5. Hand Off to design-forge
+
+The research file at `.claude/research/{topic}.md` is the handoff. When the user runs `/design-forge` next, it reads the most recent research file for context. No copy-paste needed — the file IS the bridge.
+
 ```yaml
 handoff:
-  - Design intelligence report (markdown)
-  - Technology recommendations with rationale
-  - Pattern examples with URLs
-  - Implementation complexity estimates
-  - Performance and accessibility notes
+  file: .claude/research/{topic}-{date}.md
+  conversation: 3-5 line summary only
+  next_step: /design-forge reads the research file automatically
 ```
 
 ## Common Research Scenarios

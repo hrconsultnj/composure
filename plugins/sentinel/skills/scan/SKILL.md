@@ -86,6 +86,12 @@ Parse the output for each vulnerability:
 - Fixed version (if available)
 - Description
 
+**Enrich Critical and High findings with WebFetch:** For each Critical or High CVE, use WebFetch to pull additional context:
+- `https://github.com/advisories/{GHSA-ID}` for GitHub Advisory details
+- Or `https://www.cve.org/CVERecord?id={CVE-ID}` for CVE database
+- Extract: exploit status (known exploited?), patch availability, affected version ranges, CVSS score
+- Include this context in the task queue entry so the fix is actionable, not just an ID
+
 ### Step 3: Severity Mapping
 
 Map findings to Composure's severity levels for `tasks-plans/tasks.md`:
