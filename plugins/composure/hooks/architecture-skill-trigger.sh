@@ -3,12 +3,14 @@
 # Architecture Skill Auto-Trigger — Global PreToolUse Hook
 # ============================================================
 # Fires BEFORE Write/Edit on source files. If the target is an
-# architecture-relevant file (component, hook, route, migration,
-# provider, registry), reminds Claude to invoke /app-architecture.
+# architecture-relevant file, injects a framework-specific
+# reminder with the exact architecture docs to load.
 #
-# Uses session-based dedup so it only fires ONCE per session
-# (not on every single edit).
+# Reads .claude/no-bandaids.json for stack detection so the
+# message tells Claude WHICH category to load, not just
+# "invoke /app-architecture" generically.
 #
+# Uses session-based dedup so it only fires ONCE per session.
 # Non-blocking (exit 0 always). Timeout: 5 seconds.
 # ============================================================
 
@@ -57,7 +59,6 @@ esac
 [ "$IS_ARCH" -eq 0 ] && exit 0
 
 # ── Session dedup: only trigger once per session ──
-# Use a temp file keyed by session ID to avoid repeated firing
 SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
 DEDUP_DIR="/tmp/claude-arch-trigger"
 mkdir -p "$DEDUP_DIR" 2>/dev/null
@@ -70,6 +71,40 @@ fi
 # Mark as triggered
 touch "$DEDUP_FILE"
 
+# ── Detect framework from config ──
+CONFIG="${CLAUDE_PROJECT_DIR:-.}/.claude/no-bandaids.json"
+FRONTEND="unknown"
+ARCH_HINT=""
+
+if [ -f "$CONFIG" ]; then
+  FRONTEND=$(jq -r '.frameworks | to_entries[0].value.frontend // "null"' "$CONFIG" 2>/dev/null)
+
+  case "$FRONTEND" in
+    nextjs)
+      ARCH_HINT="This is a Next.js project. Load: fullstack/INDEX.md (includes frontend/core.md + nextjs patterns)."
+      ;;
+    vite)
+      ARCH_HINT="This is a Vite project. Load: frontend/INDEX.md (includes core.md + vite patterns)."
+      ;;
+    angular)
+      ARCH_HINT="This is an Angular project. Load: frontend/INDEX.md (includes core.md + angular patterns)."
+      ;;
+    expo)
+      ARCH_HINT="This is an Expo project. Load: mobile/INDEX.md (includes frontend/core.md + expo patterns)."
+      ;;
+    *)
+      ARCH_HINT="Load: frontend/INDEX.md → core.md for universal patterns."
+      ;;
+  esac
+
+  # Add backend hint for SQL files
+  case "$FILE_PATH" in
+    *.sql)
+      ARCH_HINT="Database migration detected. Load: backend/INDEX.md → core.md for schema, RLS, and auth model patterns."
+      ;;
+  esac
+fi
+
 # ── Check if this is a NEW file creation (Write to non-existent path) ──
 IS_NEW_FILE=0
 if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
@@ -78,9 +113,9 @@ fi
 
 # ── Return system message ──
 if [ "$IS_NEW_FILE" -eq 1 ]; then
-  printf '{"systemMessage": "ARCHITECTURE REMINDER: You are about to CREATE a new source file. If you have not already loaded the /app-architecture skill this session, invoke it now. For non-trivial features (multi-file, new routes, new data models), consider running /blueprint first to plan the approach and identify impact before writing code."}'
-  exit 0
+  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s For non-trivial features (multi-file, new routes, new data models), run /composure:blueprint first. Otherwise invoke /composure:app-architecture to load the relevant reference docs."}' "$ARCH_HINT"
+else
+  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s Invoke /composure:app-architecture if you have not loaded reference docs this session. It will load ONLY the docs matching your detected stack."}' "$ARCH_HINT"
 fi
 
-printf '{"systemMessage": "ARCHITECTURE REMINDER: You are about to create/modify a source file. If you have not already loaded the /app-architecture skill this session, invoke it now. It contains the decomposition rules, size limits, query patterns, and folder conventions for this codebase."}'
 exit 0

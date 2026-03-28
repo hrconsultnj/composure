@@ -17,20 +17,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -n \"${CLAUDE_PLUGIN_ROOT}\" ] && [ -f \"${CLAUDE_PLUGIN_ROOT}/skills/app-architecture/SKILL.md\" ]; then cat \"${CLAUDE_PLUGIN_ROOT}/skills/app-architecture/SKILL.md\"; else echo '[composure:session-start:arch-loader] CLAUDE_PLUGIN_ROOT not set or SKILL.md missing' >&2; fi; exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-stack-note.sh\" 2>&1 || exit 0",
             "timeout": 5,
-            "statusMessage": "Loading architecture skill..."
+            "statusMessage": "Detecting stack..."
           }
         ]
       },
       {
-        "matcher": "resume",
+        "matcher": "startup|resume",
         "hooks": [
           {
-            "type": "agent",
-            "prompt": "Quick session resume check (be brief, just report counts):\n\n1. TASKS: Read tasks-plans/tasks.md. If it has open items (- [ ]), for each DECOMPOSE item check the current file size with wc -l vs the limit. Mark [x] if now under limit. Report: N open, M resolved, K remaining.\n\n2. GRAPH: If .code-review-graph/graph.db exists, check its staleness — read the last_updated metadata. If more than 24h old or if `git log --oneline -1 --format=%ci` is newer than last_updated, suggest running /build-graph. If graph.db doesn't exist, mention /build-graph is available.\n\nIf tasks.md has no open items AND graph is fresh, say nothing.",
-            "timeout": 60,
-            "statusMessage": "Composure resume check..."
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/resume-check.sh\" 2>&1 || exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking tasks & graph..."
           }
         ]
       }
