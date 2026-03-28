@@ -519,7 +519,13 @@ The composure-graph MCP server was already verified in Step 0a.
 
 ### Step 6: Ensure Task Queue
 
-Create `tasks-plans/` directory and `tasks-plans/tasks.md` if they don't exist:
+Create `tasks-plans/` directory structure and `tasks-plans/tasks.md` if they don't exist:
+
+```bash
+mkdir -p tasks-plans/audits tasks-plans/blueprints tasks-plans/archived
+```
+
+Create `tasks-plans/tasks.md` if missing:
 
 ```markdown
 # Code Quality Tasks
@@ -564,6 +570,7 @@ Active hooks:
   - PostToolUse: decomposition check, graph update
 
 Available skills:
+  /blueprint           -- Pre-work assessment (graph-powered)
   /app-architecture    -- Feature building guide
   /decomposition-audit -- Codebase size violation scan
   /review-tasks        -- Process accumulated quality tasks

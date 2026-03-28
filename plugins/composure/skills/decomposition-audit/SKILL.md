@@ -118,7 +118,7 @@ Fix:
 
 **BEFORE reporting to the user**, write findings to a plan file:
 
-1. Create `tasks-plans/decomposition-audit-{YYYY-MM-DD}.md` at the project root
+1. Create `tasks-plans/audits/decomposition-{YYYY-MM-DD}.md` (create `tasks-plans/audits/` if needed)
 2. Use the report template below with checkboxes for every actionable item
 3. Group by phase (highest impact first) with clear decomposition instructions
 
@@ -139,7 +139,7 @@ Each TaskCreate should:
 - **subject**: Short imperative — e.g., "Decompose create-user-sheet/index.tsx (834→200 lines)"
 - **description**: Include the file path, current lines, target limit, and specific decomposition steps from the audit
 - **activeForm**: "Decomposing {filename}"
-- **metadata**: `{ priority: "critical"|"high", lines: N, limit: N, plan: "tasks-plans/decomposition-audit-{date}.md" }`
+- **metadata**: `{ priority: "critical"|"high", lines: N, limit: N, plan: "tasks-plans/audits/decomposition-{date}.md" }`
 
 ### Step 5: Produce Summary Report
 
@@ -172,7 +172,7 @@ Output a structured report with three tiers:
 - **High**: N files → TaskCreate entries created
 - **Moderate**: N files → plan file only
 - **Ghost duplicates**: N found → consolidation plans in report
-- **Plan file**: `tasks-plans/decomposition-audit-{date}.md`
+- **Plan file**: `tasks-plans/audits/decomposition-{date}.md`
 ```
 
 ### Step 6: Suggest Execution Order
@@ -194,5 +194,5 @@ After the report, suggest an execution order based on:
 - The code-review-graph plugin provides precise AST-based function sizes; the shell fallback uses line-counting heuristics
 - Run periodically (e.g., before major releases) or when joining a new codebase
 - Combine with `/build-graph` for best results
-- **Plan files go in `tasks-plans/`** at the project root (gitignored or tracked — your choice)
+- **Audit files go in `tasks-plans/audits/`** at the project root (gitignored or tracked — your choice)
 - **TaskCreate entries** make findings visible in the current session; the plan file makes them persistent

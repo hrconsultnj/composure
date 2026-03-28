@@ -17,7 +17,7 @@ Before anything else, silently handle completed tasks:
    - Remove all `- [x]` lines and any indented sub-lines beneath them
    - Update the "Last cleaned" date comment
 
-2. Check `tasks-plans/*.md` files (excluding `tasks.md`). For any file where ALL items are `- [x]` (none are `- [ ]`):
+2. Check `tasks-plans/audits/*.md` and `tasks-plans/blueprints/*.md` files. For any file where ALL items are `- [x]` (none are `- [ ]`):
    - Create `tasks-plans/archived/` if it doesn't exist
    - Move the fully-completed file to `tasks-plans/archived/`
 
