@@ -50,8 +50,8 @@ Based on the detected `frontend` value, load the matching INDEX.md which tells y
 
 TypeScript patterns live in `frontend/typescript/` — loaded automatically via `frontend/INDEX.md`.
 
-**Also load if they exist:**
-- `references/private/` — licensed patterns (submodule, may not be initialized)
+**Also load if the supabase-patterns plugin is installed:**
+- Supabase Patterns plugin (`data-patterns/`, `rls-policies/`) — licensed Pro patterns for multi-tenant Supabase architecture. If not installed, `backend/core.md` provides conceptual guidance.
 
 ## Step 4: Load Project-Level Docs
 
@@ -69,7 +69,7 @@ Check if `.claude/frameworks/` exists in the project. If it does, load docs from
 | 1 | Plugin | Category `INDEX.md` + curated docs | Battle-tested patterns (hooks, decomposition, query patterns) |
 | 2 | Plugin | Framework-specific files + co-located curated docs | e.g., `fullstack/nextjs/nextjs.md` + `01-ssr-hydration-layout.md` |
 | 3 | Plugin | Language `SKILL.md` | Anti-patterns for the detected language |
-| 4 | Plugin | `references/private/` | Licensed patterns (submodule) |
+| 4 | Plugin | Supabase Patterns plugin (if installed) | Licensed Pro patterns — schema guard, RLS, entity registry, role system |
 | 5 | Project | `.claude/frameworks/{category}/{framework}/generated/` | Context7 docs — may have newer API versions |
 | 6 | Project | `.claude/frameworks/{category}/{framework}/project/` | Team conventions, decisions, overrides |
 

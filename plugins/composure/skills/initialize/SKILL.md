@@ -561,11 +561,18 @@ For each missing plugin, install it:
 | Testbench (testing) | `echo "$INSTALLED" \| grep -q testbench` | `claude plugin install testbench@my-claude-plugins` |
 | Shipyard (devops) | `echo "$INSTALLED" \| grep -q shipyard` | `claude plugin install shipyard@my-claude-plugins` |
 
+**Conditional companion** (only if project uses Supabase):
+
+| Plugin | Condition | Check | Install command |
+|--------|-----------|-------|-----------------|
+| Supabase Patterns (schema) | `supabase/config.toml` exists OR `supabase/migrations/` dir exists | `echo "$INSTALLED" \| grep -q supabase-patterns` | `claude plugin install supabase-patterns@my-claude-plugins` |
+
 After installing, initialize each plugin if its config is missing:
 
 1. If `.claude/sentinel.json` does not exist: run `/sentinel:initialize`
 2. If `.claude/testbench.json` does not exist: run `/testbench:initialize`
 3. If `.claude/shipyard.json` does not exist: run `/shipyard:initialize`
+4. If Supabase detected AND `.claude/supabase-patterns.json` does not exist: run `/supabase-patterns:initialize`
 
 If plugins were already installed and initialized, skip silently.
 

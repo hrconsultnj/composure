@@ -12,20 +12,22 @@
 
 | `backend` value | Also load |
 |---|---|
-| Any Supabase project | `references/private/` (RLS templates, migration checklist, role hierarchy) |
+| Any Supabase project | Supabase Patterns plugin (if installed) — RLS templates, migration checklist, role hierarchy |
 
-## Reference Docs (private submodule)
+## Reference Docs (Supabase Patterns Plugin — Pro)
 
-These contain full implementation templates. If the submodule isn't initialized, `core.md` provides enough conceptual guidance.
+These contain full implementation templates. If the plugin isn't installed, `core.md` provides enough conceptual guidance.
 
-| Pattern | Reference |
-|---------|-----------|
-| Entity Registry | `references/private/data-patterns/01-entity-registry-feed.md` |
-| ID Prefixes | `references/private/data-patterns/02-id-prefix-convention.md` |
-| 4-Level Auth | `references/private/data-patterns/03-four-level-auth.md` |
-| Privacy Groups | `references/private/data-patterns/04-privacy-role-system.md` |
-| Contact-First | `references/private/data-patterns/05-contact-first-pattern.md` |
-| Metadata Templates | `references/private/data-patterns/08-metadata-templates.md` |
-| RLS Patterns | `references/private/rls-policies/rls-patterns.md` |
-| Role Hierarchy | `references/private/rls-policies/role-hierarchy.md` |
-| Migration Checklist | `references/private/rls-policies/migration-checklist.md` |
+When the supabase-patterns plugin is installed, load these references from it:
+
+| Pattern | Plugin Reference |
+|---------|-----------------|
+| Entity Registry | `data-patterns/01-entity-registry-feed.md` |
+| ID Prefixes | `data-patterns/02-id-prefix-convention.md` |
+| 4-Level Auth | `data-patterns/03-four-level-auth.md` |
+| Privacy Groups | `data-patterns/04-privacy-role-system.md` |
+| Contact-First | `data-patterns/05-contact-first-pattern.md` |
+| Metadata Templates | `data-patterns/08-metadata-templates.md` |
+| RLS Patterns | `rls-policies/rls-patterns.md` |
+| Role Hierarchy | `rls-policies/role-hierarchy.md` |
+| Migration Checklist | `rls-policies/migration-checklist.md` |
