@@ -189,19 +189,55 @@ claude mcp remove composure-graph
 claude plugin marketplace remove my-claude-plugins
 ```
 
+## What You Get (Free)
+
+All 5 plugins, all skills, all hooks — free for personal use, education, and nonprofits.
+
+| What | Count | Details |
+|------|-------|---------|
+| Plugins | 5 | Composure, Design Forge, Sentinel, Testbench, Shipyard |
+| Skills | 27 | Architecture, security scanning, test generation, CI/CD, audits |
+| Hooks | 19 | Code quality, secret detection, type safety, CI validation |
+| Reference docs | 23 | Security patterns, testing patterns, deployment guides |
+| Templates | 12 | Test files, GH Actions workflows, Dockerfiles |
+| Languages | 7 | TypeScript, Python, Go, Rust, C++, Swift, Kotlin |
+
+One command sets up everything: `/composure:initialize`
+
+## Composure Pro ($39)
+
+The free plugins enforce quality and catch mistakes. Pro adds **production architecture patterns** — the kind you only learn after shipping multi-tenant apps to real customers. These aren't tutorials. They're reference patterns that Claude reads and applies directly when you build features.
+
+**13 pattern docs covering:**
+
+| Category | What You Get |
+|----------|-------------|
+| Multi-tenant isolation | Data boundaries that scale — one database, many tenants, zero leaks |
+| Auth architecture | Layered access control from user to organization with role resolution |
+| Row-level security | Postgres RLS patterns with migration checklist and common pitfalls guide |
+| External user access | Secure patterns for inviting users outside your organization |
+| Readable identifiers | Human-friendly IDs your support team can read over the phone |
+| Query architecture | Cache key factories, invalidation strategies, optimistic updates at scale |
+| Component architecture | Modal patterns, form orchestration, loading states that don't flicker |
+| Data modeling | Typed metadata, entity relationships, schema patterns for growing apps |
+
+Composure already steers Claude toward clean code — decomposition, type safety, proper structure. Pro patterns build on that foundation, giving Claude the architectural knowledge to make decisions about data isolation, access control, and state management that normally take years of production experience to get right.
+
+These are not documentation or tutorials — they're **reference patterns that Claude reads and applies** when you build features. The same patterns used across production apps.
+
+**[Get Composure Pro ($39)](https://buymeacoffee.com/hrconsultnj/e/524085)** — one-time per major version. Existing customers get 50% off upgrades.
+
 ## Licensing
 
-All plugins are [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) — **free for personal use**, education, and nonprofits.
+All plugins are [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
 
-| Plugin | License | Commercial |
-|--------|---------|------------|
-| Composure | [PolyForm NC](plugins/composure/LICENSE) | [Pro license ($39)](https://buymeacoffee.com/hrconsultnj/e/524085) — commercial use + private architecture patterns |
-| Design Forge | [PolyForm NC](plugins/design-forge/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
-| Sentinel | [PolyForm NC](plugins/sentinel/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
-| Testbench | [PolyForm NC](plugins/testbench/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
-| Shipyard | [PolyForm NC](plugins/shipyard/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
-
-See each plugin's directory for full documentation.
+| Plugin | Free | Commercial |
+|--------|------|------------|
+| Composure | All skills, hooks, graph | [Pro ($39)](https://buymeacoffee.com/hrconsultnj/e/524085) for commercial + private patterns |
+| Design Forge | All 33 components | [Contact](mailto:hrconsultnj@gmail.com) for commercial |
+| Sentinel | All security scanning | [Contact](mailto:hrconsultnj@gmail.com) for commercial |
+| Testbench | All test generation | [Contact](mailto:hrconsultnj@gmail.com) for commercial |
+| Shipyard | All CI/CD + deployment | [Contact](mailto:hrconsultnj@gmail.com) for commercial |
 
 ## Support
 
