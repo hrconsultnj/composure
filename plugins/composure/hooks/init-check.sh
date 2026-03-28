@@ -3,9 +3,11 @@
 # Composure Init Check — SessionStart Hook
 # ============================================================
 # Checks Composure + companion plugin initialization status.
-# If anything is missing, prints ONE unified message with the
-# single command that fixes everything.
 # Non-blocking (exit 0 always). Runs on startup only.
+#
+# Plugin/MCP health checks are handled by /composure:initialize
+# Step 9 (not this hook) because they need claude plugin list
+# output and context-window awareness that bash can't provide.
 
 # ── Not initialized at all ──────────────────────────────────
 if [ ! -f ".claude/no-bandaids.json" ]; then
@@ -14,8 +16,6 @@ if [ ! -f ".claude/no-bandaids.json" ]; then
 fi
 
 # ── Composure initialized — check companions ────────────────
-# Detect which companion plugins are installed by checking for
-# their skill files in the plugin cache (reliable, no CLI call).
 PLUGIN_CACHE="${CLAUDE_PLUGIN_ROOT%/*}"
 MISSING=()
 
@@ -42,7 +42,6 @@ if [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ]; then
   done
 fi
 
-# ── Report ───────────────────────────────────────────────────
 if [ ${#MISSING[@]} -gt 0 ]; then
   LIST=""
   for m in "${MISSING[@]}"; do
