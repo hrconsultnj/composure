@@ -95,24 +95,41 @@ The plugin ships hooks in `hooks/hooks.json`. Projects may need hook updates whe
    ```
 5. Don't auto-overwrite local hook overrides — report the diff and let the user decide
 
-### Step 5: Report
+### Step 5: Ensure Companion Plugins
+
+Same logic as `/composure:initialize` Step 8 — check if companion plugins are installed and initialized. This ensures `/update-project all` is a complete refresh, not just Composure.
+
+1. Check which companions are installed (via plugin cache directory, not CLI)
+2. For any installed but uninitialized companion (config file missing):
+   - Sentinel: run `/sentinel:initialize` if `.claude/sentinel.json` missing
+   - Testbench: run `/testbench:initialize` if `.claude/testbench.json` missing
+   - Shipyard: run `/shipyard:initialize` if `.claude/shipyard.json` missing
+3. For any companion NOT installed: install it from the marketplace, then initialize
+4. Skip this step if only `docs`, `hooks`, or `stack` was passed (not `all`)
+
+### Step 6: Report
 
 Print a concise summary. Only show sections that had changes.
 
 ```
 Composure updated for <project-name>
 
-Stack: typescript 5.9, react 19.3 (↑ 19.2), vite 8.0, tailwind 4.2, shadcn 4.1
-  ~ react version bumped 19.2 → 19.3
+Stack: typescript 5.9, react 19.3 (up from 19.2), vite 8.0, tailwind 4.2, shadcn 4.1
+  ~ react version bumped 19.2 -> 19.3
 
 Docs: 2 updated, 1 created, 4 unchanged
   + frontend/generated/05-tanstack-query-5.90.md
-  ~ frontend/generated/02-react-19.md (19.2 → 19.3)
+  ~ frontend/generated/02-react-19.md (19.2 -> 19.3)
 
 Hooks: no changes (using plugin hooks directly)
+
+Companion plugins:
+  = Sentinel: already initialized
+  = Testbench: already initialized
+  + Shipyard: initialized (was installed but not set up)
 ```
 
 If nothing changed at all:
 ```
-Composure: everything up to date.
+All plugins: everything up to date.
 ```
