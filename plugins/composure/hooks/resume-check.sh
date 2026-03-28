@@ -16,6 +16,8 @@ TASKS_FILE="${CLAUDE_PROJECT_DIR:-.}/tasks-plans/tasks.md"
 GRAPH_DB="${CLAUDE_PROJECT_DIR:-.}/.code-review-graph/graph.db"
 
 PARTS=()
+OPEN=0
+DONE=0
 
 # ── Check tasks ──
 if [ -f "$TASKS_FILE" ]; then
@@ -58,13 +60,25 @@ done
 echo
 
 # High task count hint
-if [ "$OPEN" -gt 5 ] 2>/dev/null; then
+if [ "$OPEN" -gt 5 ]; then
   echo "[composure:hint] ${OPEN} open tasks is high. Mention this early — the user may want to clear the backlog before adding more work."
 fi
 
-# Stale graph: instruct Claude to rebuild BEFORE doing any work
+# Stale graph: check if MCP is available, instruct accordingly
 if [ "$GRAPH_STALE" -eq 1 ]; then
-  echo "[composure:action-required] The code graph is stale or missing. BEFORE starting any feature work, bug fix, or exploration, rebuild it using the build_or_update_graph MCP tool. Tell the user: 'One moment — rebuilding the code graph so I can map impact accurately instead of exploring blind.' This prevents expensive Explore agent sprawl (30+ file reads) that a single graph query would replace."
+  GRAPH_SERVER_JS="${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"
+  MCP_AVAILABLE=0
+  [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ] && MCP_AVAILABLE=1
+
+  if [ "$MCP_AVAILABLE" -eq 1 ]; then
+    cat <<'EOMSG'
+[composure:action-required] Code graph is stale or missing. BEFORE any feature work, bug fix, or exploration, rebuild it using build_or_update_graph MCP tool. Tell the user: "One moment, rebuilding the code graph so I can map impact accurately instead of exploring blind." Do NOT skip this and fall back to Explore agents. The 15-second graph build saves minutes of exploration sprawl.
+EOMSG
+  else
+    cat <<EOMSG
+[composure:action-required] Code graph is stale or missing, and the composure-graph MCP server may not be registered. Tell the user to run /composure:build-graph which will attempt the build. If the MCP tool is unavailable, tell them: "Run: claude mcp add composure-graph -- node --experimental-sqlite ${GRAPH_SERVER_JS:-PLUGIN_ROOT/graph/dist/server.js} and restart." Do NOT skip this and fall back to Explore agents.
+EOMSG
+  fi
 fi
 
 exit 0

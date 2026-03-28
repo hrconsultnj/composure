@@ -14,8 +14,14 @@
 
 # Read stdin JSON to get the session lifecycle event
 # stdin has: { "session_id": "...", "source": "startup|resume|clear|compact", ... }
-INPUT=$(cat)
+# Read with timeout to avoid hanging if stdin isn't provided or is empty
+INPUT=""
+if read -t 2 -r INPUT_LINE 2>/dev/null; then
+  INPUT="$INPUT_LINE"
+fi
 EVENT=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
+# Default to startup if we couldn't parse the event
+[ -z "$EVENT" ] && EVENT="startup"
 
 CONFIG_CANDIDATES=(
   "${CLAUDE_PROJECT_DIR:-.}/.claude/no-bandaids.json"
