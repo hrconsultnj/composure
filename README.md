@@ -44,6 +44,10 @@ All plugins, all skills, all hooks — free for personal use, education, and non
 | Templates | 12 | Test files, GH Actions workflows, Dockerfiles |
 | Languages | 7 | TypeScript, Python, Go, Rust, C++, Swift, Kotlin |
 
+<p align="center">
+  <img src="assets/multi-language.png" alt="Multi-language support — same enforcement across 7 languages" width="800">
+</p>
+
 ## Plugins
 
 | Plugin | What it solves |
