@@ -32,6 +32,16 @@ for plugin in sentinel shipyard testbench; do
   done
 done
 
+# Supabase Patterns — only flag if project uses Supabase
+if [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ]; then
+  for d in "${PLUGIN_CACHE}"/supabase-patterns/*/; do
+    if [ -d "$d" ]; then
+      [ ! -f ".claude/supabase-patterns.json" ] && MISSING+=("Supabase Patterns (schema guard)")
+      break
+    fi
+  done
+fi
+
 # ── Report ───────────────────────────────────────────────────
 if [ ${#MISSING[@]} -gt 0 ]; then
   LIST=""
