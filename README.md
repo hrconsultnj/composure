@@ -191,10 +191,22 @@ claude plugin marketplace remove my-claude-plugins
 
 ## Licensing
 
-- **Composure** — [PolyForm Noncommercial 1.0.0](plugins/composure/LICENSE) (free for personal use). [Pro license ($39)](https://composure.lemonsqueezy.com) for commercial use + battle-tested data architecture patterns.
-- **Design Forge** — [PolyForm Noncommercial 1.0.0](plugins/design-forge/LICENSE) (free for personal use).
-- **Sentinel** — [PolyForm Noncommercial 1.0.0](plugins/sentinel/LICENSE) (free for personal use).
-- **Testbench** — [PolyForm Noncommercial 1.0.0](plugins/testbench/LICENSE) (free for personal use).
-- **Shipyard** — [PolyForm Noncommercial 1.0.0](plugins/shipyard/LICENSE) (free for personal use).
+All plugins are [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) — **free for personal use**, education, and nonprofits.
+
+| Plugin | License | Commercial |
+|--------|---------|------------|
+| Composure | [PolyForm NC](plugins/composure/LICENSE) | [Pro license ($39)](https://buymeacoffee.com/hrconsultnj/e/524085) — commercial use + private architecture patterns |
+| Design Forge | [PolyForm NC](plugins/design-forge/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
+| Sentinel | [PolyForm NC](plugins/sentinel/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
+| Testbench | [PolyForm NC](plugins/testbench/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
+| Shipyard | [PolyForm NC](plugins/shipyard/LICENSE) | [Contact](mailto:hrconsultnj@gmail.com) |
 
 See each plugin's directory for full documentation.
+
+## Support
+
+If these plugins save you time, consider supporting the project:
+
+<a href="https://buymeacoffee.com/hrconsultnj" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="48"></a>
+
+[☕ buymeacoffee.com/hrconsultnj](https://buymeacoffee.com/hrconsultnj)
