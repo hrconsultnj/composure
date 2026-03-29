@@ -12,13 +12,13 @@
 
 | `backend` value | Also load |
 |---|---|
-| Any Supabase project | Supabase Patterns plugin (if installed) — RLS templates, migration checklist, role hierarchy |
+| Any Supabase project | Composure Pro Patterns (if installed) — RLS templates, migration checklist, role hierarchy |
 
-## Reference Docs (Supabase Patterns Plugin — Pro)
+## Reference Docs (Composure Pro Patterns)
 
 These contain full implementation templates. If the plugin isn't installed, `core.md` provides enough conceptual guidance.
 
-When the supabase-patterns plugin is installed, load these references from it:
+When the composure-pro plugin is installed, load these references from it:
 
 | Pattern | Plugin Reference |
 |---------|-----------------|

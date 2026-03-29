@@ -1,0 +1,45 @@
+<!-- ═══ TAB BAR TEMPLATE ═══════════════════════════════════════
+     Include only the tabs that have data. Omit tabs for plugins
+     that aren't installed or didn't produce results.
+
+     Available tabs (include if data exists):
+       - code-quality  (always — Composure core)
+       - security       (if Sentinel data available)
+       - testing        (if Testbench data available)
+       - deployment     (if Shipyard data available)
+       - stack          (always — detected stack profile)
+
+     Grade colors for tab badges:
+       A = #22c55e, B = #3b82f6, C = #eab308, D = #f97316, F = #ef4444
+═══════════════════════════════════════════════════════════════ -->
+
+  <div class="tab-bar" role="tablist">
+    <button class="tab-btn active" role="tab" onclick="showTab('code-quality')" data-tab="code-quality">
+      Code Quality <span class="tab-grade" style="color: {{QUALITY_GRADE_COLOR}}; border-color: {{QUALITY_GRADE_COLOR}}">{{QUALITY_GRADE}}</span>
+    </button>
+    <!-- INCLUDE IF SENTINEL DATA -->
+    <button class="tab-btn" role="tab" onclick="showTab('security')" data-tab="security">
+      Security <span class="tab-grade" style="color: {{SECURITY_GRADE_COLOR}}; border-color: {{SECURITY_GRADE_COLOR}}">{{SECURITY_GRADE}}</span>
+    </button>
+    <!-- INCLUDE IF TESTBENCH DATA -->
+    <button class="tab-btn" role="tab" onclick="showTab('testing')" data-tab="testing">
+      Testing <span class="tab-grade" style="color: {{TESTING_GRADE_COLOR}}; border-color: {{TESTING_GRADE_COLOR}}">{{TESTING_GRADE}}</span>
+    </button>
+    <!-- INCLUDE IF SHIPYARD DATA -->
+    <button class="tab-btn" role="tab" onclick="showTab('deployment')" data-tab="deployment">
+      Deployment <span class="tab-grade" style="color: {{DEPLOYMENT_GRADE_COLOR}}; border-color: {{DEPLOYMENT_GRADE_COLOR}}">{{DEPLOYMENT_GRADE}}</span>
+    </button>
+    <!-- ALWAYS INCLUDE -->
+    <button class="tab-btn" role="tab" onclick="showTab('stack')" data-tab="stack">
+      Stack
+    </button>
+  </div>
+
+<!-- ═══ TAB PANELS ═════════════════════════════════════════════
+     Each tab panel uses: <div class="tab-content" id="{tab-id}" data-title="{Title}">
+     The data-title attribute is used by print mode to show section headings.
+
+     DYNAMIC CONTENT: Generate the contents of each tab panel
+     based on audit results. Use the CSS classes defined in the
+     header template (details, summary, audit-table, bar-chart, etc.)
+═══════════════════════════════════════════════════════════════ -->

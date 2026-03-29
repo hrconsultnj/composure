@@ -12,8 +12,13 @@
 # Non-blocking (exit 0 always). Timeout: 10 seconds.
 # ============================================================
 
-TASKS_FILE="${CLAUDE_PROJECT_DIR:-.}/tasks-plans/tasks.md"
-GRAPH_DB="${CLAUDE_PROJECT_DIR:-.}/.code-review-graph/graph.db"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+
+# Skip entirely if Composure not initialized — init-check already tells them
+[ ! -f "$PROJECT_DIR/.claude/no-bandaids.json" ] && exit 0
+
+TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
+GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
 
 PARTS=()
 OPEN=0
@@ -64,7 +69,7 @@ if [ "$OPEN" -gt 5 ]; then
   echo "[composure:hint] ${OPEN} open tasks is high. Mention this early — the user may want to clear the backlog before adding more work."
 fi
 
-# Stale graph: check if MCP is available, instruct accordingly
+# Stale/missing graph: instruct Claude to build BEFORE any work
 if [ "$GRAPH_STALE" -eq 1 ]; then
   GRAPH_SERVER_JS="${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"
   MCP_AVAILABLE=0
@@ -72,11 +77,13 @@ if [ "$GRAPH_STALE" -eq 1 ]; then
 
   if [ "$MCP_AVAILABLE" -eq 1 ]; then
     cat <<'EOMSG'
-[composure:action-required] Code graph is stale or missing. BEFORE any feature work, bug fix, or exploration, rebuild it using build_or_update_graph MCP tool. Tell the user: "One moment, rebuilding the code graph so I can map impact accurately instead of exploring blind." Do NOT skip this and fall back to Explore agents. The 15-second graph build saves minutes of exploration sprawl.
+[composure:MANDATORY] Code graph is stale or missing. You MUST call build_or_update_graph({ full_rebuild: true }) BEFORE doing any other work — no exceptions. Do NOT use Explore agents for structural questions when graph MCP tools exist. The graph costs 15 seconds and 0 tokens. An explore agent costs 5-20K tokens per query.
+
+After building, use graph tools FIRST for: file imports (query_graph), callers/dependents (get_impact_radius), finding code (semantic_search_nodes), function sizes (find_large_functions). Only use Explore agents for understanding INTENT (business logic, why something was coded a certain way) — never for STRUCTURE.
 EOMSG
   else
     cat <<EOMSG
-[composure:action-required] Code graph is stale or missing, and the composure-graph MCP server may not be registered. Tell the user to run /composure:build-graph which will attempt the build. If the MCP tool is unavailable, tell them: "Run: claude mcp add composure-graph -- node --experimental-sqlite ${GRAPH_SERVER_JS:-PLUGIN_ROOT/graph/dist/server.js} and restart." Do NOT skip this and fall back to Explore agents.
+[composure:MANDATORY] Code graph is stale or missing, and the composure-graph MCP server may not be registered. Run /composure:build-graph to attempt the build. If the MCP tool is unavailable, tell the user: "Run: claude mcp add composure-graph -- node --experimental-sqlite ${GRAPH_SERVER_JS:-PLUGIN_ROOT/graph/dist/server.js} and restart."
 EOMSG
   fi
 fi
