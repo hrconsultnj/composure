@@ -22,8 +22,18 @@ export interface VisNode {
   imports: string[];
 }
 
+export interface VisEntity {
+  name: string;
+  displayName: string;
+  source: string;
+  memberCount: number;
+  roles: Record<string, number>;
+  memberIds: string[]; // file IDs belonging to this entity
+}
+
 export interface GraphHtmlData {
   nodes: VisNode[];
+  entities: VisEntity[];
   repoName: string;
   generatedAt: string;
   stats: {
@@ -36,7 +46,7 @@ export interface GraphHtmlData {
 // ── Main export ───────────────────────────────────────────────────
 
 export function generateGraphHtml(data: GraphHtmlData): string {
-  const { nodes, repoName, generatedAt, stats } = data;
+  const { nodes, entities, repoName, generatedAt, stats } = data;
 
   const catSet = new Set(nodes.map((n) => n.cat));
   const catsPresent = DEFAULT_CAT_ORDER.filter((c) => catSet.has(c));
@@ -68,6 +78,7 @@ ${buildControls()}
   </div>
   <div class="detail-panel" id="detailPanel"></div>
 </div>
+<div class="entities-panel" id="entitiesPanel"></div>
 
 ${buildLegend(catsPresent)}
 ${buildZoomControls()}
@@ -77,7 +88,7 @@ ${buildZoomControls()}
 </div>
 
 <script>
-${buildScript(nodes, catsPresent)}
+${buildScript(nodes, catsPresent, entities)}
 </script>
 </body>
 </html>`;
@@ -239,6 +250,25 @@ function buildStyles(): string {
   .legend-item.hidden-cat { opacity: 0.35; text-decoration: line-through; }
   .legend-color { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 
+  /* ── Entities panel ─────────────────────────────────── */
+  .entities-panel { display: none; position: absolute; top: 58px; left: 0; right: 0; bottom: 0; overflow-y: auto; padding: 28px; background: var(--bg); z-index: 5; }
+  .entities-panel.open { display: block; }
+  .ep-header { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 16px; }
+  .ep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .ep-card { padding: 18px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: all 0.15s; }
+  .ep-card:hover { border-color: var(--accent-border); background: var(--surface-hover); }
+  .ep-card.selected { border-color: var(--accent); background: var(--accent-bg); }
+  .ep-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .ep-card-name { font-size: 16px; font-weight: 700; }
+  .ep-card-source { font-size: 9px; padding: 2px 8px; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ep-card-source.migration { background: rgba(59,130,246,0.12); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3); }
+  .ep-card-source.route { background: rgba(243,112,41,0.12); color: #f37029; border: 1px solid rgba(243,112,41,0.3); }
+  .ep-card-source.directory { background: rgba(139,92,246,0.12); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.3); }
+  .ep-card-source.hook { background: rgba(6,182,212,0.12); color: #06b6d4; border: 1px solid rgba(6,182,212,0.3); }
+  .ep-card-count { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+  .ep-roles { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ep-role { font-size: 9px; padding: 2px 8px; border-radius: 6px; font-weight: 500; background: var(--surface-hover); color: var(--text-dim); border: 1px solid var(--border-soft); }
+
   /* ── Zoom ───────────────────────────────────────────── */
   .zoom-controls { position: fixed; bottom: 14px; right: 14px; display: flex; gap: 4px; z-index: 10; }
   .zoom-controls button { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-alt); color: var(--text-muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; backdrop-filter: blur(8px); }
@@ -272,6 +302,9 @@ function buildHeader(
     </button>
     <button class="vt-btn active" data-view="tree" title="File explorer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+    </button>
+    <button class="vt-btn" data-view="entities" title="Domain entities">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     </button>
   </div>
   <div class="stats">
@@ -325,7 +358,7 @@ function buildZoomControls(): string {
 // client-side JS that runs in the browser, not TypeScript.
 
 /** Data constants, edge/reverse-dep maps, sizing, state variables. */
-function buildScriptData(nodes: VisNode[], catsPresent: string[]): string {
+function buildScriptData(nodes: VisNode[], catsPresent: string[], entities: VisEntity[]): string {
   const colorsObj: Record<string, string> = {};
   const labelsObj: Record<string, string> = {};
   for (const c of catsPresent) {
@@ -335,13 +368,14 @@ function buildScriptData(nodes: VisNode[], catsPresent: string[]): string {
   }
   return `
 var NODES=${jsonInject(nodes)},COLORS=${jsonInject(colorsObj)},CAT_LABELS=${jsonInject(labelsObj)},CAT_ORDER=${jsonInject(catsPresent)};
+var ENTITIES=${jsonInject(entities)};
 var EDGES=[],nodeMap={},reverseDeps={};
 NODES.forEach(function(n){nodeMap[n.id]=n;});
 NODES.forEach(function(n){(n.imports||[]).forEach(function(t){if(nodeMap[t])EDGES.push({source:n.id,target:t});});});
 NODES.forEach(function(n){reverseDeps[n.id]=[];});
 EDGES.forEach(function(e){if(reverseDeps[e.target])reverseDeps[e.target].push(e.source);});
 var NODE_W=190,NODE_H=34,COL_GAP=220,ROW_GAP=42,PAD_X=44,PAD_Y=52;
-var currentFilter="all",selectedNode=null,searchTerm="",zoom=0.85;
+var currentFilter="all",selectedNode=null,selectedEntity=null,entityMemberSet=null,searchTerm="",zoom=0.85;
 var hiddenCats=new Set();
 `;
 }
@@ -569,7 +603,8 @@ function renderTreeView(){
   renderDir(tree,panel,"");
 }
 
-// ── View toggle (tree sidebar always visible, graph panel toggles) ─
+// ── View toggle (tree sidebar always visible, graph/entities panels toggle) ─
+var currentView="tree";
 document.querySelectorAll(".vt-btn").forEach(function(btn){
   btn.addEventListener("click",function(){
     var view=btn.getAttribute("data-view");
@@ -578,12 +613,17 @@ document.querySelectorAll(".vt-btn").forEach(function(btn){
     document.querySelectorAll(".vt-btn").forEach(function(b){b.classList.remove("active");});
     btn.classList.add("active");
     var gp=document.getElementById("graphPanel");
+    var ep=document.getElementById("entitiesPanel");
     var zc=document.querySelector(".zoom-controls");
+    var main=document.querySelector(".main");
     if(view==="graph"){
-      gp.style.display="block";zc.style.display="";
+      gp.style.display="block";ep.classList.remove("open");main.style.display="flex";zc.style.display="";
       render();
+    }else if(view==="entities"){
+      gp.style.display="none";ep.classList.add("open");main.style.display="none";zc.style.display="none";
+      renderEntityView();
     }else{
-      gp.style.display="none";zc.style.display="none";
+      gp.style.display="none";ep.classList.remove("open");main.style.display="flex";zc.style.display="none";
     }
   });
 });
@@ -650,14 +690,55 @@ render();
 `;
 }
 
+/** Entity view builder — renders entity cards in a grid. */
+function buildScriptEntityView(): string {
+  return `
+function renderEntityView(){
+  var panel=document.getElementById("entitiesPanel");
+  if(!ENTITIES||!ENTITIES.length){
+    panel.innerHTML='<div class="ep-header">No entities detected. Run build_or_update_graph with full_rebuild=true.</div>';
+    return;
+  }
+  var html='<div class="ep-header">'+ENTITIES.length+' domain entities detected</div><div class="ep-grid">';
+  ENTITIES.forEach(function(e){
+    var roles=Object.keys(e.roles||{}).map(function(r){
+      return '<span class="ep-role">'+r+' '+e.roles[r]+'</span>';
+    }).join("");
+    var sel=selectedEntity===e.name?" selected":"";
+    html+='<div class="ep-card'+sel+'" data-entity="'+e.name+'">'
+      +'<div class="ep-card-header"><span class="ep-card-name">'+e.displayName+'</span>'
+      +'<span class="ep-card-source '+e.source+'">'+e.source+'</span></div>'
+      +'<div class="ep-card-count">'+e.memberCount+' files across '+Object.keys(e.roles||{}).length+' roles</div>'
+      +'<div class="ep-roles">'+roles+'</div></div>';
+  });
+  html+='</div>';
+  panel.innerHTML=html;
+  panel.querySelectorAll(".ep-card").forEach(function(card){
+    card.addEventListener("click",function(){
+      var name=card.getAttribute("data-entity");
+      if(selectedEntity===name){selectedEntity=null;}
+      else{selectedEntity=name;}
+      // Highlight entity members in tree by filtering
+      if(selectedEntity){
+        var ent=ENTITIES.find(function(e){return e.name===selectedEntity;});
+        if(ent){entityMemberSet=new Set(ent.memberIds);}
+      }else{entityMemberSet=null;}
+      renderEntityView();
+    });
+  });
+}
+`;
+}
+
 /** Concatenates all JS sections into the final inline script. */
-function buildScript(nodes: VisNode[], catsPresent: string[]): string {
+function buildScript(nodes: VisNode[], catsPresent: string[], entities: VisEntity[]): string {
   return [
-    buildScriptData(nodes, catsPresent),
+    buildScriptData(nodes, catsPresent, entities),
     buildScriptControls(),
     buildScriptGraphLogic(),
     buildScriptDetailPanel(),
     buildScriptTreeView(),
+    buildScriptEntityView(),
     buildScriptRender(),
   ].join("\n");
 }

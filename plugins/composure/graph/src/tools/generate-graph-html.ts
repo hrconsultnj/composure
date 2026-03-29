@@ -15,7 +15,7 @@ import {
   CATEGORY_META,
   DEFAULT_CAT_ORDER,
 } from "../html-template.js";
-import type { VisNode } from "../html-template.js";
+import type { VisNode, VisEntity } from "../html-template.js";
 import type { ToolResult, GraphNode } from "../types.js";
 
 // ── Category detection ────────────────────────────────────────────
@@ -296,12 +296,30 @@ export function generateGraphHtmlTool(params: {
     // Extract visualization data
     const { nodes, edgeCount } = extractVisNodes(store, root);
 
+    // Extract entity data
+    const allEntities = store.getAllEntities();
+    const entities: VisEntity[] = allEntities.map((e) => {
+      const roles = store.getEntityRoleCounts(e.name);
+      const members = store.getEntityMembers(e.name, 0.5);
+      // Collect unique file IDs for this entity
+      const memberFileIds = [...new Set(members.map((m) => m.node.file_path))];
+      return {
+        name: e.name,
+        displayName: e.display_name,
+        source: e.source,
+        memberCount: e.member_count,
+        roles,
+        memberIds: memberFileIds,
+      };
+    });
+
     // Detect repo name from directory
     const repoName = basename(root);
 
     // Generate HTML
     const html = generateGraphHtml({
       nodes,
+      entities,
       repoName,
       generatedAt: new Date().toLocaleDateString("en-US", {
         month: "short",
