@@ -32,11 +32,11 @@ for plugin in sentinel shipyard testbench; do
   done
 done
 
-# Supabase Patterns — only flag if project uses Supabase
+# Composure Private (Pro Patterns) — only flag if project uses Supabase
 if [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ]; then
-  for d in "${PLUGIN_CACHE}"/supabase-patterns/*/; do
+  for d in "${PLUGIN_CACHE}"/composure-pro/*/; do
     if [ -d "$d" ]; then
-      [ ! -f ".claude/supabase-patterns.json" ] && MISSING+=("Supabase Patterns (schema guard)")
+      [ ! -f ".claude/composure-pro.json" ] && MISSING+=("Composure Pro Patterns (schema guard, RLS, entity registry)")
       break
     fi
   done

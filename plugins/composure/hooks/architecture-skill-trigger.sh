@@ -111,11 +111,11 @@ if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
   IS_NEW_FILE=1
 fi
 
-# ── Return system message ──
+# ── Return system message with clear thresholds ──
 if [ "$IS_NEW_FILE" -eq 1 ]; then
-  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s For non-trivial features (multi-file, new routes, new data models), run /composure:blueprint first. Otherwise invoke /composure:app-architecture to load the relevant reference docs."}' "$ARCH_HINT"
+  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s\n\nBefore writing code, determine the scope:\n• Creating new routes/pages → MUST run /composure:blueprint first\n• Adding database tables or migrations → MUST run /composure:blueprint first\n• Work will touch 5+ files → SHOULD run /composure:blueprint first\n• Single-file edit or small fix → invoke /composure:app-architecture for reference docs\n\nBlueprint uses the code graph for pre-scan and impact analysis — always prefer graph MCP tools over Explore agents for structural questions."}' "$ARCH_HINT"
 else
-  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s Invoke /composure:app-architecture if you have not loaded reference docs this session. It will load ONLY the docs matching your detected stack."}' "$ARCH_HINT"
+  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s Invoke /composure:app-architecture if you have not loaded reference docs this session. For structural questions (imports, callers, dependents), use graph MCP tools (query_graph, semantic_search_nodes, get_impact_radius) — not Explore agents."}' "$ARCH_HINT"
 fi
 
 exit 0

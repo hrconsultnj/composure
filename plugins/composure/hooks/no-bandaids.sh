@@ -134,6 +134,12 @@ case "$LANG" in
       "Parameter typed as 'any' detected. Define an interface. Use React.ChangeEvent<T>, useLocalSearchParams<T>, etc."
     check "return-assertion" 'return\s+.*\bas\s+[A-Z]\w+' \
       "Return type assertion detected. Use satisfies, a type guard, or annotate the function return type."
+    check "hidden-any-generic" 'Record<[^,]+,\s*any\s*>|Array<\s*any\s*>|Promise<\s*any\s*>|Map<[^,]+,\s*any\s*>|Set<\s*any\s*>' \
+      "Hidden 'any' in generic type parameter (Record<string, any>, Array<any>, etc.). Use 'unknown' or a specific type."
+    check "lazy-type" ':\s*Function\b|:\s*Object\b' \
+      "Lazy type (Function or Object). Use specific signature (() => void) or Record<string, unknown>."
+    check "any-return" '\)\s*:\s*any\s*[{;]|\)\s*:\s*any\s*=>' \
+      "Function with explicit ': any' return type. Define the actual return type."
     ;;
   python)
     check "type-ignore"     'type:\s*ignore'          "Fix the type error instead of ignoring it."

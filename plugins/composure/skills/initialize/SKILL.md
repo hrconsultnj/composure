@@ -600,14 +600,14 @@ For each missing plugin, install it:
 
 | Plugin | Condition | Check | Install command |
 |--------|-----------|-------|-----------------|
-| Supabase Patterns (schema) | `supabase/config.toml` exists OR `supabase/migrations/` dir exists | `echo "$INSTALLED" \| grep -q supabase-patterns` | `claude plugin install supabase-patterns@my-claude-plugins` |
+| Composure Pro Patterns | `supabase/config.toml` exists OR `supabase/migrations/` dir exists | `echo "$INSTALLED" \| grep -q composure-pro` | `claude plugin install composure-pro@my-claude-plugins` |
 
 After installing, initialize each plugin if its config is missing:
 
 1. If `.claude/sentinel.json` does not exist: run `/sentinel:initialize`
 2. If `.claude/testbench.json` does not exist: run `/testbench:initialize`
 3. If `.claude/shipyard.json` does not exist: run `/shipyard:initialize`
-4. If Supabase detected AND `.claude/supabase-patterns.json` does not exist: run `/supabase-patterns:initialize`
+4. If Supabase detected AND `.claude/composure-pro.json` does not exist: run `/composure-pro:initialize`
 
 If plugins were already installed and initialized, skip silently.
 

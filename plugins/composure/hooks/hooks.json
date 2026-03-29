@@ -61,12 +61,6 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Checking for band-aid fixes..."
-          },
-          {
-            "type": "prompt",
-            "prompt": "You are a TypeScript type-safety reviewer. Analyze ONLY the new code being written (the new_string or content field). Skip non-TypeScript/JavaScript files, .d.ts files, generated files, and test files.\n\nCheck for these AMBIGUOUS type shortcuts that regex cannot catch:\n\n1. **Hidden any**: `Record<string, any>`, `Array<any>`, `Promise<any>`, `Map<string, any>`, `Set<any>` — any generic with `any` as a type parameter. Fix: use `unknown` or a specific type.\n2. **Lazy types**: `Function` type (use `() => void` or specific signature), `Object` type (use `Record<string, unknown>` or interface), `{}` type (use `Record<string, unknown>`).\n3. **any return type**: Function with explicit `: any` return annotation. Fix: define the return type.\n4. **Unnecessary as assertion**: `as SpecificType` where `satisfies SpecificType` would validate without widening. Only flag when the value is being assigned to a variable or returned, not when narrowing from a union.\n5. **Type widening**: Casting a specific type to a broader one when already typed correctly.\n\nDo NOT flag: `as const`, `satisfies`, generic type parameters on hooks (`useRef<T>`, `useState<T>`, `useLocalSearchParams<T>`, `ChangeEvent<T>`), proper type annotations, or legitimate narrowing from unions.\n\nIf the code is clean, respond: ALLOW\nIf issues found, respond: DENY — list each issue with the modern fix.",
-            "timeout": 10,
-            "statusMessage": "Reviewing type safety..."
           }
         ]
       }
