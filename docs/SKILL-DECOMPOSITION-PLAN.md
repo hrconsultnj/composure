@@ -108,6 +108,20 @@ Main agent does NOT relay 300 lines of instructions in the prompt.
 ## What's Already Done
 
 - [x] `project-audit` — 964 → 61 router + 4 step files + 4 templates (2026-03-28)
+- [x] `composure/initialize` — 744 → 52 router + 12 steps (2026-03-28)
+- [x] `design-forge/ux-researcher` — 524 → 61 router + 5 steps + 4 refs (2026-03-28)
+- [x] `shipyard/dockerfile` — 510 → 49 router + 3 steps + 7 templates (2026-03-28)
+- [x] `testbench/run` — 416 → 42 router + 6 steps (2026-03-28)
+- [x] `shipyard/preflight` — 403 → 41 router + 6 steps (2026-03-28)
+- [x] `composure/code-organizer` — 361 → 45 router + 6 steps (2026-03-28)
+- [x] `shipyard/initialize` — 344 → 39 router + 5 steps (2026-03-28)
+- [x] `sentinel/initialize` — 340 → 45 router + 5 steps (2026-03-28)
+- [x] `testbench/initialize` — 323 → router + 4 steps (2026-03-28)
+- [x] `shipyard/ci-generate` — 316 → 38 router + 4 steps (2026-03-28)
+- [x] `shipyard/deps-check` — 302 → 46 router + 4 steps (2026-03-28)
+- [x] `shipyard/ci-validate` — 283 → 36 router + 5 steps (2026-03-28, step compliance)
+- [x] `testbench/generate` — 214 → router + 5 steps (2026-03-28, step compliance)
+- [x] `composure/blueprint` — 204 → router + 4 steps (2026-03-28, step compliance)
 
 ## Composure Pro Config Note
 

@@ -51,7 +51,7 @@ See the **New Language Checklist** in the PR template. You'll need to update:
 - `skills/app-architecture/{lang}/SKILL.md` — anti-patterns and patterns
 - `hooks/no-bandaids.sh` — extension detection and rules
 - `skills/app-architecture/SKILL.md` — framework loading table
-- `skills/initialize/SKILL.md` — stack detection
+- `skills/initialize/steps/01-detect-stack.md` — stack detection
 - `README.md` — language list
 
 ### 3. Improve Hooks
