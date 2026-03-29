@@ -50,8 +50,8 @@ Based on the detected `frontend` value, load the matching INDEX.md which tells y
 
 TypeScript patterns live in `frontend/typescript/` — loaded automatically via `frontend/INDEX.md`.
 
-**Also load if the composure-pro plugin is installed:**
-- Composure Pro Patterns (`data-patterns/`, `rls-policies/`) — licensed templates for multi-tenant Supabase architecture. If not installed, `backend/core.md` provides conceptual guidance.
+**Also load if `.claude/composure-pro.json` exists:**
+- Composure Pro Patterns — read `pluginRoot` from the JSON, then load `data-patterns/` and `rls-policies/` from the plugin cache. Licensed templates for multi-tenant Supabase architecture. If not available, `backend/core.md` provides conceptual guidance.
 
 ## Step 4: Load Project-Level Docs
 
@@ -69,7 +69,7 @@ Check if `.claude/frameworks/` exists in the project. If it does, load docs from
 | 1 | Plugin | Category `INDEX.md` + curated docs | Battle-tested patterns (hooks, decomposition, query patterns) |
 | 2 | Plugin | Framework-specific files + co-located curated docs | e.g., `fullstack/nextjs/nextjs.md` + `01-ssr-hydration-layout.md` |
 | 3 | Plugin | Language `SKILL.md` | Anti-patterns for the detected language |
-| 4 | Plugin | Composure Pro Patterns / composure-pro (if installed) | Licensed Pro patterns — schema guard, RLS, entity registry, role system |
+| 4 | Plugin | Composure Pro Patterns (if `.claude/composure-pro.json` exists) | Licensed Pro patterns — read from `pluginRoot` in JSON |
 | 5 | Project | `.claude/frameworks/{category}/{framework}/generated/` | Context7 docs — may have newer API versions |
 | 6 | Project | `.claude/frameworks/{category}/{framework}/project/` | Team conventions, decisions, overrides |
 
