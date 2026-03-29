@@ -3589,49 +3589,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative5, options, skipNormalization) {
+    function resolveComponent(base, relative6, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative5 = parse3(serialize(relative5, options), options);
+        relative6 = parse3(serialize(relative6, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative5.scheme) {
-        target.scheme = relative5.scheme;
-        target.userinfo = relative5.userinfo;
-        target.host = relative5.host;
-        target.port = relative5.port;
-        target.path = removeDotSegments(relative5.path || "");
-        target.query = relative5.query;
+      if (!options.tolerant && relative6.scheme) {
+        target.scheme = relative6.scheme;
+        target.userinfo = relative6.userinfo;
+        target.host = relative6.host;
+        target.port = relative6.port;
+        target.path = removeDotSegments(relative6.path || "");
+        target.query = relative6.query;
       } else {
-        if (relative5.userinfo !== void 0 || relative5.host !== void 0 || relative5.port !== void 0) {
-          target.userinfo = relative5.userinfo;
-          target.host = relative5.host;
-          target.port = relative5.port;
-          target.path = removeDotSegments(relative5.path || "");
-          target.query = relative5.query;
+        if (relative6.userinfo !== void 0 || relative6.host !== void 0 || relative6.port !== void 0) {
+          target.userinfo = relative6.userinfo;
+          target.host = relative6.host;
+          target.port = relative6.port;
+          target.path = removeDotSegments(relative6.path || "");
+          target.query = relative6.query;
         } else {
-          if (!relative5.path) {
+          if (!relative6.path) {
             target.path = base.path;
-            if (relative5.query !== void 0) {
-              target.query = relative5.query;
+            if (relative6.query !== void 0) {
+              target.query = relative6.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative5.path[0] === "/") {
-              target.path = removeDotSegments(relative5.path);
+            if (relative6.path[0] === "/") {
+              target.path = removeDotSegments(relative6.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative5.path;
+                target.path = "/" + relative6.path;
               } else if (!base.path) {
-                target.path = relative5.path;
+                target.path = relative6.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative5.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative6.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative5.query;
+            target.query = relative6.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3639,7 +3639,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative5.fragment;
+      target.fragment = relative6.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -21101,6 +21101,25 @@ CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
 CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
+
+CREATE TABLE IF NOT EXISTS entities (
+    name TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS entity_members (
+    entity_name TEXT NOT NULL REFERENCES entities(name),
+    node_qualified_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (entity_name, node_qualified_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
+CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
 `;
 var GraphStore = class {
   db;
@@ -21269,6 +21288,62 @@ var GraphStore = class {
     this.db.exec("DELETE FROM _qn_filter");
     return rows.map(rowToEdge);
   }
+  // ── Entity CRUD ────────────────────────────────────────────────
+  upsertEntity(name2, displayName2, source) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entities (name, display_name, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET
+           display_name=excluded.display_name, source=excluded.source, updated_at=excluded.updated_at`).run(name2, displayName2, source, now);
+  }
+  upsertEntityMember(entityName, nodeQualifiedName, role, confidence) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entity_members (entity_name, node_qualified_name, role, confidence, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(entity_name, node_qualified_name) DO UPDATE SET
+           role=excluded.role,
+           confidence=CASE WHEN excluded.confidence > entity_members.confidence
+                          THEN excluded.confidence ELSE entity_members.confidence END,
+           updated_at=excluded.updated_at`).run(entityName, nodeQualifiedName, role, confidence, now);
+  }
+  removeEntityData() {
+    this.db.exec("DELETE FROM entity_members");
+    this.db.exec("DELETE FROM entities");
+  }
+  getAllEntities() {
+    const rows = this.db.prepare(`SELECT e.name, e.display_name, e.source,
+                COUNT(em.node_qualified_name) as member_count
+         FROM entities e
+         LEFT JOIN entity_members em ON em.entity_name = e.name
+         GROUP BY e.name
+         ORDER BY member_count DESC`).all();
+    return rows;
+  }
+  getEntityMembers(entityName, minConfidence = 0.5) {
+    const rows = this.db.prepare(`SELECT n.*, em.role, em.confidence
+         FROM entity_members em
+         JOIN nodes n ON n.qualified_name = em.node_qualified_name
+         WHERE em.entity_name = ? AND em.confidence >= ?
+         ORDER BY em.role, n.file_path`).all(entityName, minConfidence);
+    return rows.map((r) => ({
+      node: rowToNode(r),
+      role: r.role,
+      confidence: r.confidence
+    }));
+  }
+  getEntitiesForNode(qualifiedName) {
+    return this.db.prepare(`SELECT entity_name, role, confidence
+         FROM entity_members
+         WHERE node_qualified_name = ?`).all(qualifiedName);
+  }
+  getEntityRoleCounts(entityName) {
+    const rows = this.db.prepare(`SELECT role, COUNT(*) as c FROM entity_members
+         WHERE entity_name = ? GROUP BY role`).all(entityName);
+    const result = {};
+    for (const r of rows)
+      result[r.role] = r.c;
+    return result;
+  }
   // ── Stats ──────────────────────────────────────────────────────
   getStats() {
     const totalNodes = this.db.prepare("SELECT COUNT(*) as c FROM nodes").get().c;
@@ -21299,8 +21374,8 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
-import { dirname as dirname4, join as join2, relative, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
+import { dirname as dirname4, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -25843,6 +25918,249 @@ var CodeParser = class _CodeParser {
   }
 };
 
+// dist/entities.js
+import { readFileSync as readFileSync2 } from "node:fs";
+import { relative } from "node:path";
+var STRIP_PREFIXES = /* @__PURE__ */ new Set(["user_", "admin_", "public_", "auth_"]);
+function normalizeEntityName(raw) {
+  let name2 = raw.toLowerCase().trim();
+  for (const prefix of STRIP_PREFIXES) {
+    if (name2.startsWith(prefix) && name2.length > prefix.length + 2) {
+      name2 = name2.slice(prefix.length);
+      break;
+    }
+  }
+  if (name2.endsWith("ies") && name2.length > 4) {
+    name2 = name2.slice(0, -3) + "y";
+  } else if (name2.endsWith("s") && !name2.endsWith("ss") && !name2.endsWith("us") && !name2.endsWith("is") && name2.length > 3) {
+    name2 = name2.slice(0, -1);
+  }
+  return name2;
+}
+function displayName(normalized) {
+  const capitalized = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  if (capitalized.endsWith("y") && !capitalized.endsWith("ey")) {
+    return capitalized.slice(0, -1) + "ies";
+  }
+  return capitalized + "s";
+}
+function primaryEntity(tableName) {
+  const normalized = normalizeEntityName(tableName);
+  const parts2 = normalized.split("_");
+  return parts2[0];
+}
+var SKIP_ROUTE_SEGMENTS = /* @__PURE__ */ new Set([
+  "app",
+  "api",
+  "src",
+  "pages",
+  "(admin)",
+  "(auth)",
+  "(protected)",
+  "(public)",
+  "(external)",
+  "(internal)",
+  "(marketing)",
+  "[id]",
+  "[slug]",
+  "[id_prefix]",
+  "layout",
+  "loading",
+  "error",
+  "not-found"
+]);
+var SKIP_COMPONENT_PREFIXES = /* @__PURE__ */ new Set([
+  "admin",
+  "shared",
+  "ui",
+  "layout",
+  "common",
+  "portal",
+  "service",
+  "diy"
+]);
+function detectRole(filePath, node) {
+  const rel = filePath.toLowerCase();
+  if (node.is_test || rel.includes("test") || rel.includes("spec"))
+    return "test";
+  if (rel.includes("/migrations/") || rel.endsWith(".sql"))
+    return "migration";
+  if (/\/app\/.*\/(page|layout)\.(tsx?|jsx?)$/.test(rel))
+    return "page";
+  if (rel.includes("/api/") || /\/route\.(ts|js)x?$/.test(rel))
+    return "api";
+  if (rel.includes("/hooks/") || /\/use[A-Z]/.test(filePath))
+    return "hook";
+  if (rel.includes("/components/"))
+    return "component";
+  if (rel.includes("/types/") || rel.endsWith(".types.ts") || rel.endsWith(".d.ts"))
+    return "type";
+  if (node.kind === "Type")
+    return "type";
+  return "lib";
+}
+function detectAndStoreEntities(store, repoRoot) {
+  store.removeEntityData();
+  const entities = /* @__PURE__ */ new Map();
+  const allFiles = store.getAllFiles();
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("migration") && !filePath.endsWith(".sql"))
+      continue;
+    try {
+      const content = readFileSync2(filePath, "utf-8");
+      const tableMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi);
+      for (const match of tableMatches) {
+        const tableName = match[1];
+        const primary = primaryEntity(tableName);
+        if (primary.length < 3)
+          continue;
+        if (!entities.has(primary)) {
+          entities.set(primary, {
+            name: primary,
+            display_name: displayName(primary),
+            source: "migration",
+            tables: [tableName]
+          });
+        } else {
+          entities.get(primary).tables.push(tableName);
+        }
+      }
+      const prismaMatches = content.matchAll(/model\s+(\w+)\s*\{/g);
+      for (const match of prismaMatches) {
+        const name2 = normalizeEntityName(match[1]);
+        if (name2.length < 3)
+          continue;
+        if (!entities.has(name2)) {
+          entities.set(name2, {
+            name: name2,
+            display_name: displayName(name2),
+            source: "migration",
+            tables: [match[1]]
+          });
+        }
+      }
+    } catch {
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!/\/(page|route)\.(tsx?|jsx?)$/.test(rel))
+      continue;
+    const segments = rel.split("/").filter((s) => !SKIP_ROUTE_SEGMENTS.has(s) && !s.startsWith("[") && !s.startsWith("("));
+    const routeSegment = segments[segments.length - 2];
+    if (!routeSegment || routeSegment.length < 3)
+      continue;
+    const name2 = normalizeEntityName(routeSegment);
+    if (!entities.has(name2)) {
+      entities.set(name2, {
+        name: name2,
+        display_name: displayName(name2),
+        source: "route",
+        tables: []
+      });
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("/components/"))
+      continue;
+    const afterComponents = rel.split("/components/")[1];
+    if (!afterComponents)
+      continue;
+    const parts2 = afterComponents.split("/");
+    let dirName = parts2[0];
+    if (SKIP_COMPONENT_PREFIXES.has(dirName.toLowerCase()) && parts2.length > 1) {
+      dirName = parts2[1];
+    }
+    if (!dirName || dirName.includes(".") || dirName.length < 3)
+      continue;
+    const name2 = normalizeEntityName(dirName);
+    if (!entities.has(name2)) {
+      entities.set(name2, {
+        name: name2,
+        display_name: displayName(name2),
+        source: "directory",
+        tables: []
+      });
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("/hooks/"))
+      continue;
+    const afterHooks = rel.split("/hooks/")[1];
+    if (!afterHooks)
+      continue;
+    const parts2 = afterHooks.split("/");
+    if (parts2.length > 1) {
+      const skipDirs = /* @__PURE__ */ new Set(["query", "mutation", "mutations", "queries"]);
+      for (const p of parts2) {
+        if (!skipDirs.has(p) && !p.includes(".") && p.length >= 3) {
+          const name2 = normalizeEntityName(p);
+          if (!entities.has(name2)) {
+            entities.set(name2, {
+              name: name2,
+              display_name: displayName(name2),
+              source: "hook",
+              tables: []
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
+  for (const entity of entities.values()) {
+    store.upsertEntity(entity.name, entity.display_name, entity.source);
+  }
+  const entityNames = [...entities.keys()];
+  let memberCount = 0;
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath).toLowerCase();
+    const nodes = store.getNodesByFile(filePath);
+    for (const node of nodes) {
+      const role = detectRole(filePath, node);
+      for (const entityName of entityNames) {
+        const entity = entities.get(entityName);
+        let confidence = 0;
+        if (rel.includes(`/${entityName}/`) || rel.includes(`/${entityName}s/`)) {
+          confidence = Math.max(confidence, entity.source === "migration" || entity.source === "route" ? 1 : 0.9);
+        }
+        for (const table of entity.tables) {
+          const normalizedTable = table.toLowerCase();
+          if (rel.includes(normalizedTable) || rel.includes(normalizedTable.replace(/_/g, "-"))) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (node.kind !== "File") {
+          const nodeName = node.name.toLowerCase();
+          if (nodeName.includes(entityName) || nodeName.includes(entityName + "s")) {
+            confidence = Math.max(confidence, 0.8);
+          }
+        }
+        if (node.name.startsWith("use")) {
+          const hookTarget = normalizeEntityName(node.name.slice(3));
+          if (hookTarget === entityName) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (node.name.endsWith("Keys") || node.name.endsWith("keys")) {
+          const keyTarget = normalizeEntityName(node.name.replace(/[Kk]eys$/, ""));
+          if (keyTarget === entityName) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (confidence >= 0.5) {
+          store.upsertEntityMember(entityName, node.qualified_name, role, confidence);
+          memberCount++;
+        }
+      }
+    }
+  }
+  return { entityCount: entities.size, memberCount };
+}
+
 // dist/incremental.js
 var DEFAULT_IGNORES = /* @__PURE__ */ new Set([
   "node_modules",
@@ -25908,7 +26226,7 @@ function collectAllFiles(repoRoot) {
     return [];
   const extraIgnores = loadIgnorePatterns(repoRoot);
   return output.split("\n").filter(Boolean).map((f) => resolve2(repoRoot, f)).filter((f) => {
-    const rel = relative(repoRoot, f);
+    const rel = relative2(repoRoot, f);
     if (shouldIgnore(rel))
       return false;
     if (!isParseable(f))
@@ -25927,7 +26245,7 @@ function loadIgnorePatterns(repoRoot) {
   if (!existsSync3(ignorePath))
     return [];
   try {
-    return readFileSync2(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    return readFileSync3(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch {
     return [];
   }
@@ -25967,6 +26285,7 @@ async function fullBuild(repoRoot, store) {
       errors.push(`${f}: ${err2 instanceof Error ? err2.message : String(err2)}`);
     }
   }
+  const entityResult = detectAndStoreEntities(store, repoRoot);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   store.setMetadata("last_updated", now);
   store.setMetadata("last_build_type", "full");
@@ -25976,7 +26295,9 @@ async function fullBuild(repoRoot, store) {
     files_parsed: parsed,
     total_nodes: stats.total_nodes,
     total_edges: stats.total_edges,
-    errors
+    errors,
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount
   };
 }
 async function incrementalUpdate(repoRoot, store, base = "HEAD~1", changedFiles) {
@@ -25989,7 +26310,7 @@ async function incrementalUpdate(repoRoot, store, base = "HEAD~1", changedFiles)
       ...getStagedAndUnstaged(repoRoot)
     ])
   ];
-  changed = changed.filter((f) => isParseable(f) && !shouldIgnore(relative(repoRoot, f)));
+  changed = changed.filter((f) => isParseable(f) && !shouldIgnore(relative2(repoRoot, f)));
   const dependentFiles = /* @__PURE__ */ new Set();
   for (const f of changed) {
     for (const dep of findDependents(store, f)) {
@@ -26019,6 +26340,7 @@ async function incrementalUpdate(repoRoot, store, base = "HEAD~1", changedFiles)
       errors.push(`${f}: ${err2 instanceof Error ? err2.message : String(err2)}`);
     }
   }
+  const entityResult = detectAndStoreEntities(store, repoRoot);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   store.setMetadata("last_updated", now);
   store.setMetadata("last_build_type", "incremental");
@@ -26029,8 +26351,10 @@ async function incrementalUpdate(repoRoot, store, base = "HEAD~1", changedFiles)
     total_nodes: stats.total_nodes,
     total_edges: stats.total_edges,
     errors,
-    changed_files: changed.map((f) => relative(repoRoot, f)),
-    dependent_files: [...dependentFiles].map((f) => relative(repoRoot, f))
+    changed_files: changed.map((f) => relative2(repoRoot, f)),
+    dependent_files: [...dependentFiles].map((f) => relative2(repoRoot, f)),
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount
   };
 }
 
@@ -26283,8 +26607,8 @@ function queryGraph(params) {
 }
 
 // dist/tools/get-review-context.js
-import { readFileSync as readFileSync3 } from "node:fs";
-import { relative as relative2, resolve as resolve4 } from "node:path";
+import { readFileSync as readFileSync4 } from "node:fs";
+import { relative as relative3, resolve as resolve4 } from "node:path";
 
 // dist/bfs.js
 function buildAdjacencyList(edges) {
@@ -26425,11 +26749,11 @@ function getReviewContext(params) {
     if (includeSource) {
       for (const f of changedFiles) {
         try {
-          const content = readFileSync3(f, "utf-8");
+          const content = readFileSync4(f, "utf-8");
           const lines = content.split("\n");
           const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
 ... (${lines.length - maxLines} more lines)` : content;
-          sourceSnippets[relative2(root, f)] = snippet;
+          sourceSnippets[relative3(root, f)] = snippet;
         } catch {
         }
       }
@@ -26466,8 +26790,8 @@ function getReviewContext(params) {
       status: "ok",
       summary,
       context: {
-        changed_files: changedFiles.map((f) => relative2(root, f)),
-        impacted_files: impact.impacted_files.map((f) => relative2(root, f)),
+        changed_files: changedFiles.map((f) => relative3(root, f)),
+        impacted_files: impact.impacted_files.map((f) => relative3(root, f)),
         graph: {
           changed_nodes: impact.changed_nodes.map(nodeToDict),
           impacted_nodes: impact.impacted_nodes.map(nodeToDict),
@@ -26483,7 +26807,7 @@ function getReviewContext(params) {
 }
 
 // dist/tools/get-impact-radius.js
-import { relative as relative3 } from "node:path";
+import { relative as relative4 } from "node:path";
 function getImpactRadiusTool(params) {
   const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
@@ -26528,10 +26852,10 @@ function getImpactRadiusTool(params) {
     return {
       status: "ok",
       summary,
-      changed_files: changedFiles.map((f) => relative3(root, f)),
+      changed_files: changedFiles.map((f) => relative4(root, f)),
       changed_nodes: result.changed_nodes.map(nodeToDict),
       impacted_nodes: result.impacted_nodes.map(nodeToDict),
-      impacted_files: result.impacted_files.map((f) => relative3(root, f)),
+      impacted_files: result.impacted_files.map((f) => relative4(root, f)),
       edges: result.edges.map(edgeToDict),
       truncated: result.truncated,
       total_impacted: result.total_impacted
@@ -26635,7 +26959,7 @@ function listGraphStats(params) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename2, dirname as dirname5, join as join3, relative as relative4, resolve as resolve5 } from "node:path";
+import { basename as basename2, dirname as dirname5, join as join3, relative as relative5, resolve as resolve5 } from "node:path";
 
 // dist/html-template.js
 function generateGraphHtml(data) {
@@ -27334,7 +27658,7 @@ function extractVisNodes(store, repoRoot) {
     const fileNode = fileNodes.find((n) => n.kind === "File");
     if (!fileNode)
       continue;
-    const relPath = relative4(repoRoot, filePath);
+    const relPath = relative5(repoRoot, filePath);
     const lines = fileNode.line_end - fileNode.line_start + 1;
     const functions = fileNodes.filter((n) => n.kind === "Function").length;
     const classes = fileNodes.filter((n) => n.kind === "Class").length;
@@ -27411,6 +27735,92 @@ function generateGraphHtmlTool(params) {
       files: nodes.length,
       connections: edgeCount,
       categories: catCounts
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/entity-scope.js
+function entityScope(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const minConfidence = params.min_confidence ?? 0.5;
+    if (!params.entity) {
+      const entities = store.getAllEntities();
+      if (entities.length === 0) {
+        return {
+          status: "ok",
+          summary: "No entities detected. Run build_or_update_graph with full_rebuild=true first.",
+          entities: []
+        };
+      }
+      const entitiesWithRoles = entities.map((e) => ({
+        ...e,
+        roles: store.getEntityRoleCounts(e.name)
+      }));
+      return {
+        status: "ok",
+        summary: `${entities.length} entities discovered`,
+        entities: entitiesWithRoles
+      };
+    }
+    const entityName = params.entity.toLowerCase().trim();
+    const allEntities = store.getAllEntities();
+    const entity = allEntities.find((e) => e.name === entityName);
+    if (!entity) {
+      const candidates = allEntities.filter((e) => e.name.includes(entityName));
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Entity "${entityName}" not found. Did you mean one of these?`,
+          candidates: candidates.map((c) => c.name)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `Entity "${entityName}" not found. Run entity_scope() with no arguments to list all entities.`
+      };
+    }
+    const members = store.getEntityMembers(entityName, minConfidence);
+    const roles = store.getEntityRoleCounts(entityName);
+    const membersByRole = {};
+    for (const m of members) {
+      if (!membersByRole[m.role])
+        membersByRole[m.role] = [];
+      membersByRole[m.role].push({
+        ...nodeToDict(m.node),
+        confidence: m.confidence
+      });
+    }
+    const sharedWith = /* @__PURE__ */ new Set();
+    for (const m of members) {
+      const otherEntities = store.getEntitiesForNode(m.node.qualified_name);
+      for (const oe of otherEntities) {
+        if (oe.entity_name !== entityName) {
+          sharedWith.add(oe.entity_name);
+        }
+      }
+    }
+    return {
+      status: "ok",
+      summary: `entity "${entityName}": ${members.length} members across ${Object.keys(roles).length} roles`,
+      entity: entityName,
+      display_name: entity.display_name,
+      source: entity.source,
+      roles,
+      members_by_role: membersByRole,
+      shared_with: [...sharedWith].sort()
     };
   } finally {
     store.close();
@@ -27520,6 +27930,23 @@ server.tool("generate_graph_html", "Generate a self-contained HTML visualization
   repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
 }, async (params) => {
   const result = generateGraphHtmlTool(params);
+  return {
+    content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+  };
+});
+server.tool("entity_scope", `Get all code related to a business entity (feature/domain concept).
+Entities are auto-detected from migrations, routes, component directories, and hooks.
+
+Without arguments: lists all discovered entities with member counts and role breakdowns.
+With entity name: returns all pages, components, hooks, types, API routes, tests, and
+utilities grouped by role, plus cross-entity overlaps.
+
+Use this to understand the full scope of a feature before modifying it.`, {
+  entity: external_exports.string().optional().describe("Entity name (e.g. 'contact', 'order'). Omit to list all entities."),
+  min_confidence: external_exports.number().default(0.5).describe("Minimum confidence threshold for membership (0.0-1.0). Default: 0.5."),
+  repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
+}, async (params) => {
+  const result = entityScope(params);
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };

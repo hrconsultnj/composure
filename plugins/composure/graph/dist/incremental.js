@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { CodeParser, fileHash, isParseable } from "./parser.js";
+import { detectAndStoreEntities } from "./entities.js";
 // ── Default ignore patterns ────────────────────────────────────────
 const DEFAULT_IGNORES = new Set([
     "node_modules",
@@ -160,6 +161,8 @@ export async function fullBuild(repoRoot, store) {
             errors.push(`${f}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
+    // Detect domain entities after all files are parsed
+    const entityResult = detectAndStoreEntities(store, repoRoot);
     const now = new Date().toISOString();
     store.setMetadata("last_updated", now);
     store.setMetadata("last_build_type", "full");
@@ -170,6 +173,8 @@ export async function fullBuild(repoRoot, store) {
         total_nodes: stats.total_nodes,
         total_edges: stats.total_edges,
         errors,
+        entities_detected: entityResult.entityCount,
+        entity_members: entityResult.memberCount,
     };
 }
 // ── Incremental update ─────────────────────────────────────────────
@@ -216,6 +221,8 @@ export async function incrementalUpdate(repoRoot, store, base = "HEAD~1", change
             errors.push(`${f}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
+    // Re-detect entities after incremental update
+    const entityResult = detectAndStoreEntities(store, repoRoot);
     const now = new Date().toISOString();
     store.setMetadata("last_updated", now);
     store.setMetadata("last_build_type", "incremental");
@@ -228,6 +235,8 @@ export async function incrementalUpdate(repoRoot, store, base = "HEAD~1", change
         errors,
         changed_files: changed.map((f) => relative(repoRoot, f)),
         dependent_files: [...dependentFiles].map((f) => relative(repoRoot, f)),
+        entities_detected: entityResult.entityCount,
+        entity_members: entityResult.memberCount,
     };
 }
 // ── Single file update (for hooks) ─────────────────────────────────
