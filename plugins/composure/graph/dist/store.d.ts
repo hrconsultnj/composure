@@ -4,11 +4,14 @@
  * Uses Node.js built-in node:sqlite (DatabaseSync) — zero native dependencies.
  * Serialization helpers (row converters, dict formatters) live in serialization.ts.
  */
+import { DatabaseSync } from "node:sqlite";
 import type { EdgeInfo, GraphEdge, GraphNode, GraphStats, NodeInfo } from "./types.js";
 export { nodeToDict, edgeToDict } from "./serialization.js";
 export declare class GraphStore {
     private db;
     constructor(dbPath: string);
+    /** Expose the raw database for audit-store and other modules. */
+    getDb(): DatabaseSync;
     close(): void;
     commit(): void;
     setMetadata(key: string, value: string): void;

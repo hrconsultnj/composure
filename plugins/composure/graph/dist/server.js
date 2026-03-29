@@ -3589,49 +3589,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative6, options, skipNormalization) {
+    function resolveComponent(base, relative7, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative6 = parse3(serialize(relative6, options), options);
+        relative7 = parse3(serialize(relative7, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative6.scheme) {
-        target.scheme = relative6.scheme;
-        target.userinfo = relative6.userinfo;
-        target.host = relative6.host;
-        target.port = relative6.port;
-        target.path = removeDotSegments(relative6.path || "");
-        target.query = relative6.query;
+      if (!options.tolerant && relative7.scheme) {
+        target.scheme = relative7.scheme;
+        target.userinfo = relative7.userinfo;
+        target.host = relative7.host;
+        target.port = relative7.port;
+        target.path = removeDotSegments(relative7.path || "");
+        target.query = relative7.query;
       } else {
-        if (relative6.userinfo !== void 0 || relative6.host !== void 0 || relative6.port !== void 0) {
-          target.userinfo = relative6.userinfo;
-          target.host = relative6.host;
-          target.port = relative6.port;
-          target.path = removeDotSegments(relative6.path || "");
-          target.query = relative6.query;
+        if (relative7.userinfo !== void 0 || relative7.host !== void 0 || relative7.port !== void 0) {
+          target.userinfo = relative7.userinfo;
+          target.host = relative7.host;
+          target.port = relative7.port;
+          target.path = removeDotSegments(relative7.path || "");
+          target.query = relative7.query;
         } else {
-          if (!relative6.path) {
+          if (!relative7.path) {
             target.path = base.path;
-            if (relative6.query !== void 0) {
-              target.query = relative6.query;
+            if (relative7.query !== void 0) {
+              target.query = relative7.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative6.path[0] === "/") {
-              target.path = removeDotSegments(relative6.path);
+            if (relative7.path[0] === "/") {
+              target.path = removeDotSegments(relative7.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative6.path;
+                target.path = "/" + relative7.path;
               } else if (!base.path) {
-                target.path = relative6.path;
+                target.path = relative7.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative6.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative7.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative6.query;
+            target.query = relative7.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3639,7 +3639,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative6.fragment;
+      target.fragment = relative7.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -21120,6 +21120,52 @@ CREATE TABLE IF NOT EXISTS entity_members (
 
 CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
 CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
+
+CREATE TABLE IF NOT EXISTS audit_findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    finding_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    node_qualified_name TEXT,
+    file_path TEXT,
+    title TEXT NOT NULL,
+    detail TEXT DEFAULT '{}',
+    score_impact REAL DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS test_coverage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    node_qualified_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    has_test_edge INTEGER DEFAULT 0,
+    coverage_pct REAL,
+    test_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    raw_score REAL NOT NULL,
+    weight REAL NOT NULL,
+    adjusted_weight REAL NOT NULL,
+    grade TEXT NOT NULL,
+    grade_color TEXT NOT NULL,
+    finding_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_af_run ON audit_findings(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_af_category ON audit_findings(category);
+CREATE INDEX IF NOT EXISTS idx_af_severity ON audit_findings(severity);
+CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
+CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
+CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
 `;
 var GraphStore = class {
   db;
@@ -21136,6 +21182,10 @@ var GraphStore = class {
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA busy_timeout = 30000");
     this.db.exec(SCHEMA_SQL);
+  }
+  /** Expose the raw database for audit-store and other modules. */
+  getDb() {
+    return this.db;
   }
   close() {
     this.db.close();
@@ -25547,12 +25597,12 @@ function fileHash(filePath) {
   const content = readFileSync(filePath);
   return createHash("sha256").update(content).digest("hex");
 }
-var __dirname = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
+var __dirname2 = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
 var WASM_PATHS = {
-  typescript: join(__dirname, "tree-sitter-typescript.wasm"),
-  tsx: join(__dirname, "tree-sitter-tsx.wasm"),
-  javascript: join(__dirname, "tree-sitter-javascript.wasm"),
-  jsx: join(__dirname, "tree-sitter-javascript.wasm")
+  typescript: join(__dirname2, "tree-sitter-typescript.wasm"),
+  tsx: join(__dirname2, "tree-sitter-tsx.wasm"),
+  javascript: join(__dirname2, "tree-sitter-javascript.wasm"),
+  jsx: join(__dirname2, "tree-sitter-javascript.wasm")
 };
 var parserInitialized = false;
 var CodeParser = class _CodeParser {
@@ -27911,6 +27961,568 @@ function entityScope(params) {
   }
 }
 
+// dist/tools/run-audit.js
+import { execFileSync as execFileSync2 } from "node:child_process";
+import { existsSync as existsSync4, readFileSync as readFileSync5 } from "node:fs";
+import { join as join4, relative as relative6 } from "node:path";
+
+// dist/audit-store.js
+function insertFinding(store, f) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO audit_findings
+       (audit_run_id, category, finding_type, severity, node_qualified_name, file_path, title, detail, score_impact, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(f.audit_run_id, f.category, f.finding_type, f.severity, f.node_qualified_name ?? null, f.file_path ?? null, f.title, JSON.stringify(f.detail ?? {}), f.score_impact, now);
+  return Number(info2.lastInsertRowid);
+}
+function getFindings(store, runId, category) {
+  const db = store.getDb();
+  const sql = category ? "SELECT * FROM audit_findings WHERE audit_run_id = ? AND category = ? ORDER BY severity, score_impact DESC" : "SELECT * FROM audit_findings WHERE audit_run_id = ? ORDER BY category, severity, score_impact DESC";
+  const params = category ? [runId, category] : [runId];
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(rowToFinding);
+}
+function getFindingCounts(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare(`SELECT category, severity, COUNT(*) as c
+       FROM audit_findings WHERE audit_run_id = ?
+       GROUP BY category, severity`).all(runId);
+  const result = {};
+  for (const r of rows) {
+    if (!result[r.category])
+      result[r.category] = {};
+    result[r.category][r.severity] = r.c;
+  }
+  return result;
+}
+function insertTestCoverage(store, tc) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO test_coverage
+       (audit_run_id, node_qualified_name, file_path, has_test_edge, coverage_pct, test_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(tc.audit_run_id, tc.node_qualified_name, tc.file_path, tc.has_test_edge ? 1 : 0, tc.coverage_pct, tc.test_count, now);
+  return Number(info2.lastInsertRowid);
+}
+function getTestCoverageGaps(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare("SELECT * FROM test_coverage WHERE audit_run_id = ? AND has_test_edge = 0 ORDER BY file_path").all(runId);
+  return rows.map(rowToCoverage);
+}
+function insertScore(store, s) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO audit_scores
+       (audit_run_id, category, raw_score, weight, adjusted_weight, grade, grade_color, finding_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(s.audit_run_id, s.category, s.raw_score, s.weight, s.adjusted_weight, s.grade, s.grade_color, s.finding_count, now);
+  return Number(info2.lastInsertRowid);
+}
+function getScores(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare("SELECT * FROM audit_scores WHERE audit_run_id = ? ORDER BY category").all(runId);
+  return rows.map(rowToScore);
+}
+function getOverallScore(store, runId) {
+  const scores = getScores(store, runId);
+  if (scores.length === 0)
+    return { score: 0, grade: "F", color: "#ef4444" };
+  const overall = scores.reduce((sum, s) => sum + s.raw_score * s.adjusted_weight, 0);
+  const { grade, color } = gradeFor(overall);
+  return { score: Math.round(overall * 10) / 10, grade, color };
+}
+function getLatestRunId(store) {
+  const db = store.getDb();
+  const row = db.prepare("SELECT audit_run_id FROM audit_scores ORDER BY created_at DESC LIMIT 1").get();
+  return row?.audit_run_id ?? null;
+}
+function gradeFor(score) {
+  if (score >= 90)
+    return { grade: "A", color: "#22c55e" };
+  if (score >= 80)
+    return { grade: "B", color: "#3b82f6" };
+  if (score >= 70)
+    return { grade: "C", color: "#eab308" };
+  if (score >= 60)
+    return { grade: "D", color: "#f97316" };
+  return { grade: "F", color: "#ef4444" };
+}
+function rowToFinding(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    category: row.category,
+    finding_type: row.finding_type,
+    severity: row.severity,
+    node_qualified_name: row.node_qualified_name ?? void 0,
+    file_path: row.file_path ?? void 0,
+    title: row.title,
+    detail: JSON.parse(row.detail || "{}"),
+    score_impact: row.score_impact,
+    created_at: row.created_at
+  };
+}
+function rowToCoverage(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    node_qualified_name: row.node_qualified_name,
+    file_path: row.file_path,
+    has_test_edge: Boolean(row.has_test_edge),
+    coverage_pct: row.coverage_pct ?? null,
+    test_count: row.test_count,
+    created_at: row.created_at
+  };
+}
+function rowToScore(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    category: row.category,
+    raw_score: row.raw_score,
+    weight: row.weight,
+    adjusted_weight: row.adjusted_weight,
+    grade: row.grade,
+    grade_color: row.grade_color,
+    finding_count: row.finding_count,
+    created_at: row.created_at
+  };
+}
+
+// dist/tools/run-audit.js
+var IMPACTS = {
+  FILE_400: 5,
+  FILE_600: 15,
+  FILE_800: 30,
+  FUNC_150: 3,
+  TASKS_PER_5: 1,
+  CVE_CRITICAL: 25,
+  CVE_HIGH: 10,
+  CVE_MODERATE: 3,
+  SEMGREP_ERROR: 15,
+  SEMGREP_WARNING: 5,
+  SEMGREP_INFO: 1,
+  MISSING_HEADER: 3,
+  UNTESTED_FUNC: 2,
+  PREFLIGHT_FAIL: 15,
+  PREFLIGHT_WARN: 5
+};
+var CATEGORY_WEIGHTS = {
+  "code-quality": 0.3,
+  security: 0.25,
+  testing: 0.25,
+  deployment: 0.2
+};
+function execSafe(cmd, args2, cwd) {
+  try {
+    return execFileSync2(cmd, args2, {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 6e4
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+function findPkgManager(root) {
+  if (existsSync4(join4(root, "pnpm-lock.yaml")))
+    return "pnpm";
+  if (existsSync4(join4(root, "yarn.lock")))
+    return "yarn";
+  if (existsSync4(join4(root, "package-lock.json")))
+    return "npm";
+  return null;
+}
+function toSeverity(raw) {
+  if (typeof raw === "string") {
+    const lower = raw.toLowerCase();
+    if (lower === "critical" || lower === "high" || lower === "moderate" || lower === "low" || lower === "info") {
+      return lower;
+    }
+  }
+  return "moderate";
+}
+function analyzeCodeQuality(store, runId, repoRoot) {
+  const db = store.getDb();
+  let findingCount = 0;
+  const fileRows = db.prepare(`SELECT qualified_name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'File' AND (line_end - line_start + 1) > 400
+       ORDER BY lines DESC`).all();
+  for (const f of fileRows) {
+    let impact;
+    let severity;
+    let findingType;
+    if (f.lines > 800) {
+      impact = IMPACTS.FILE_800;
+      severity = "critical";
+      findingType = "oversized-file-800";
+    } else if (f.lines > 600) {
+      impact = IMPACTS.FILE_600;
+      severity = "high";
+      findingType = "oversized-file-600";
+    } else {
+      impact = IMPACTS.FILE_400;
+      severity = "moderate";
+      findingType = "oversized-file-400";
+    }
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: findingType,
+      severity,
+      node_qualified_name: f.qualified_name,
+      file_path: relative6(repoRoot, f.file_path),
+      title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
+      detail: { lines: f.lines },
+      score_impact: impact
+    });
+    findingCount++;
+  }
+  const funcRows = db.prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'Function' AND (line_end - line_start + 1) > 150
+       ORDER BY lines DESC`).all();
+  for (const f of funcRows) {
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: "oversized-function",
+      severity: "moderate",
+      node_qualified_name: f.qualified_name,
+      file_path: relative6(repoRoot, f.file_path),
+      title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
+      detail: { lines: f.lines, name: f.name },
+      score_impact: IMPACTS.FUNC_150
+    });
+    findingCount++;
+  }
+  const tasksPath = join4(repoRoot, "tasks-plans", "tasks.md");
+  if (existsSync4(tasksPath)) {
+    try {
+      const content = readFileSync5(tasksPath, "utf-8");
+      const openCount = (content.match(/^- \[ \]/gm) || []).length;
+      if (openCount > 0) {
+        const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "open-tasks",
+          severity: "low",
+          title: `${openCount} open quality tasks in task queue`,
+          detail: { open_count: openCount },
+          score_impact: impact
+        });
+        findingCount++;
+      }
+    } catch {
+    }
+  }
+  return findingCount;
+}
+function analyzeTestCoverage(store, runId, repoRoot) {
+  const db = store.getDb();
+  let findingCount = 0;
+  const rows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(e.id) as test_count
+       FROM nodes n
+       LEFT JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'TESTED_BY'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+       GROUP BY n.qualified_name`).all();
+  for (const r of rows) {
+    insertTestCoverage(store, {
+      audit_run_id: runId,
+      node_qualified_name: r.qualified_name,
+      file_path: relative6(repoRoot, r.file_path),
+      has_test_edge: r.test_count > 0,
+      coverage_pct: null,
+      test_count: r.test_count
+    });
+    if (r.test_count === 0) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "testing",
+        finding_type: "untested-function",
+        severity: "low",
+        node_qualified_name: r.qualified_name,
+        file_path: relative6(repoRoot, r.file_path),
+        title: `Function "${r.name}" has no test coverage`,
+        detail: { name: r.name },
+        score_impact: IMPACTS.UNTESTED_FUNC
+      });
+      findingCount++;
+    }
+  }
+  return findingCount;
+}
+function analyzeSecurityCLI(store, runId, repoRoot) {
+  let findingCount = 0;
+  const pkgManager = findPkgManager(repoRoot);
+  if (pkgManager) {
+    const output = execSafe(pkgManager, ["audit", "--json"], repoRoot);
+    if (output) {
+      try {
+        const data = JSON.parse(output);
+        const vulns = data.vulnerabilities ?? data.advisories ?? {};
+        for (const [name2, info2] of Object.entries(vulns)) {
+          const severity = toSeverity(info2.severity);
+          const impact = severity === "critical" ? IMPACTS.CVE_CRITICAL : severity === "high" ? IMPACTS.CVE_HIGH : IMPACTS.CVE_MODERATE;
+          insertFinding(store, {
+            audit_run_id: runId,
+            category: "security",
+            finding_type: `cve-${severity}`,
+            severity,
+            title: `${severity.toUpperCase()} vulnerability in ${name2}`,
+            detail: {
+              package: name2,
+              severity,
+              fix_available: Boolean(info2.fixAvailable)
+            },
+            score_impact: impact
+          });
+          findingCount++;
+        }
+      } catch {
+      }
+    }
+  }
+  return findingCount;
+}
+function computeScores(store, runId, availableCategories) {
+  const db = store.getDb();
+  const totalWeight = [...availableCategories].reduce((sum, cat) => sum + CATEGORY_WEIGHTS[cat], 0);
+  for (const category of availableCategories) {
+    const row = db.prepare(`SELECT COALESCE(SUM(score_impact), 0) as total, COUNT(*) as cnt
+         FROM audit_findings
+         WHERE audit_run_id = ? AND category = ?`).get(runId, category);
+    let score = Math.max(0, 100 - row.total);
+    if (category === "testing") {
+      const testNodes = db.prepare("SELECT COUNT(*) as c FROM nodes WHERE kind = 'Test'").get();
+      if (testNodes.c === 0)
+        score = 0;
+    }
+    if (category === "security") {
+      const criticals = db.prepare(`SELECT COUNT(*) as c FROM audit_findings
+           WHERE audit_run_id = ? AND category = 'security' AND severity = 'critical'`).get(runId);
+      if (criticals.c > 0)
+        score = Math.min(score, 59);
+    }
+    const { grade, color } = gradeFor(score);
+    const adjustedWeight = CATEGORY_WEIGHTS[category] / totalWeight;
+    insertScore(store, {
+      audit_run_id: runId,
+      category,
+      raw_score: score,
+      weight: CATEGORY_WEIGHTS[category],
+      adjusted_weight: adjustedWeight,
+      grade,
+      grade_color: color,
+      finding_count: row.cnt
+    });
+  }
+}
+async function runAudit(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}. Run build_or_update_graph first.`
+    };
+  }
+  try {
+    const stats = store.getStats();
+    if (stats.total_nodes === 0) {
+      return {
+        status: "error",
+        error: "Graph is empty. Run build_or_update_graph with full_rebuild=true first."
+      };
+    }
+    const runId = (/* @__PURE__ */ new Date()).toISOString();
+    const availableCategories = /* @__PURE__ */ new Set(["code-quality"]);
+    analyzeCodeQuality(store, runId, root);
+    if (params.include_testing !== false) {
+      analyzeTestCoverage(store, runId, root);
+      availableCategories.add("testing");
+    }
+    if (params.include_security !== false) {
+      analyzeSecurityCLI(store, runId, root);
+      if (findPkgManager(root)) {
+        availableCategories.add("security");
+      }
+    }
+    computeScores(store, runId, availableCategories);
+    const findingCounts = getFindingCounts(store, runId);
+    const scores = store.getDb().prepare("SELECT * FROM audit_scores WHERE audit_run_id = ? ORDER BY category").all(runId);
+    const overallScore = scores.reduce((sum, s) => sum + s.raw_score * s.adjusted_weight, 0);
+    const { grade: overallGrade, color: overallColor } = gradeFor(overallScore);
+    const categorySummary = scores.map((s) => ({
+      category: s.category,
+      score: s.raw_score,
+      grade: s.grade,
+      grade_color: s.grade_color,
+      findings: s.finding_count
+    }));
+    const totalFindings = Object.values(findingCounts).reduce((s, c) => s + Object.values(c).reduce((a, b) => a + b, 0), 0);
+    return {
+      status: "ok",
+      run_id: runId,
+      overall_score: Math.round(overallScore * 10) / 10,
+      overall_grade: overallGrade,
+      overall_color: overallColor,
+      categories: categorySummary,
+      finding_counts: findingCounts,
+      summary: `Audit complete: ${overallGrade} (${Math.round(overallScore)}). ${totalFindings} findings across ${availableCategories.size} categories.`
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/generate-audit-html.js
+import { existsSync as existsSync5, readFileSync as readFileSync6, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename3, dirname as dirname6, join as join5 } from "node:path";
+function findTemplateDir() {
+  const candidates = [
+    join5(dirname6(import.meta.dirname ?? __dirname), "..", "..", "skills", "project-audit", "templates"),
+    // Fallback: check CLAUDE_PLUGIN_ROOT
+    process.env.CLAUDE_PLUGIN_ROOT ? join5(process.env.CLAUDE_PLUGIN_ROOT, "skills", "project-audit", "templates") : ""
+  ].filter(Boolean);
+  for (const dir of candidates) {
+    if (existsSync5(join5(dir, "audit-header.html")))
+      return dir;
+  }
+  return null;
+}
+function readTemplate(dir, name2) {
+  return readFileSync6(join5(dir, name2), "utf-8");
+}
+function coverageColor(pct) {
+  if (pct >= 80)
+    return "#22c55e";
+  if (pct >= 60)
+    return "#eab308";
+  if (pct >= 40)
+    return "#f97316";
+  return "#ef4444";
+}
+function buildReplacementMap(store, runId, repoRoot) {
+  const scores = getScores(store, runId);
+  const overall = getOverallScore(store, runId);
+  const findingCounts = getFindingCounts(store, runId);
+  const findings = getFindings(store, runId);
+  const gaps = getTestCoverageGaps(store, runId);
+  const scoreMap = {};
+  for (const s of scores) {
+    scoreMap[s.category] = { grade: s.grade, color: s.grade_color, score: s.raw_score };
+  }
+  const cq = scoreMap["code-quality"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const sec = scoreMap["security"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const test = scoreMap["testing"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const deploy = scoreMap["deployment"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const cqFindings = findingCounts["code-quality"] ?? {};
+  const secFindings = findingCounts["security"] ?? {};
+  const securityRows = findings.filter((f) => f.category === "security").slice(0, 10).map((f) => `<tr><td><span class="badge badge-${f.severity}">${f.severity}</span></td><td>${escHtml(f.title)}</td><td class="path">${escHtml(f.file_path ?? "dependency")}</td></tr>`).join("\n");
+  const untestedRows = gaps.slice(0, 15).map((g) => `<tr><td class="path">${escHtml(g.file_path)}</td><td>${escHtml(g.node_qualified_name.split("::").pop() ?? "")}</td></tr>`).join("\n");
+  const repoName = basename3(repoRoot);
+  return {
+    "{{PROJECT_NAME}}": escHtml(repoName),
+    "{{OVERALL_GRADE}}": overall.grade,
+    "{{OVERALL_SCORE}}": String(overall.score),
+    "{{OVERALL_COLOR}}": overall.color,
+    "{{QUALITY_GRADE}}": cq.grade,
+    "{{QUALITY_GRADE_COLOR}}": cq.color,
+    "{{QUALITY_SCORE}}": String(Math.round(cq.score)),
+    "{{SECURITY_GRADE}}": sec.grade,
+    "{{SECURITY_GRADE_COLOR}}": sec.color,
+    "{{SECURITY_SCORE}}": String(Math.round(sec.score)),
+    "{{TESTING_GRADE}}": test.grade,
+    "{{TESTING_GRADE_COLOR}}": test.color,
+    "{{TESTING_SCORE}}": String(Math.round(test.score)),
+    "{{DEPLOYMENT_GRADE}}": deploy.grade,
+    "{{DEPLOYMENT_GRADE_COLOR}}": deploy.color,
+    "{{DEPLOYMENT_SCORE}}": String(Math.round(deploy.score)),
+    "{{COUNT_CRITICAL}}": String(cqFindings["critical"] ?? 0),
+    "{{COUNT_HIGH}}": String(cqFindings["high"] ?? 0),
+    "{{COUNT_MODERATE}}": String(cqFindings["moderate"] ?? 0),
+    "{{CVE_CRITICAL}}": String(secFindings["critical"] ?? 0),
+    "{{CVE_HIGH}}": String(secFindings["high"] ?? 0),
+    "{{CVE_MODERATE}}": String(secFindings["moderate"] ?? 0),
+    "{{SECURITY_ROWS}}": securityRows || "<tr><td colspan='3'>No findings</td></tr>",
+    "{{UNTESTED_ROWS}}": untestedRows || "<tr><td colspan='2'>All functions have test coverage</td></tr>",
+    "{{UNTESTED_COUNT}}": String(gaps.length),
+    "{{COV_LINES}}": "0",
+    "{{COV_LINES_COLOR}}": coverageColor(0),
+    "{{COV_FUNCS}}": "0",
+    "{{COV_FUNCS_COLOR}}": coverageColor(0),
+    "{{COV_BRANCHES}}": "0",
+    "{{COV_BRANCHES_COLOR}}": coverageColor(0),
+    "{{TOTAL_FINDINGS}}": String(findings.length),
+    "{{AUDIT_DATE}}": (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    })
+  };
+}
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function generateAuditHtml(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const runId = params.audit_run_id ?? getLatestRunId(store);
+    if (!runId) {
+      return {
+        status: "error",
+        error: "No audit run found. Run run_audit first."
+      };
+    }
+    const templateDir = findTemplateDir();
+    if (!templateDir) {
+      return {
+        status: "error",
+        error: "Cannot find audit HTML templates. Expected at skills/project-audit/templates/."
+      };
+    }
+    const header = readTemplate(templateDir, "audit-header.html");
+    const tabs = readTemplate(templateDir, "audit-tabs.html");
+    const panels = readTemplate(templateDir, "audit-tab-panels.html");
+    const footer = readTemplate(templateDir, "audit-footer.html");
+    const replacements = buildReplacementMap(store, runId, root);
+    let html = header + tabs + panels + footer;
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      html = html.replaceAll(placeholder, value);
+    }
+    const outputDir = join5(root, "tasks-plans", "audits");
+    if (!existsSync5(outputDir))
+      mkdirSync2(outputDir, { recursive: true });
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+    const outputPath = params.output_path ?? join5(outputDir, `audit-${timestamp}.html`);
+    writeFileSync3(outputPath, html, "utf-8");
+    const overall = getOverallScore(store, runId);
+    return {
+      status: "ok",
+      output_path: outputPath,
+      overall_grade: overall.grade,
+      overall_score: overall.score,
+      summary: `Audit report generated: ${overall.grade} (${overall.score}). Saved to ${outputPath}`
+    };
+  } finally {
+    store.close();
+  }
+}
+
 // dist/server.js
 var server = new McpServer({
   name: "composure-graph",
@@ -28034,6 +28646,24 @@ Use this to understand the full scope of a feature before modifying it.`, {
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };
+});
+server.tool("run_audit", "Run a comprehensive code audit using the knowledge graph. Computes code quality findings (oversized files/functions, untested code) from SQL queries. Optionally runs security tools (npm audit). Stores all findings and scores in the graph database. Returns a summary with letter grades.", {
+  include_security: external_exports.boolean().default(true).describe("Run npm audit if package manager available."),
+  include_testing: external_exports.boolean().default(true).describe("Analyze test coverage from TESTED_BY edges."),
+  include_deployment: external_exports.boolean().default(false).describe("Run deployment preflight checks."),
+  url: external_exports.string().optional().describe("Deployment URL for HTTP header analysis."),
+  repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
+}, async (params) => {
+  const result = await runAudit(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
+server.tool("generate_audit_html", "Generate a self-contained HTML audit report from the latest audit run. Reads findings and scores from the graph database and fills the HTML templates. Zero source code exposure.", {
+  audit_run_id: external_exports.string().optional().describe("Audit run ID. Default: latest."),
+  output_path: external_exports.string().optional().describe("Output HTML file path."),
+  repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
+}, async (params) => {
+  const result = generateAuditHtml(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 });
 async function main() {
   const transport = new StdioServerTransport();

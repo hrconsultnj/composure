@@ -73,6 +73,52 @@ CREATE TABLE IF NOT EXISTS entity_members (
 
 CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
 CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
+
+CREATE TABLE IF NOT EXISTS audit_findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    finding_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    node_qualified_name TEXT,
+    file_path TEXT,
+    title TEXT NOT NULL,
+    detail TEXT DEFAULT '{}',
+    score_impact REAL DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS test_coverage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    node_qualified_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    has_test_edge INTEGER DEFAULT 0,
+    coverage_pct REAL,
+    test_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    raw_score REAL NOT NULL,
+    weight REAL NOT NULL,
+    adjusted_weight REAL NOT NULL,
+    grade TEXT NOT NULL,
+    grade_color TEXT NOT NULL,
+    finding_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_af_run ON audit_findings(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_af_category ON audit_findings(category);
+CREATE INDEX IF NOT EXISTS idx_af_severity ON audit_findings(severity);
+CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
+CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
+CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
 `;
 // ── GraphStore ─────────────────────────────────────────────────────
 export class GraphStore {
@@ -90,6 +136,10 @@ export class GraphStore {
         this.db.exec("PRAGMA journal_mode = WAL");
         this.db.exec("PRAGMA busy_timeout = 30000");
         this.db.exec(SCHEMA_SQL);
+    }
+    /** Expose the raw database for audit-store and other modules. */
+    getDb() {
+        return this.db;
     }
     close() {
         this.db.close();

@@ -101,3 +101,54 @@ export interface EntityMember {
     role: EntityRole;
     confidence: number;
 }
+export type FindingCategory = "code-quality" | "security" | "testing" | "deployment";
+export type FindingSeverity = "critical" | "high" | "moderate" | "low" | "info";
+export interface AuditFindingInfo {
+    audit_run_id: string;
+    category: FindingCategory;
+    finding_type: string;
+    severity: FindingSeverity;
+    node_qualified_name?: string;
+    file_path?: string;
+    title: string;
+    detail?: Record<string, unknown>;
+    score_impact: number;
+}
+export interface AuditFinding extends AuditFindingInfo {
+    id: number;
+    created_at: number;
+}
+export interface TestCoverageInfo {
+    audit_run_id: string;
+    node_qualified_name: string;
+    file_path: string;
+    has_test_edge: boolean;
+    coverage_pct: number | null;
+    test_count: number;
+}
+export interface TestCoverage extends TestCoverageInfo {
+    id: number;
+    created_at: number;
+}
+export interface AuditScoreInfo {
+    audit_run_id: string;
+    category: FindingCategory;
+    raw_score: number;
+    weight: number;
+    adjusted_weight: number;
+    grade: string;
+    grade_color: string;
+    finding_count: number;
+}
+export interface AuditScore extends AuditScoreInfo {
+    id: number;
+    created_at: number;
+}
+export interface AuditSummary {
+    run_id: string;
+    overall_score: number;
+    overall_grade: string;
+    overall_color: string;
+    categories: AuditScore[];
+    finding_counts: Record<string, Record<string, number>>;
+}
