@@ -59,6 +59,25 @@ CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
 CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
+
+CREATE TABLE IF NOT EXISTS entities (
+    name TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS entity_members (
+    entity_name TEXT NOT NULL REFERENCES entities(name),
+    node_qualified_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (entity_name, node_qualified_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
+CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
 `;
 
 // ── GraphStore ─────────────────────────────────────────────────────
@@ -325,6 +344,121 @@ export class GraphStore {
 
     this.db.exec("DELETE FROM _qn_filter");
     return rows.map(rowToEdge);
+  }
+
+  // ── Entity CRUD ────────────────────────────────────────────────
+
+  upsertEntity(name: string, displayName: string, source: string): void {
+    const now = Date.now() / 1000;
+    this.db
+      .prepare(
+        `INSERT INTO entities (name, display_name, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET
+           display_name=excluded.display_name, source=excluded.source, updated_at=excluded.updated_at`,
+      )
+      .run(name, displayName, source, now);
+  }
+
+  upsertEntityMember(
+    entityName: string,
+    nodeQualifiedName: string,
+    role: string,
+    confidence: number,
+  ): void {
+    const now = Date.now() / 1000;
+    this.db
+      .prepare(
+        `INSERT INTO entity_members (entity_name, node_qualified_name, role, confidence, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(entity_name, node_qualified_name) DO UPDATE SET
+           role=excluded.role,
+           confidence=CASE WHEN excluded.confidence > entity_members.confidence
+                          THEN excluded.confidence ELSE entity_members.confidence END,
+           updated_at=excluded.updated_at`,
+      )
+      .run(entityName, nodeQualifiedName, role, confidence, now);
+  }
+
+  removeEntityData(): void {
+    this.db.exec("DELETE FROM entity_members");
+    this.db.exec("DELETE FROM entities");
+  }
+
+  getAllEntities(): Array<{
+    name: string;
+    display_name: string;
+    source: string;
+    member_count: number;
+  }> {
+    const rows = this.db
+      .prepare(
+        `SELECT e.name, e.display_name, e.source,
+                COUNT(em.node_qualified_name) as member_count
+         FROM entities e
+         LEFT JOIN entity_members em ON em.entity_name = e.name
+         GROUP BY e.name
+         ORDER BY member_count DESC`,
+      )
+      .all() as Array<{
+      name: string;
+      display_name: string;
+      source: string;
+      member_count: number;
+    }>;
+    return rows;
+  }
+
+  getEntityMembers(
+    entityName: string,
+    minConfidence = 0.5,
+  ): Array<{ node: GraphNode; role: string; confidence: number }> {
+    const rows = this.db
+      .prepare(
+        `SELECT n.*, em.role, em.confidence
+         FROM entity_members em
+         JOIN nodes n ON n.qualified_name = em.node_qualified_name
+         WHERE em.entity_name = ? AND em.confidence >= ?
+         ORDER BY em.role, n.file_path`,
+      )
+      .all(entityName, minConfidence) as Array<
+      Record<string, unknown> & { role: string; confidence: number }
+    >;
+    return rows.map((r) => ({
+      node: rowToNode(r),
+      role: r.role as string,
+      confidence: r.confidence as number,
+    }));
+  }
+
+  getEntitiesForNode(
+    qualifiedName: string,
+  ): Array<{ entity_name: string; role: string; confidence: number }> {
+    return this.db
+      .prepare(
+        `SELECT entity_name, role, confidence
+         FROM entity_members
+         WHERE node_qualified_name = ?`,
+      )
+      .all(qualifiedName) as Array<{
+      entity_name: string;
+      role: string;
+      confidence: number;
+    }>;
+  }
+
+  getEntityRoleCounts(
+    entityName: string,
+  ): Record<string, number> {
+    const rows = this.db
+      .prepare(
+        `SELECT role, COUNT(*) as c FROM entity_members
+         WHERE entity_name = ? GROUP BY role`,
+      )
+      .all(entityName) as Array<{ role: string; c: number }>;
+    const result: Record<string, number> = {};
+    for (const r of rows) result[r.role] = r.c;
+    return result;
   }
 
   // ── Stats ──────────────────────────────────────────────────────

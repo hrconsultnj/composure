@@ -6,8 +6,8 @@ import { existsSync as existsSync4 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync2, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
-import { dirname as dirname3, join as join2, relative, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync2, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
+import { dirname as dirname3, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -4006,6 +4006,10 @@ var WASM_PATHS = {
   jsx: join(__dirname, "tree-sitter-javascript.wasm")
 };
 
+// dist/entities.js
+import { readFileSync as readFileSync2 } from "node:fs";
+import { relative } from "node:path";
+
 // dist/incremental.js
 function findRepoRoot(start2) {
   let dir = start2 ? resolve2(start2) : process.cwd();
@@ -4027,7 +4031,7 @@ function getDbPath(repoRoot) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename2, dirname as dirname5, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
+import { basename as basename2, dirname as dirname5, join as join3, relative as relative3, resolve as resolve3 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
@@ -4119,6 +4123,25 @@ CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
 CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
+
+CREATE TABLE IF NOT EXISTS entities (
+    name TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS entity_members (
+    entity_name TEXT NOT NULL REFERENCES entities(name),
+    node_qualified_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (entity_name, node_qualified_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
+CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
 `;
 var GraphStore = class {
   db;
@@ -4286,6 +4309,62 @@ var GraphStore = class {
            AND e.target_qualified IN (SELECT qn FROM _qn_filter)`).all();
     this.db.exec("DELETE FROM _qn_filter");
     return rows.map(rowToEdge);
+  }
+  // ── Entity CRUD ────────────────────────────────────────────────
+  upsertEntity(name2, displayName, source) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entities (name, display_name, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET
+           display_name=excluded.display_name, source=excluded.source, updated_at=excluded.updated_at`).run(name2, displayName, source, now);
+  }
+  upsertEntityMember(entityName, nodeQualifiedName, role, confidence) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entity_members (entity_name, node_qualified_name, role, confidence, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(entity_name, node_qualified_name) DO UPDATE SET
+           role=excluded.role,
+           confidence=CASE WHEN excluded.confidence > entity_members.confidence
+                          THEN excluded.confidence ELSE entity_members.confidence END,
+           updated_at=excluded.updated_at`).run(entityName, nodeQualifiedName, role, confidence, now);
+  }
+  removeEntityData() {
+    this.db.exec("DELETE FROM entity_members");
+    this.db.exec("DELETE FROM entities");
+  }
+  getAllEntities() {
+    const rows = this.db.prepare(`SELECT e.name, e.display_name, e.source,
+                COUNT(em.node_qualified_name) as member_count
+         FROM entities e
+         LEFT JOIN entity_members em ON em.entity_name = e.name
+         GROUP BY e.name
+         ORDER BY member_count DESC`).all();
+    return rows;
+  }
+  getEntityMembers(entityName, minConfidence = 0.5) {
+    const rows = this.db.prepare(`SELECT n.*, em.role, em.confidence
+         FROM entity_members em
+         JOIN nodes n ON n.qualified_name = em.node_qualified_name
+         WHERE em.entity_name = ? AND em.confidence >= ?
+         ORDER BY em.role, n.file_path`).all(entityName, minConfidence);
+    return rows.map((r) => ({
+      node: rowToNode(r),
+      role: r.role,
+      confidence: r.confidence
+    }));
+  }
+  getEntitiesForNode(qualifiedName) {
+    return this.db.prepare(`SELECT entity_name, role, confidence
+         FROM entity_members
+         WHERE node_qualified_name = ?`).all(qualifiedName);
+  }
+  getEntityRoleCounts(entityName) {
+    const rows = this.db.prepare(`SELECT role, COUNT(*) as c FROM entity_members
+         WHERE entity_name = ? GROUP BY role`).all(entityName);
+    const result = {};
+    for (const r of rows)
+      result[r.role] = r.c;
+    return result;
   }
   // ── Stats ──────────────────────────────────────────────────────
   getStats() {
@@ -5012,7 +5091,7 @@ function extractVisNodes(store, repoRoot) {
     const fileNode = fileNodes.find((n) => n.kind === "File");
     if (!fileNode)
       continue;
-    const relPath = relative2(repoRoot, filePath);
+    const relPath = relative3(repoRoot, filePath);
     const lines = fileNode.line_end - fileNode.line_start + 1;
     const functions = fileNodes.filter((n) => n.kind === "Function").length;
     const classes = fileNodes.filter((n) => n.kind === "Class").length;

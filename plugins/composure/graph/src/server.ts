@@ -2,7 +2,7 @@
 /**
  * MCP server for the Composure code-review-graph.
  *
- * Registers 8 tools for building, querying, reviewing, and visualizing
+ * Registers 9 tools for building, querying, reviewing, and visualizing
  * the code knowledge graph. Uses stdio transport.
  */
 
@@ -18,6 +18,7 @@ import { findLargeFunctions } from "./tools/find-large-functions.js";
 import { semanticSearchNodes } from "./tools/semantic-search-nodes.js";
 import { listGraphStats } from "./tools/list-graph-stats.js";
 import { generateGraphHtmlTool } from "./tools/generate-graph-html.js";
+import { entityScope } from "./tools/entity-scope.js";
 
 const server = new McpServer({
   name: "composure-graph",
@@ -273,6 +274,44 @@ server.tool(
   },
   async (params) => {
     const result = generateGraphHtmlTool(params);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// ── Tool 9: entity_scope ──────────────────────────────────────────
+
+server.tool(
+  "entity_scope",
+  `Get all code related to a business entity (feature/domain concept).
+Entities are auto-detected from migrations, routes, component directories, and hooks.
+
+Without arguments: lists all discovered entities with member counts and role breakdowns.
+With entity name: returns all pages, components, hooks, types, API routes, tests, and
+utilities grouped by role, plus cross-entity overlaps.
+
+Use this to understand the full scope of a feature before modifying it.`,
+  {
+    entity: z
+      .string()
+      .optional()
+      .describe(
+        "Entity name (e.g. 'contact', 'order'). Omit to list all entities.",
+      ),
+    min_confidence: z
+      .number()
+      .default(0.5)
+      .describe(
+        "Minimum confidence threshold for membership (0.0-1.0). Default: 0.5.",
+      ),
+    repo_root: z
+      .string()
+      .optional()
+      .describe("Repository root path. Auto-detected if omitted."),
+  },
+  async (params) => {
+    const result = entityScope(params);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
     };

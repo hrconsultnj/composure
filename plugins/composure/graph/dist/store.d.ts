@@ -27,5 +27,25 @@ export declare class GraphStore {
     searchEdgesByTargetName(name: string, kind?: string): GraphEdge[];
     getAllEdges(): GraphEdge[];
     getEdgesAmong(qualifiedNames: Set<string>): GraphEdge[];
+    upsertEntity(name: string, displayName: string, source: string): void;
+    upsertEntityMember(entityName: string, nodeQualifiedName: string, role: string, confidence: number): void;
+    removeEntityData(): void;
+    getAllEntities(): Array<{
+        name: string;
+        display_name: string;
+        source: string;
+        member_count: number;
+    }>;
+    getEntityMembers(entityName: string, minConfidence?: number): Array<{
+        node: GraphNode;
+        role: string;
+        confidence: number;
+    }>;
+    getEntitiesForNode(qualifiedName: string): Array<{
+        entity_name: string;
+        role: string;
+        confidence: number;
+    }>;
+    getEntityRoleCounts(entityName: string): Record<string, number>;
     getStats(): GraphStats;
 }

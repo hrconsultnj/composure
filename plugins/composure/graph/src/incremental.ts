@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { CodeParser, fileHash, isParseable } from "./parser.js";
+import { detectAndStoreEntities } from "./entities.js";
 import { GraphStore } from "./store.js";
 import type { BuildResult } from "./types.js";
 
@@ -172,6 +173,9 @@ export async function fullBuild(repoRoot: string, store: GraphStore): Promise<Bu
     }
   }
 
+  // Detect domain entities after all files are parsed
+  const entityResult = detectAndStoreEntities(store, repoRoot);
+
   const now = new Date().toISOString();
   store.setMetadata("last_updated", now);
   store.setMetadata("last_build_type", "full");
@@ -183,6 +187,8 @@ export async function fullBuild(repoRoot: string, store: GraphStore): Promise<Bu
     total_nodes: stats.total_nodes,
     total_edges: stats.total_edges,
     errors,
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount,
   };
 }
 
@@ -244,6 +250,9 @@ export async function incrementalUpdate(
     }
   }
 
+  // Re-detect entities after incremental update
+  const entityResult = detectAndStoreEntities(store, repoRoot);
+
   const now = new Date().toISOString();
   store.setMetadata("last_updated", now);
   store.setMetadata("last_build_type", "incremental");
@@ -257,6 +266,8 @@ export async function incrementalUpdate(
     errors,
     changed_files: changed.map((f) => relative(repoRoot, f)),
     dependent_files: [...dependentFiles].map((f) => relative(repoRoot, f)),
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount,
   };
 }
 

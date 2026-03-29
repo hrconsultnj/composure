@@ -96,6 +96,8 @@ export interface BuildResult {
   errors: string[];
   changed_files?: string[];
   dependent_files?: string[];
+  entities_detected?: number;
+  entity_members?: number;
 }
 
 export interface ImpactResult {
@@ -111,3 +113,21 @@ export type ToolResult = {
   status: "ok" | "error" | "ambiguous" | "not_found";
   [key: string]: unknown;
 };
+
+// ── Entity types ──────────────────────────────────────────────────
+
+export type EntitySource = "migration" | "route" | "directory" | "hook" | "type" | "manual";
+export type EntityRole = "page" | "component" | "hook" | "type" | "api" | "migration" | "test" | "lib";
+
+export interface EntityInfo {
+  name: string;
+  display_name: string;
+  source: EntitySource;
+}
+
+export interface EntityMember {
+  entity_name: string;
+  node_qualified_name: string;
+  role: EntityRole;
+  confidence: number;
+}
