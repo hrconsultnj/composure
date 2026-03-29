@@ -860,17 +860,20 @@ For each tab panel, generate the following HTML elements:
 
 ## Step 4: Save and Report
 
-### 4a: Write File
+### 4a: Generate HTML in Background
 
-Save to `tasks-plans/audits/audit-{YYYY-MM-DD-HHmm}.html` using the Write tool.
+Spawn a background Agent to generate and write the HTML report. This frees the main conversation to show the summary and remediation offer immediately — the user doesn't wait for ~1200 lines of HTML to be written.
 
-### 4b: Open in Browser
+**Agent prompt:** Pass all collected audit data (scores, findings, file lists, CVEs, recommendations) to a background agent with these instructions:
+1. Read the 3 template files from `${CLAUDE_PLUGIN_ROOT}/skills/project-audit/templates/` (audit-header.html, audit-tabs.html, audit-footer.html)
+2. Generate dynamic content (report header, score cards, tab panels, recommendations)
+3. Assemble: header (verbatim) + dynamic content + footer (verbatim, replace `{{DATE}}`)
+4. Write to `tasks-plans/audits/audit-{YYYY-MM-DD-HHmm}.html`
+5. Open in browser: `open <path>` (macOS) or `xdg-open <path>` (Linux)
 
-Unless `--open false`, detect platform and open:
-- macOS: `open <path>`
-- Linux: `xdg-open <path>`
+Use `run_in_background: true` on the Agent call. Do NOT wait for the HTML to finish before proceeding to 4b.
 
-### 4c: Terminal Summary
+### 4b: Terminal Summary (show immediately, don't wait for HTML)
 
 ```
 Project Audit Complete: {PROJECT_NAME}
