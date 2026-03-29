@@ -1,5 +1,0 @@
-[submodule "skills/app-architecture/references/private"]
-	path = plugins/composure/skills/app-architecture/references/private
-	url = https://github.com/hrconsultnj/composure-private.git
-	update = none
-	ignore = all

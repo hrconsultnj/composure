@@ -32,14 +32,19 @@ for plugin in sentinel shipyard testbench; do
   done
 done
 
-# Composure Private (Pro Patterns) — only flag if project uses Supabase
+# Composure Pro Patterns — only flag if project uses Supabase
+# Detection is via .claude/composure-pro.json (created by /composure-pro:initialize)
+# License validation is handled by composure-pro's own pro-license-check.sh hook
 if [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ]; then
-  for d in "${PLUGIN_CACHE}"/composure-pro/*/; do
-    if [ -d "$d" ]; then
-      [ ! -f ".claude/composure-pro.json" ] && MISSING+=("Composure Pro Patterns (schema guard, RLS, entity registry)")
-      break
-    fi
-  done
+  if [ ! -f ".claude/composure-pro.json" ]; then
+    # Check if plugin is installed but not initialized
+    for d in "${PLUGIN_CACHE}"/composure-pro/*/; do
+      if [ -d "$d" ]; then
+        MISSING+=("Composure Pro Patterns (schema guard, RLS, entity registry)")
+        break
+      fi
+    done
+  fi
 fi
 
 if [ ${#MISSING[@]} -gt 0 ]; then

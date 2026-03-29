@@ -74,7 +74,7 @@ The Licensee **may not**:
 
 ## 6. Payment & Refund Policy
 
-1. **Payment** is processed through the Licensor's designated payment platform (currently Lemon Squeezy). The Licensor is not the merchant of record for payment processing.
+1. **Payment** is processed through the Licensor's designated payment platform (currently Buy Me a Coffee). The Licensor is not the merchant of record for payment processing.
 2. **This is a digital product.** Due to the nature of immediate-access digital goods:
    - The Licensee acknowledges that GitHub collaborator access is granted promptly after purchase.
    - The Licensee acknowledges that the Pro Patterns are documentation and architectural reference material — once accessed, the knowledge cannot be "returned."
