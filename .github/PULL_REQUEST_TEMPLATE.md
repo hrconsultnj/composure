@@ -43,10 +43,10 @@ If adding a new language to `skills/app-architecture/`:
 - [ ] Added language to master `skills/app-architecture/SKILL.md`:
   - [ ] Framework Loading table
   - [ ] Other Frameworks section
-- [ ] Updated `skills/initialize/SKILL.md`:
-  - [ ] Stack detection files table
-  - [ ] Extensions and skip patterns table
-  - [ ] Context7 query focus table
+- [ ] Updated `skills/initialize/` step files:
+  - [ ] `steps/01-detect-stack.md` — Stack detection files table
+  - [ ] `steps/02-extensions-skip-patterns.md` — Extensions and skip patterns table
+  - [ ] `steps/03a-context7-folders.md` — Context7 query focus table
 - [ ] Updated `README.md` language list and no-bandaids table
 
 ## Hook / Skill Checklist
