@@ -18,8 +18,17 @@ export interface VisNode {
     language: string;
     imports: string[];
 }
+export interface VisEntity {
+    name: string;
+    displayName: string;
+    source: string;
+    memberCount: number;
+    roles: Record<string, number>;
+    memberIds: string[];
+}
 export interface GraphHtmlData {
     nodes: VisNode[];
+    entities: VisEntity[];
     repoName: string;
     generatedAt: string;
     stats: {
