@@ -2,8 +2,8 @@
 /**
  * MCP server for the Composure code-review-graph.
  *
- * Registers 9 tools for building, querying, reviewing, and visualizing
- * the code knowledge graph. Uses stdio transport.
+ * Registers 11 tools for building, querying, reviewing, auditing, and
+ * visualizing the code knowledge graph. Uses stdio transport.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,6 +19,8 @@ import { semanticSearchNodes } from "./tools/semantic-search-nodes.js";
 import { listGraphStats } from "./tools/list-graph-stats.js";
 import { generateGraphHtmlTool } from "./tools/generate-graph-html.js";
 import { entityScope } from "./tools/entity-scope.js";
+import { runAudit } from "./tools/run-audit.js";
+import { generateAuditHtml } from "./tools/generate-audit-html.js";
 
 const server = new McpServer({
   name: "composure-graph",
@@ -315,6 +317,40 @@ Use this to understand the full scope of a feature before modifying it.`,
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
     };
+  },
+);
+
+// ── Tool 10: run_audit ────────────────────────────────────────────
+
+server.tool(
+  "run_audit",
+  "Run a comprehensive code audit using the knowledge graph. Computes code quality findings (oversized files/functions, untested code) from SQL queries. Optionally runs security tools (npm audit). Stores all findings and scores in the graph database. Returns a summary with letter grades.",
+  {
+    include_security: z.boolean().default(true).describe("Run npm audit if package manager available."),
+    include_testing: z.boolean().default(true).describe("Analyze test coverage from TESTED_BY edges."),
+    include_deployment: z.boolean().default(false).describe("Run deployment preflight checks."),
+    url: z.string().optional().describe("Deployment URL for HTTP header analysis."),
+    repo_root: z.string().optional().describe("Repository root. Auto-detected if omitted."),
+  },
+  async (params) => {
+    const result = await runAudit(params);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  },
+);
+
+// ── Tool 11: generate_audit_html ──────────────────────────────────
+
+server.tool(
+  "generate_audit_html",
+  "Generate a self-contained HTML audit report from the latest audit run. Reads findings and scores from the graph database and fills the HTML templates. Zero source code exposure.",
+  {
+    audit_run_id: z.string().optional().describe("Audit run ID. Default: latest."),
+    output_path: z.string().optional().describe("Output HTML file path."),
+    repo_root: z.string().optional().describe("Repository root. Auto-detected if omitted."),
+  },
+  async (params) => {
+    const result = generateAuditHtml(params);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   },
 );
 
