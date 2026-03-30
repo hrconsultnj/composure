@@ -1,6 +1,6 @@
 {
   "name": "@composure/code-review-graph",
-  "version": "1.2.100",
+  "version": "1.2.101",
   "private": true,
   "type": "module",
   "main": "dist/server.js",
@@ -27,5 +27,6 @@
   },
   "engines": {
     "node": ">=22.5.0"
-  }
+  },
+  "packageManager": "pnpm@10.12.1"
 }
