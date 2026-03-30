@@ -221,7 +221,11 @@ server.tool(
         "Search string to match against node names. Supports multi-word AND matching.",
       ),
     kind: z
-      .enum(["File", "Class", "Function", "Type", "Test"])
+      .enum([
+        "File", "Class", "Function", "Type", "Test",
+        "Table", "Column", "RLSPolicy", "Index", "DbFunction", "Migration",
+        "Package", "Script", "Workspace",
+      ])
       .optional()
       .describe("Optional filter by node kind."),
     limit: z.number().int().default(20).describe("Maximum results to return."),
