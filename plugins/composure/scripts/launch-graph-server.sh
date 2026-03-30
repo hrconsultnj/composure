@@ -13,8 +13,8 @@ if [ ! -d "$CACHE_BASE" ]; then
   exit 1
 fi
 
-# Pick the most recently modified version directory
-LATEST=$(ls -td "$CACHE_BASE"/*/ 2>/dev/null | head -1)
+# Pick the highest version directory (sort by version number, not mtime)
+LATEST=$(ls -d "$CACHE_BASE"/*/ 2>/dev/null | sort -V | tail -1)
 
 if [ -z "$LATEST" ] || [ ! -f "${LATEST}graph/dist/server.js" ]; then
   echo "composure-graph server.js not found in ${LATEST:-$CACHE_BASE}" >&2

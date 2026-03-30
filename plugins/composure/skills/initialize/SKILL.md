@@ -20,21 +20,24 @@ Bootstrap Composure project-level configuration by detecting the tech stack, que
 
 | Step | File | What it does |
 |------|------|-------------|
-| 0a | `steps/00a-mcp-setup.md` | Verify composure-graph MCP + auto-fix chain |
-| 0b | `steps/00b-context7-setup.md` | Check/install Context7 MCP |
-| 1 | `steps/01-detect-stack.md` | Read project files, build framework profile |
-| 2 | `steps/02-extensions-skip-patterns.md` | Resolve extensions and skip patterns by framework |
-| 3a | `steps/03a-context7-folders.md` | Freshness check, folder structure, library mapping |
-| 3b | `steps/03b-context7-query-loop.md` | Query Context7 and write docs (one at a time) |
-| 4 | `steps/04-generate-config.md` | Write `.claude/no-bandaids.json` with detected data |
-| 5 | `steps/05-build-graph.md` | Build or update code review graph |
-| 6 | `steps/06-task-queue.md` | Create tasks-plans/ directory and tasks.md |
-| 7 | `steps/07-report.md` | Print initialization summary |
-| 8 | `steps/08-companion-plugins.md` | Install + initialize sentinel, testbench, shipyard |
-| 9 | `steps/09-context-health.md` | Plugin/MCP count, threshold advisory |
-| 10 | `steps/10-claude-md-offer.md` | Offer self-monitoring lines for global CLAUDE.md |
+| 0 | `steps/00-scope-detection.md` | Detect scope: single project, monorepo, multi-project, or plugin repo |
+| 1 | `steps/01-context-health.md` | Plugin/MCP count + threshold check (gates Step 3) |
+| 2 | `steps/02-mcp-setup.md` | Verify composure-graph MCP + auto-fix chain |
+| 3 | `steps/03-companion-triage.md` | Conditional install: Sentinel always, others by need |
+| 4 | `steps/04-detect-stack.md` | Read project files, build framework profile |
+| 5 | `steps/05-extensions-skip-patterns.md` | Resolve extensions and skip patterns by framework |
+| 6 | `steps/06-context7-setup.md` | Check/install Context7 MCP (only if stack needs docs) |
+| 7a | `steps/07a-context7-folders.md` | Freshness check, folder structure, library mapping |
+| 7b | `steps/07b-context7-query-loop.md` | Query Context7 and write docs (one at a time) |
+| 8 | `steps/08-generate-config.md` | Write `.claude/no-bandaids.json` with detected data |
+| 9 | `steps/09-build-graph.md` | Build or update code review graph |
+| 10 | `steps/10-task-queue.md` | Create tasks-plans/ directory and tasks.md |
+| 11 | `steps/11-report.md` | Print initialization summary |
+| 12 | `steps/12-claude-md-offer.md` | Offer self-monitoring lines for global CLAUDE.md |
 
-**Start by reading:** `steps/00a-mcp-setup.md`
+**Start by reading:** `steps/00-scope-detection.md`
+
+**Multi-project scope:** If Step 0 detects `multi-project`, steps 4-10 are skipped (they're per-project). Only steps 0-3, 11, and 12 run at the parent level. Graphs are built for all child projects in Step 0.
 
 ## Key Constraints
 
