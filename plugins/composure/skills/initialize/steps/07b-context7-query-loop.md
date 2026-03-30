@@ -1,4 +1,4 @@
-# Step 3b: Context7 — Query and Write Loop
+# Step 7b: Context7 — Query and Write Loop
 
 > **Why not subagents?** MCP tool permissions are session-scoped and NOT delegated to
 > subagents — even with `bypassPermissions` or `auto` mode. Subagents can discover
@@ -44,4 +44,4 @@ For each library in the task list (from 3a), if it passed the freshness check:
 
 ---
 
-**Next:** Read `steps/04-generate-config.md`
+**Next:** Read `steps/08-generate-config.md`

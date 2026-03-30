@@ -7,7 +7,10 @@
 
 // ── Node & Edge kinds ──────────────────────────────────────────────
 
-export type NodeKind = "File" | "Class" | "Function" | "Type" | "Test";
+export type NodeKind =
+  | "File" | "Class" | "Function" | "Type" | "Test"
+  | "Table" | "Column" | "RLSPolicy" | "Index" | "DbFunction" | "Migration"
+  | "Package" | "Workspace" | "Script";
 
 export type EdgeKind =
   | "CALLS"
@@ -16,7 +19,10 @@ export type EdgeKind =
   | "IMPLEMENTS"
   | "CONTAINS"
   | "TESTED_BY"
-  | "DEPENDS_ON";
+  | "DEPENDS_ON"
+  | "REFERENCES"
+  | "SECURES"
+  | "INDEXES";
 
 // ── Parser output types ────────────────────────────────────────────
 
@@ -116,8 +122,8 @@ export type ToolResult = {
 
 // ── Entity types ──────────────────────────────────────────────────
 
-export type EntitySource = "migration" | "route" | "directory" | "hook" | "type" | "manual";
-export type EntityRole = "page" | "component" | "hook" | "type" | "api" | "migration" | "test" | "lib";
+export type EntitySource = "migration" | "route" | "directory" | "hook" | "type" | "manual" | "sql";
+export type EntityRole = "page" | "component" | "hook" | "type" | "api" | "migration" | "test" | "lib" | "table" | "policy" | "index" | "db-function";
 
 export interface EntityInfo {
   name: string;

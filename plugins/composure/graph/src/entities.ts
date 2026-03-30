@@ -96,6 +96,13 @@ const SKIP_COMPONENT_PREFIXES = new Set([
 
 function detectRole(filePath: string, node: GraphNode): EntityRole {
   const rel = filePath.toLowerCase();
+  // SQL-specific node kinds
+  if (node.kind === "Table" || node.kind === "Column") return "table";
+  if (node.kind === "RLSPolicy") return "policy";
+  if (node.kind === "Index") return "index";
+  if (node.kind === "DbFunction") return "db-function";
+  if (node.kind === "Migration") return "migration";
+  // Standard detection
   if (node.is_test || rel.includes("test") || rel.includes("spec")) return "test";
   if (rel.includes("/migrations/") || rel.endsWith(".sql")) return "migration";
   if (/\/app\/.*\/(page|layout)\.(tsx?|jsx?)$/.test(rel)) return "page";

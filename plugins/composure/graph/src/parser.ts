@@ -46,7 +46,43 @@ const EXT_TO_LANG: Record<string, string> = {
 
 const PARSEABLE_EXTENSIONS = new Set(Object.keys(EXT_TO_LANG));
 
+/** Extensions handled by the SQL parser (not tree-sitter). */
+const SQL_EXTENSIONS = new Set([".sql", ".prisma"]);
+
+/** Files handled by the package.json parser (by filename, not extension). */
+const PKG_FILENAMES = new Set(["package.json", "pnpm-workspace.yaml", "turbo.json"]);
+
+// Config file detection is imported at the call site (config-parser.ts)
+// to avoid circular deps. This is a lightweight filename check.
+const CONFIG_FILENAMES_QUICK = new Set([
+  "tsconfig.json", "tsconfig.base.json", "tsconfig.app.json",
+  ".env.example", ".env.local.example", ".env.template",
+  "vercel.json",
+]);
+const CONFIG_PREFIXES = ["next.config", "tailwind.config"];
+
+function isConfigFile(filePath: string): boolean {
+  const name = basename(filePath);
+  if (CONFIG_FILENAMES_QUICK.has(name)) return true;
+  for (const prefix of CONFIG_PREFIXES) {
+    if (name.startsWith(prefix)) return true;
+  }
+  if (/^\.env\.(example|template|local\.example|sample)$/.test(name)) return true;
+  return false;
+}
+
+const MD_EXTENSIONS = new Set([".md", ".mdx"]);
+
 export function isParseable(filePath: string): boolean {
+  const ext = extname(filePath).toLowerCase();
+  if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext)) return true;
+  if (PKG_FILENAMES.has(basename(filePath))) return true;
+  if (isConfigFile(filePath)) return true;
+  if (MD_EXTENSIONS.has(ext)) return true; // md-parser does its own filtering
+  return false;
+}
+
+export function isTreeSitterParseable(filePath: string): boolean {
   return PARSEABLE_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 

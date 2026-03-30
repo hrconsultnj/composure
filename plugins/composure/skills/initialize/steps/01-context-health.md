@@ -1,28 +1,13 @@
-# Step 9: Context Health Advisory
+# Step 1: Context Health Check
 
-After everything is set up, check whether the user's environment has too many plugins or MCP servers that could degrade Claude's performance.
+**Run this BEFORE installing anything.** Understand the current plugin/MCP load so you don't make it worse.
 
-Count plugins and MCP servers. If the total is high, advise the user:
+Count plugins and MCP servers. If the total is high, advise the user before proceeding with companion installs in Step 3.
 
+```bash
+claude plugin list 2>/dev/null   # count enabled vs disabled
+claude mcp list 2>/dev/null      # count MCP servers
 ```
-Context health check:
-  Plugins loaded: {N}
-  MCP servers: {M}
-
-  {If N > 10 or M > 8}:
-  Tip: You have a lot of plugins and MCP servers active. Each one adds
-  instructions and tool definitions to Claude's context, which can cause
-  slower responses and missed details. Consider disabling plugins you're
-  not using in this project: claude plugin disable <name>
-
-  If Claude seems unfocused, check if third-party plugins are injecting
-  large system prompts or "YOU MUST" instructions that compete with your
-  project's CLAUDE.md.
-```
-
-Run `claude plugin list` and count **enabled** plugins (ignore disabled ones — they don't inject context).
-
-Also run `claude mcp list` and count MCP servers.
 
 **Thresholds depend on context window size:**
 
@@ -75,6 +60,17 @@ Context health:
 
 The key: show the user what's running on every keystroke. They can then decide what stays. Use `claude plugin disable <name>` for plugins not relevant to the current project.
 
+**Gating companion installs:** If at or above threshold, Step 3 (Companion Triage) should present installs as opt-in rather than auto-installing. Store the health status for Step 3 to reference:
+
+```json
+{
+  "atThreshold": true,
+  "enabledPlugins": 12,
+  "mcpServers": 8,
+  "contextWindow": "1M"
+}
+```
+
 ---
 
-**Next:** Read `steps/10-claude-md-offer.md`
+**Next:** Read `steps/02-mcp-setup.md`

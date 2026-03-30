@@ -1,4 +1,4 @@
-# Step 0b: Ensure Context7 MCP
+# Step 6: Ensure Context7 MCP
 
 Context7 provides up-to-date library documentation. Step 3 uses it to generate framework reference docs.
 
@@ -15,4 +15,4 @@ Context7 provides up-to-date library documentation. Step 3 uses it to generate f
 
 ---
 
-**Next:** Read `steps/01-detect-stack.md`
+**Next:** Read `steps/07a-context7-folders.md`

@@ -1,4 +1,4 @@
-# Step 1: Detect Stack
+# Step 4: Detect Stack
 
 Read these files from the project root to identify the stack:
 
@@ -140,4 +140,4 @@ For single-framework projects, `frameworks` has one key:
 
 ---
 
-**Next:** Read `steps/02-extensions-skip-patterns.md`
+**Next:** Read `steps/05-extensions-skip-patterns.md`

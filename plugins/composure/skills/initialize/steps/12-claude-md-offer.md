@@ -1,4 +1,4 @@
-# Step 10: Offer Global CLAUDE.md Self-Monitoring Lines
+# Step 12: Offer Global CLAUDE.md Self-Monitoring Lines
 
 Check if the user's global `~/.claude/CLAUDE.md` already contains self-monitoring guidance. If not, use AskUserQuestion to offer adding it. This persists even if the user uninstalls the plugin.
 

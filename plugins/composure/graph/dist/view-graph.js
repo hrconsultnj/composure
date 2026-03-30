@@ -2,12 +2,12 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
 // dist/view-graph.js
-import { existsSync as existsSync4 } from "node:fs";
+import { existsSync as existsSync5 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync2, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
-import { dirname as dirname3, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
+import { dirname as dirname5, join as join3, relative as relative2, resolve as resolve2 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -4006,17 +4006,33 @@ var WASM_PATHS = {
   jsx: join(__dirname, "tree-sitter-javascript.wasm")
 };
 
-// dist/entities.js
+// dist/sql-parser.js
 import { readFileSync as readFileSync2 } from "node:fs";
+import { basename as basename2, extname as extname2 } from "node:path";
+
+// dist/pkg-parser.js
+import { readFileSync as readFileSync3, existsSync as existsSync2 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join2 } from "node:path";
+
+// dist/config-parser.js
+import { readFileSync as readFileSync4 } from "node:fs";
+import { basename as basename4, extname as extname3 } from "node:path";
+
+// dist/md-parser.js
+import { readFileSync as readFileSync5 } from "node:fs";
+import { basename as basename5, dirname as dirname4, extname as extname4 } from "node:path";
+
+// dist/entities.js
+import { readFileSync as readFileSync6 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
   let dir = start2 ? resolve2(start2) : process.cwd();
   while (true) {
-    if (existsSync2(join2(dir, ".git")))
+    if (existsSync3(join3(dir, ".git")))
       return dir;
-    const parent = dirname3(dir);
+    const parent = dirname5(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -4026,17 +4042,17 @@ function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
 function getDbPath(repoRoot) {
-  return join2(repoRoot, ".code-review-graph", "graph.db");
+  return join3(repoRoot, ".code-review-graph", "graph.db");
 }
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename2, dirname as dirname5, join as join3, relative as relative3, resolve as resolve3 } from "node:path";
+import { basename as basename6, dirname as dirname7, join as join4, relative as relative3, resolve as resolve3 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
-import { existsSync as existsSync3, mkdirSync, writeFileSync } from "node:fs";
-import { dirname as dirname4 } from "node:path";
+import { existsSync as existsSync4, mkdirSync, writeFileSync } from "node:fs";
+import { dirname as dirname6 } from "node:path";
 
 // dist/serialization.js
 function makeQualifiedName(node) {
@@ -4192,11 +4208,11 @@ CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
 var GraphStore = class {
   db;
   constructor(dbPath) {
-    const dir = dirname4(dbPath);
-    if (!existsSync3(dir)) {
+    const dir = dirname6(dbPath);
+    if (!existsSync4(dir)) {
       mkdirSync(dir, { recursive: true });
       const gitignorePath = `${dir}/.gitignore`;
-      if (!existsSync3(gitignorePath)) {
+      if (!existsSync4(gitignorePath)) {
         writeFileSync(gitignorePath, "*\n");
       }
     }
@@ -5152,7 +5168,7 @@ var CATEGORY_RULES = [
   // Fallback handled separately
 ];
 function detectCategory(relPath) {
-  const name2 = basename2(relPath);
+  const name2 = basename6(relPath);
   for (const rule of CATEGORY_RULES) {
     if (rule.match(relPath, name2))
       return rule.key;
@@ -5162,7 +5178,7 @@ function detectCategory(relPath) {
 function resolveImportTarget(specifier, sourceFile, fileSet) {
   if (!specifier.startsWith("."))
     return null;
-  const sourceDir = dirname5(sourceFile);
+  const sourceDir = dirname7(sourceFile);
   const base = resolve3(sourceDir, specifier);
   if (fileSet.has(base))
     return base;
@@ -5173,8 +5189,8 @@ function resolveImportTarget(specifier, sourceFile, fileSet) {
       return stripped + ext;
   }
   for (const ext of extensions) {
-    if (fileSet.has(join3(stripped, `index${ext}`)))
-      return join3(stripped, `index${ext}`);
+    if (fileSet.has(join4(stripped, `index${ext}`)))
+      return join4(stripped, `index${ext}`);
   }
   return null;
 }
@@ -5218,7 +5234,7 @@ function extractVisNodes(store, repoRoot) {
     const isTest = fileNodes.some((n) => n.is_test);
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
-    const name2 = basename2(filePath);
+    const name2 = basename6(filePath);
     const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name2);
     const parts2 = relPath.split("/");
     const label = isGenericName && parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + name2 : name2;
@@ -5273,7 +5289,7 @@ function generateGraphHtmlTool(params) {
         memberIds: memberFileIds
       };
     });
-    const repoName = basename2(root);
+    const repoName = basename6(root);
     const html = generateGraphHtml({
       nodes,
       entities,
@@ -5288,7 +5304,7 @@ function generateGraphHtmlTool(params) {
         filesCount: nodes.length
       }
     });
-    const outputPath = params.output_path ?? join3(root, ".code-review-graph", "graph.html");
+    const outputPath = params.output_path ?? join4(root, ".code-review-graph", "graph.html");
     writeFileSync2(outputPath, html, "utf-8");
     const catCounts = {};
     for (const n of nodes) {
@@ -5324,7 +5340,7 @@ function main() {
   }
   const root = findProjectRoot(repoRoot);
   const dbPath = getDbPath(root);
-  if (!existsSync4(dbPath)) {
+  if (!existsSync5(dbPath)) {
     console.error("Graph database not found. Run /build-graph first.");
     process.exit(1);
   }

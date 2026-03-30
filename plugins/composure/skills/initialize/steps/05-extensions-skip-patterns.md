@@ -1,4 +1,4 @@
-# Step 2: Resolve Extensions and Skip Patterns
+# Step 5: Resolve Extensions and Skip Patterns
 
 Based on detected frameworks (merged across all detected languages):
 
@@ -17,4 +17,4 @@ Based on detected frameworks (merged across all detected languages):
 
 ---
 
-**Next:** Read `steps/03a-context7-folders.md`
+**Next:** Read `steps/06-context7-setup.md`

@@ -1,6 +1,6 @@
-# Step 3a: Context7 — Folder Structure and Library Mapping
+# Step 7a: Context7 — Folder Structure and Library Mapping
 
-**If `--skip-context7` was passed, skip to** `steps/04-generate-config.md`.
+**If `--skip-context7` was passed, skip to** `steps/08-generate-config.md`.
 
 **This step is required.** Claude's training data is 10+ months behind. Context7 provides the current API surface. Use `--skip-context7` only in offline/CI environments.
 
@@ -147,4 +147,4 @@ SDKs (cross-cutting)
 
 ---
 
-**Next:** Read `steps/03b-context7-query-loop.md`
+**Next:** Read `steps/07b-context7-query-loop.md`

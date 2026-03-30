@@ -1,4 +1,4 @@
-# Step 0a: Ensure composure-graph MCP
+# Step 2: Ensure composure-graph MCP
 
 The `composure-graph` MCP server is **bundled with the Composure plugin** — it is NOT an npm package. Do NOT try to install it via npm/pip/cargo. It is declared in the plugin's `plugin.json` and auto-registered when the plugin is installed.
 
@@ -50,4 +50,4 @@ The `composure-graph` MCP server is **bundled with the Composure plugin** — it
 
 ---
 
-**Next:** Read `steps/00b-context7-setup.md`
+**Next:** Read `steps/03-companion-triage.md`

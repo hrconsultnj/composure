@@ -4,8 +4,8 @@
  * NodeInfo/EdgeInfo are parser outputs (pre-DB).
  * GraphNode/GraphEdge are DB records (with id, qualified_name, timestamps).
  */
-export type NodeKind = "File" | "Class" | "Function" | "Type" | "Test";
-export type EdgeKind = "CALLS" | "IMPORTS_FROM" | "INHERITS" | "IMPLEMENTS" | "CONTAINS" | "TESTED_BY" | "DEPENDS_ON";
+export type NodeKind = "File" | "Class" | "Function" | "Type" | "Test" | "Table" | "Column" | "RLSPolicy" | "Index" | "DbFunction" | "Migration" | "Package" | "Workspace" | "Script";
+export type EdgeKind = "CALLS" | "IMPORTS_FROM" | "INHERITS" | "IMPLEMENTS" | "CONTAINS" | "TESTED_BY" | "DEPENDS_ON" | "REFERENCES" | "SECURES" | "INDEXES";
 export interface NodeInfo {
     kind: NodeKind;
     name: string;
@@ -88,8 +88,8 @@ export type ToolResult = {
     status: "ok" | "error" | "ambiguous" | "not_found";
     [key: string]: unknown;
 };
-export type EntitySource = "migration" | "route" | "directory" | "hook" | "type" | "manual";
-export type EntityRole = "page" | "component" | "hook" | "type" | "api" | "migration" | "test" | "lib";
+export type EntitySource = "migration" | "route" | "directory" | "hook" | "type" | "manual" | "sql";
+export type EntityRole = "page" | "component" | "hook" | "type" | "api" | "migration" | "test" | "lib" | "table" | "policy" | "index" | "db-function";
 export interface EntityInfo {
     name: string;
     display_name: string;

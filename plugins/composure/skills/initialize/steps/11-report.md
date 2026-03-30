@@ -1,4 +1,4 @@
-# Step 7: Report
+# Step 11: Report
 
 Print a summary:
 
@@ -41,4 +41,4 @@ Available skills:
 
 ---
 
-**Next:** Read `steps/08-companion-plugins.md`
+**Next:** Read `steps/12-claude-md-offer.md`

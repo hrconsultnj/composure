@@ -1,4 +1,4 @@
-# Step 4: Generate Config
+# Step 8: Generate Config
 
 Create `.claude/no-bandaids.json`:
 
@@ -60,4 +60,4 @@ The `frameworks` field tells `no-bandaids.sh` which rules to apply based on file
 
 ---
 
-**Next:** Read `steps/05-build-graph.md`
+**Next:** Read `steps/09-build-graph.md`

@@ -7,6 +7,7 @@
  */
 import type { EdgeInfo, NodeInfo } from "./types.js";
 export declare function isParseable(filePath: string): boolean;
+export declare function isTreeSitterParseable(filePath: string): boolean;
 export declare function detectLanguage(filePath: string): string | null;
 export declare function fileHash(filePath: string): string;
 export declare class CodeParser {

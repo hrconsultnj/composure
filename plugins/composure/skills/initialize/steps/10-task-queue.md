@@ -1,4 +1,4 @@
-# Step 6: Ensure Task Queue
+# Step 10: Ensure Task Queue
 
 Create `tasks-plans/` directory structure and `tasks-plans/tasks.md` if they don't exist:
 
@@ -22,4 +22,4 @@ Create `tasks-plans/tasks.md` if missing:
 
 ---
 
-**Next:** Read `steps/07-report.md`
+**Next:** Read `steps/11-report.md`

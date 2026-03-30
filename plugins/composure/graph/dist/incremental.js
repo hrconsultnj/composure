@@ -8,6 +8,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { CodeParser, fileHash, isParseable } from "./parser.js";
+import { isSqlParseable, parseSqlFile } from "./sql-parser.js";
+import { isPkgParseable, parsePkgFile } from "./pkg-parser.js";
+import { isConfigParseable, parseConfigFile } from "./config-parser.js";
+import { isMdParseable, parseMdFile } from "./md-parser.js";
 import { detectAndStoreEntities } from "./entities.js";
 // ── Default ignore patterns ────────────────────────────────────────
 const DEFAULT_IGNORES = new Set([
@@ -133,6 +137,20 @@ export function findDependents(store, filePath) {
     }
     return [...dependents];
 }
+// ── Parse routing (SQL, pkg, or tree-sitter) ─────────────────────
+function routeParse(filePath, tsParser) {
+    if (isSqlParseable(filePath))
+        return parseSqlFile(filePath);
+    if (isPkgParseable(filePath))
+        return parsePkgFile(filePath);
+    if (isConfigParseable(filePath))
+        return parseConfigFile(filePath);
+    if (isMdParseable(filePath))
+        return parseMdFile(filePath);
+    if (tsParser)
+        return tsParser.parseFile(filePath);
+    return { nodes: [], edges: [] };
+}
 // ── Full build ─────────────────────────────────────────────────────
 export async function fullBuild(repoRoot, store) {
     const parser = new CodeParser();
@@ -150,7 +168,7 @@ export async function fullBuild(repoRoot, store) {
     }
     for (const f of files) {
         try {
-            const { nodes, edges } = parser.parseFile(f);
+            const { nodes, edges } = routeParse(f, parser);
             if (nodes.length > 0) {
                 const hash = fileHash(f);
                 store.storeFileNodesEdges(f, nodes, edges, hash);
@@ -188,7 +206,7 @@ export async function incrementalUpdate(repoRoot, store, base = "HEAD~1", change
             ...getStagedAndUnstaged(repoRoot),
         ]),
     ];
-    // Filter to parseable source files
+    // Filter to parseable source files (tree-sitter + SQL)
     changed = changed.filter((f) => isParseable(f) && !shouldIgnore(relative(repoRoot, f)));
     // Find dependents of changed files
     const dependentFiles = new Set();
@@ -211,7 +229,7 @@ export async function incrementalUpdate(repoRoot, store, base = "HEAD~1", change
             const existingNode = store.getNode(f);
             if (existingNode?.file_hash === currentHash)
                 continue;
-            const { nodes, edges } = parser.parseFile(f);
+            const { nodes, edges } = routeParse(f, parser);
             if (nodes.length > 0) {
                 store.storeFileNodesEdges(f, nodes, edges, currentHash);
                 updated++;
@@ -248,29 +266,41 @@ export async function singleFileUpdate(repoRoot, store, filePath) {
     }
     if (!isParseable(absPath))
         return;
-    const parser = new CodeParser();
-    await parser.init();
+    // Lazy-init tree-sitter only if needed
+    let tsParser = null;
+    if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath)) {
+        tsParser = new CodeParser();
+        await tsParser.init();
+    }
+    const { nodes, edges } = routeParse(absPath, tsParser);
     const hash = fileHash(absPath);
-    const { nodes, edges } = parser.parseFile(absPath);
     if (nodes.length > 0) {
         store.storeFileNodesEdges(absPath, nodes, edges, hash);
     }
     // Also update dependents
     const dependents = findDependents(store, absPath);
-    for (const dep of dependents) {
-        if (existsSync(dep) && isParseable(dep)) {
-            try {
-                const depHash = fileHash(dep);
-                const existing = store.getNode(dep);
-                if (existing?.file_hash !== depHash) {
-                    const result = parser.parseFile(dep);
-                    if (result.nodes.length > 0) {
-                        store.storeFileNodesEdges(dep, result.nodes, result.edges, depHash);
+    if (dependents.length > 0) {
+        // Lazy-init tree-sitter parser only if needed for dependents
+        let depTsParser = null;
+        for (const dep of dependents) {
+            if (existsSync(dep) && isParseable(dep)) {
+                try {
+                    const depHash = fileHash(dep);
+                    const existing = store.getNode(dep);
+                    if (existing?.file_hash !== depHash) {
+                        if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep)) {
+                            depTsParser = new CodeParser();
+                            await depTsParser.init();
+                        }
+                        const result = routeParse(dep, depTsParser);
+                        if (result.nodes.length > 0) {
+                            store.storeFileNodesEdges(dep, result.nodes, result.edges, depHash);
+                        }
                     }
                 }
-            }
-            catch {
-                // Silently skip errors for dependent files
+                catch {
+                    // Silently skip errors for dependent files
+                }
             }
         }
     }

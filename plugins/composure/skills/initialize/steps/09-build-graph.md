@@ -1,4 +1,4 @@
-# Step 5: Build Code Graph
+# Step 9: Build Code Graph
 
 The composure-graph MCP server was already verified in Step 0a.
 
@@ -9,4 +9,4 @@ The composure-graph MCP server was already verified in Step 0a.
 
 ---
 
-**Next:** Read `steps/06-task-queue.md`
+**Next:** Read `steps/10-task-queue.md`

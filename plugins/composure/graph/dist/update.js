@@ -2,7 +2,7 @@
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
 // dist/update.js
-import { existsSync as existsSync4 } from "node:fs";
+import { existsSync as existsSync5 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 
 // dist/parser.js
@@ -4165,8 +4165,42 @@ var EXT_TO_LANG = {
   ".jsx": "jsx"
 };
 var PARSEABLE_EXTENSIONS = new Set(Object.keys(EXT_TO_LANG));
+var SQL_EXTENSIONS = /* @__PURE__ */ new Set([".sql", ".prisma"]);
+var PKG_FILENAMES = /* @__PURE__ */ new Set(["package.json", "pnpm-workspace.yaml", "turbo.json"]);
+var CONFIG_FILENAMES_QUICK = /* @__PURE__ */ new Set([
+  "tsconfig.json",
+  "tsconfig.base.json",
+  "tsconfig.app.json",
+  ".env.example",
+  ".env.local.example",
+  ".env.template",
+  "vercel.json"
+]);
+var CONFIG_PREFIXES = ["next.config", "tailwind.config"];
+function isConfigFile(filePath) {
+  const name2 = basename(filePath);
+  if (CONFIG_FILENAMES_QUICK.has(name2))
+    return true;
+  for (const prefix of CONFIG_PREFIXES) {
+    if (name2.startsWith(prefix))
+      return true;
+  }
+  if (/^\.env\.(example|template|local\.example|sample)$/.test(name2))
+    return true;
+  return false;
+}
+var MD_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".mdx"]);
 function isParseable(filePath) {
-  return PARSEABLE_EXTENSIONS.has(extname(filePath).toLowerCase());
+  const ext = extname(filePath).toLowerCase();
+  if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext))
+    return true;
+  if (PKG_FILENAMES.has(basename(filePath)))
+    return true;
+  if (isConfigFile(filePath))
+    return true;
+  if (MD_EXTENSIONS.has(ext))
+    return true;
+  return false;
 }
 function detectLanguage(filePath) {
   return EXT_TO_LANG[extname(filePath).toLowerCase()] ?? null;
@@ -4235,13 +4269,13 @@ var CodeParser = class _CodeParser {
     const nodes = [];
     const edges = [];
     const testFile = isTestFile(filePath);
-    const lineCount = source.toString().split("\n").length;
+    const lineCount4 = source.toString().split("\n").length;
     nodes.push({
       kind: "File",
       name: basename(filePath),
       file_path: filePath,
       line_start: 1,
-      line_end: lineCount,
+      line_end: lineCount4,
       language,
       is_test: testFile
     });
@@ -4959,20 +4993,1386 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync3, statSync as statSync2 } from "node:fs";
-import { dirname as dirname4, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
+import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve2 } from "node:path";
+
+// dist/sql-parser.js
+import { readFileSync as readFileSync2 } from "node:fs";
+import { basename as basename2, extname as extname2 } from "node:path";
+function qualify2(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineAt(content, charIndex) {
+  let line = 1;
+  for (let i2 = 0; i2 < charIndex && i2 < content.length; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function lineCount(content) {
+  return content.split("\n").length;
+}
+var SQL_EXTENSIONS2 = /* @__PURE__ */ new Set([".sql"]);
+var PRISMA_EXTENSIONS = /* @__PURE__ */ new Set([".prisma"]);
+function isSqlParseable(filePath) {
+  const ext = extname2(filePath).toLowerCase();
+  return SQL_EXTENSIONS2.has(ext) || PRISMA_EXTENSIONS.has(ext);
+}
+function parseSqlFile(filePath) {
+  let content;
+  try {
+    content = readFileSync2(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const ext = extname2(filePath).toLowerCase();
+  if (ext === ".prisma") {
+    return parsePrismaSchema(filePath, content);
+  }
+  return parseSql(filePath, content);
+}
+function parseSql(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount(content);
+  const isMigration = filePath.includes("migration");
+  nodes.push({
+    kind: isMigration ? "Migration" : "File",
+    name: basename2(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "sql",
+    is_test: false,
+    extra: isMigration ? { migration: true } : void 0
+  });
+  const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?\s*\(([\s\S]*?)(?:\n\);|\n\))/gi;
+  for (const match of content.matchAll(tableRegex)) {
+    const tableName = match[1];
+    const tableBody = match[2];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Table",
+      name: tableName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      is_test: false,
+      extra: { columns: [] }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+    parseColumns(tableBody, tableName, filePath, line, nodes, edges);
+    parseForeignKeys(tableBody, tableName, filePath, line, edges);
+  }
+  const alterAddColRegex = /ALTER\s+TABLE\s+(?:(?:IF\s+EXISTS|ONLY)\s+)?(?:public\.)?["']?(\w+)["']?\s+ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s+(\w[\w\s[\]]*?)(?:;|\s+(?:DEFAULT|NOT|UNIQUE|CHECK|REFERENCES|CONSTRAINT|PRIMARY))/gi;
+  for (const match of content.matchAll(alterAddColRegex)) {
+    const tableName = match[1];
+    const colName = match[2];
+    const colType = match[3].trim();
+    const line = lineAt(content, match.index);
+    nodes.push({
+      kind: "Column",
+      name: colName,
+      file_path: filePath,
+      line_start: line,
+      line_end: line,
+      language: "sql",
+      parent_name: tableName,
+      return_type: colType,
+      is_test: false
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(colName, filePath, tableName),
+      file_path: filePath,
+      line
+    });
+  }
+  const alterFkRegex = /ALTER\s+TABLE\s+(?:(?:IF\s+EXISTS|ONLY)\s+)?(?:public\.)?["']?(\w+)["']?\s+ADD\s+CONSTRAINT\s+\w+\s+FOREIGN\s+KEY\s*\(["']?(\w+)["']?\)\s*REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of content.matchAll(alterFkRegex)) {
+    const sourceTable = match[1];
+    const _column = match[2];
+    const targetTable = match[3];
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(sourceTable, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { column: _column, type: "foreign_key" }
+    });
+  }
+  const indexRegex = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s+ON\s+(?:public\.)?["']?(\w+)["']?\s*(?:USING\s+\w+\s*)?\(([^)]+)\)/gi;
+  for (const match of content.matchAll(indexRegex)) {
+    const indexName = match[1];
+    const tableName = match[2];
+    const columns = match[3].trim();
+    const line = lineAt(content, match.index);
+    const isUnique = /UNIQUE/i.test(match[0]);
+    nodes.push({
+      kind: "Index",
+      name: indexName,
+      file_path: filePath,
+      line_start: line,
+      line_end: line,
+      language: "sql",
+      parent_name: tableName,
+      params: columns,
+      is_test: false,
+      extra: { unique: isUnique, columns: columns.split(",").map((c) => c.trim()) }
+    });
+    edges.push({
+      kind: "INDEXES",
+      source: qualify2(indexName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const enableRlsRegex = /ALTER\s+TABLE\s+(?:public\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi;
+  const rlsTables = /* @__PURE__ */ new Set();
+  for (const match of content.matchAll(enableRlsRegex)) {
+    rlsTables.add(match[1]);
+  }
+  const policyRegex = /CREATE\s+POLICY\s+["']?(\w+)["']?\s+ON\s+(?:public\.)?["']?(\w+)["']?\s+(?:AS\s+\w+\s+)?(?:FOR\s+(\w+)\s+)?(?:TO\s+([\w,\s]+)\s+)?(?:USING\s*\(([\s\S]*?)\))?(?:\s*WITH\s+CHECK\s*\(([\s\S]*?)\))?/gi;
+  for (const match of content.matchAll(policyRegex)) {
+    const policyName = match[1];
+    const tableName = match[2];
+    const operation = match[3] ?? "ALL";
+    const roles = match[4]?.trim() ?? "public";
+    const usingExpr = match[5]?.trim();
+    const checkExpr = match[6]?.trim();
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "RLSPolicy",
+      name: policyName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      parent_name: tableName,
+      modifiers: `${operation} TO ${roles}`,
+      is_test: false,
+      extra: {
+        operation: operation.toUpperCase(),
+        roles: roles.split(",").map((r) => r.trim()),
+        using: usingExpr ?? null,
+        check: checkExpr ?? null,
+        uses_auth_uid: !!(usingExpr?.includes("auth.uid()") || checkExpr?.includes("auth.uid()")),
+        uses_feed: !!(usingExpr?.includes("feed") || checkExpr?.includes("feed"))
+      }
+    });
+    edges.push({
+      kind: "SECURES",
+      source: qualify2(policyName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const funcRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?["']?(\w+)["']?\s*\(([^)]*)\)\s*RETURNS\s+([\w\s]+?)(?:\s+AS|\s+LANGUAGE|\s+\$\$)/gi;
+  for (const match of content.matchAll(funcRegex)) {
+    const funcName = match[1];
+    const params = match[2].trim();
+    const returnType = match[3].trim();
+    const line = lineAt(content, match.index);
+    const afterMatch = content.slice(match.index + match[0].length);
+    const endMarker = afterMatch.search(/\$\$\s*;|\bEND\b\s*;/i);
+    const endLine = endMarker >= 0 ? lineAt(content, match.index + match[0].length + endMarker) : line;
+    nodes.push({
+      kind: "DbFunction",
+      name: funcName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      params: params || void 0,
+      return_type: returnType,
+      is_test: false,
+      extra: {
+        is_trigger: returnType.toLowerCase().includes("trigger")
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(funcName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const triggerRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+["']?(\w+)["']?\s+(?:BEFORE|AFTER|INSTEAD\s+OF)\s+\w+[\s\w]*?\s+ON\s+(?:public\.)?["']?(\w+)["']?[\s\S]*?EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of content.matchAll(triggerRegex)) {
+    const _triggerName = match[1];
+    const tableName = match[2];
+    const funcName = match[3];
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "CALLS",
+      source: qualify2(funcName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { trigger: _triggerName }
+    });
+  }
+  const grantRegex = /GRANT\s+([\w,\s]+)\s+ON\s+(?:TABLE\s+)?(?:public\.)?["']?(\w+)["']?\s+TO\s+([\w,\s]+)/gi;
+  for (const match of content.matchAll(grantRegex)) {
+    const permissions = match[1].trim();
+    const tableName = match[2];
+    const grantees = match[3].trim();
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "SECURES",
+      source: `grant::${grantees}`,
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { type: "grant", permissions, grantees: grantees.split(",").map((g) => g.trim()) }
+    });
+  }
+  return { nodes, edges };
+}
+function parseColumns(tableBody, tableName, filePath, tableStartLine, nodes, edges) {
+  const lines = tableBody.split("\n");
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2].trim();
+    if (!line || line.startsWith("--"))
+      continue;
+    if (/^\s*(CONSTRAINT|PRIMARY\s+KEY|UNIQUE|CHECK|FOREIGN\s+KEY|EXCLUDE)/i.test(line))
+      continue;
+    const colMatch = line.match(/^["']?(\w+)["']?\s+(\w[\w\s[\]()]*?)(?:\s+(?:NOT\s+NULL|NULL|DEFAULT|UNIQUE|CHECK|REFERENCES|PRIMARY|GENERATED|CONSTRAINT)|,?\s*$)/i);
+    if (!colMatch)
+      continue;
+    const colName = colMatch[1];
+    const colType = colMatch[2].trim();
+    if (/^(CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN|EXCLUDE|LIKE)$/i.test(colName))
+      continue;
+    const colLine = tableStartLine + i2 + 1;
+    nodes.push({
+      kind: "Column",
+      name: colName,
+      file_path: filePath,
+      line_start: colLine,
+      line_end: colLine,
+      language: "sql",
+      parent_name: tableName,
+      return_type: colType,
+      is_test: false,
+      extra: {
+        nullable: !/NOT\s+NULL/i.test(line),
+        has_default: /DEFAULT/i.test(line)
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(colName, filePath, tableName),
+      file_path: filePath,
+      line: colLine
+    });
+    const tableNode = nodes.find((n) => n.kind === "Table" && n.name === tableName);
+    if (tableNode?.extra) {
+      tableNode.extra.columns.push(colName);
+    }
+  }
+}
+function parseForeignKeys(tableBody, tableName, filePath, tableStartLine, edges) {
+  const inlineRefRegex = /["']?(\w+)["']?\s+\w+.*?REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of tableBody.matchAll(inlineRefRegex)) {
+    const column = match[1];
+    const targetTable = match[2];
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line: tableStartLine,
+      extra: { column, type: "foreign_key" }
+    });
+  }
+  const constraintFkRegex = /FOREIGN\s+KEY\s*\(["']?(\w+)["']?\)\s*REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of tableBody.matchAll(constraintFkRegex)) {
+    const column = match[1];
+    const targetTable = match[2];
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line: tableStartLine,
+      extra: { column, type: "foreign_key" }
+    });
+  }
+}
+function parsePrismaSchema(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount(content);
+  nodes.push({
+    kind: "File",
+    name: basename2(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "prisma",
+    is_test: false
+  });
+  const modelRegex = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
+  for (const match of content.matchAll(modelRegex)) {
+    const modelName = match[1];
+    const modelBody = match[2];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Table",
+      name: modelName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "prisma",
+      is_test: false,
+      extra: { columns: [], orm: "prisma" }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(modelName, filePath, null),
+      file_path: filePath,
+      line
+    });
+    const fieldLines = modelBody.split("\n");
+    for (let i2 = 0; i2 < fieldLines.length; i2++) {
+      const fieldLine = fieldLines[i2].trim();
+      if (!fieldLine || fieldLine.startsWith("//") || fieldLine.startsWith("@@"))
+        continue;
+      const fieldMatch = fieldLine.match(/^(\w+)\s+(\w+[\w[\]?]*)/);
+      if (!fieldMatch)
+        continue;
+      const fieldName = fieldMatch[1];
+      const fieldType = fieldMatch[2];
+      const fieldLineNum = line + i2 + 1;
+      nodes.push({
+        kind: "Column",
+        name: fieldName,
+        file_path: filePath,
+        line_start: fieldLineNum,
+        line_end: fieldLineNum,
+        language: "prisma",
+        parent_name: modelName,
+        return_type: fieldType,
+        is_test: false
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify2(modelName, filePath, null),
+        target: qualify2(fieldName, filePath, modelName),
+        file_path: filePath,
+        line: fieldLineNum
+      });
+      if (fieldLine.includes("@relation")) {
+        const relTarget = fieldType.replace("?", "").replace("[]", "");
+        edges.push({
+          kind: "REFERENCES",
+          source: qualify2(modelName, filePath, null),
+          target: qualify2(relTarget, filePath, null),
+          file_path: filePath,
+          line: fieldLineNum,
+          extra: { column: fieldName, type: "relation" }
+        });
+      }
+      const tableNode = nodes.find((n) => n.kind === "Table" && n.name === modelName);
+      if (tableNode?.extra) {
+        tableNode.extra.columns.push(fieldName);
+      }
+    }
+  }
+  const enumRegex = /enum\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
+  for (const match of content.matchAll(enumRegex)) {
+    const enumName = match[1];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Type",
+      name: enumName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "prisma",
+      is_test: false,
+      extra: { prisma_enum: true }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(enumName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  return { nodes, edges };
+}
+
+// dist/pkg-parser.js
+import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join2 } from "node:path";
+var PKG_FILES = /* @__PURE__ */ new Set(["package.json"]);
+var WORKSPACE_FILES = /* @__PURE__ */ new Set(["pnpm-workspace.yaml", "turbo.json"]);
+function isPkgParseable(filePath) {
+  const name2 = basename3(filePath);
+  return PKG_FILES.has(name2) || WORKSPACE_FILES.has(name2);
+}
+function qualify3(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount2(content) {
+  return content.split("\n").length;
+}
+function parsePkgFile(filePath) {
+  let content;
+  try {
+    content = readFileSync3(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const name2 = basename3(filePath);
+  if (name2 === "package.json") {
+    return parsePackageJson(filePath, content);
+  }
+  if (name2 === "pnpm-workspace.yaml") {
+    return parsePnpmWorkspace(filePath, content);
+  }
+  if (name2 === "turbo.json") {
+    return parseTurboJson(filePath, content);
+  }
+  return { nodes: [], edges: [] };
+}
+function parsePackageJson(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  let pkg;
+  try {
+    pkg = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const pkgName = pkg.name ?? basename3(dirname4(filePath));
+  const pkgVersion = pkg.version ?? "0.0.0";
+  const isWorkspaceRoot = !!pkg.workspaces;
+  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join2(dirname4(filePath), "turbo.json"));
+  nodes.push({
+    kind: isMonorepoRoot ? "Workspace" : "Package",
+    name: pkgName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    return_type: pkgVersion,
+    is_test: false,
+    extra: {
+      version: pkgVersion,
+      private: pkg.private ?? false,
+      isWorkspaceRoot: isMonorepoRoot,
+      depCount: Object.keys(pkg.dependencies ?? {}).length,
+      devDepCount: Object.keys(pkg.devDependencies ?? {}).length,
+      peerDepCount: Object.keys(pkg.peerDependencies ?? {}).length
+    }
+  });
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false
+  });
+  edges.push({
+    kind: "CONTAINS",
+    source: filePath,
+    target: qualify3(pkgName, filePath, null),
+    file_path: filePath,
+    line: 1
+  });
+  parseDeps(pkg.dependencies, "production", pkgName, filePath, nodes, edges);
+  parseDeps(pkg.devDependencies, "development", pkgName, filePath, nodes, edges);
+  parseDeps(pkg.peerDependencies, "peer", pkgName, filePath, nodes, edges);
+  if (pkg.scripts) {
+    for (const [scriptName, scriptCmd] of Object.entries(pkg.scripts)) {
+      nodes.push({
+        kind: "Script",
+        name: scriptName,
+        file_path: filePath,
+        line_start: findJsonLine(content, `"${scriptName}"`),
+        line_end: findJsonLine(content, `"${scriptName}"`),
+        language: "json",
+        parent_name: pkgName,
+        params: scriptCmd,
+        is_test: /test|spec|jest|vitest|playwright/i.test(scriptName),
+        extra: {
+          command: scriptCmd,
+          isTypeGen: /generate|gen\s+types|codegen|prisma\s+generate/i.test(scriptCmd),
+          isBuild: /^build$/i.test(scriptName),
+          isLint: /lint|eslint/i.test(scriptName)
+        }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify3(pkgName, filePath, null),
+        target: qualify3(scriptName, filePath, pkgName),
+        file_path: filePath,
+        line: findJsonLine(content, `"${scriptName}"`)
+      });
+    }
+  }
+  if (pkg.workspaces) {
+    const patterns = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces.packages ?? [];
+    for (const pattern of patterns) {
+      nodes.push({
+        kind: "Workspace",
+        name: pattern,
+        file_path: filePath,
+        line_start: findJsonLine(content, `"${pattern}"`),
+        line_end: findJsonLine(content, `"${pattern}"`),
+        language: "json",
+        parent_name: pkgName,
+        is_test: false,
+        extra: { glob: pattern }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify3(pkgName, filePath, null),
+        target: qualify3(pattern, filePath, pkgName),
+        file_path: filePath,
+        line: findJsonLine(content, `"${pattern}"`)
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function parseDeps(deps, depType, pkgName, filePath, nodes, edges) {
+  if (!deps)
+    return;
+  for (const [depName, versionRange] of Object.entries(deps)) {
+    nodes.push({
+      kind: "Package",
+      name: depName,
+      file_path: filePath,
+      line_start: 0,
+      line_end: 0,
+      language: "json",
+      parent_name: pkgName,
+      return_type: versionRange,
+      is_test: false,
+      extra: {
+        version: versionRange,
+        depType,
+        isFramework: isFrameworkDep(depName),
+        isInternal: versionRange.startsWith("workspace:")
+      }
+    });
+    edges.push({
+      kind: "DEPENDS_ON",
+      source: qualify3(pkgName, filePath, null),
+      target: `pkg::${depName}`,
+      file_path: filePath,
+      line: 0,
+      extra: {
+        version: versionRange,
+        depType,
+        isInternal: versionRange.startsWith("workspace:")
+      }
+    });
+  }
+}
+var FRAMEWORK_DEPS = /* @__PURE__ */ new Set([
+  "next",
+  "react",
+  "react-dom",
+  "vue",
+  "nuxt",
+  "svelte",
+  "@sveltejs/kit",
+  "angular",
+  "@angular/core",
+  "astro",
+  "vite",
+  "expo",
+  "expo-router",
+  "react-native",
+  "electron",
+  "@supabase/supabase-js",
+  "@supabase/ssr",
+  "prisma",
+  "@prisma/client",
+  "drizzle-orm",
+  "express",
+  "fastify",
+  "hono",
+  "nestjs",
+  "tailwindcss",
+  "@tailwindcss/postcss",
+  "@tanstack/react-query",
+  "@tanstack/vue-query",
+  "typescript",
+  "zod",
+  "vitest",
+  "jest",
+  "playwright",
+  "@playwright/test"
+]);
+function isFrameworkDep(name2) {
+  return FRAMEWORK_DEPS.has(name2);
+}
+function parsePnpmWorkspace(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "yaml",
+    is_test: false
+  });
+  const packagePatterns = [];
+  const inPackages = content.includes("packages:");
+  if (inPackages) {
+    const packageLines = content.match(/^\s+-\s+['"]?([^'"#\n]+)['"]?/gm);
+    if (packageLines) {
+      for (const line of packageLines) {
+        const match = line.match(/^\s+-\s+['"]?([^'"#\n]+)['"]?/);
+        if (match) {
+          packagePatterns.push(match[1].trim());
+        }
+      }
+    }
+  }
+  for (const pattern of packagePatterns) {
+    nodes.push({
+      kind: "Workspace",
+      name: pattern,
+      file_path: filePath,
+      line_start: findYamlLine(content, pattern),
+      line_end: findYamlLine(content, pattern),
+      language: "yaml",
+      is_test: false,
+      extra: { glob: pattern, source: "pnpm-workspace" }
+    });
+  }
+  return { nodes, edges };
+}
+function parseTurboJson(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  let turbo;
+  try {
+    turbo = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: { turbo: true }
+  });
+  const tasks = turbo.tasks ?? turbo.pipeline ?? {};
+  for (const taskName of Object.keys(tasks)) {
+    const taskConfig = tasks[taskName];
+    nodes.push({
+      kind: "Script",
+      name: taskName,
+      file_path: filePath,
+      line_start: findJsonLine(content, `"${taskName}"`),
+      line_end: findJsonLine(content, `"${taskName}"`),
+      language: "json",
+      is_test: false,
+      extra: {
+        turboTask: true,
+        dependsOn: taskConfig?.dependsOn ?? [],
+        outputs: taskConfig?.outputs ?? [],
+        cache: taskConfig?.cache ?? true
+      }
+    });
+    const dependsOn = taskConfig?.dependsOn ?? [];
+    for (const dep of dependsOn) {
+      edges.push({
+        kind: "DEPENDS_ON",
+        source: qualify3(taskName, filePath, null),
+        target: dep.startsWith("^") ? `turbo::${dep}` : qualify3(dep, filePath, null),
+        file_path: filePath,
+        line: findJsonLine(content, `"${taskName}"`),
+        extra: { topological: dep.startsWith("^") }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function findJsonLine(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 0;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function findYamlLine(content, needle) {
+  return findJsonLine(content, needle);
+}
+
+// dist/config-parser.js
+import { readFileSync as readFileSync4 } from "node:fs";
+import { basename as basename4, extname as extname3 } from "node:path";
+var CONFIG_FILENAMES = /* @__PURE__ */ new Set([
+  "tsconfig.json",
+  "tsconfig.base.json",
+  "tsconfig.app.json",
+  ".env.example",
+  ".env.local.example",
+  ".env.template",
+  "vercel.json"
+]);
+var CONFIG_PREFIXES2 = [
+  "next.config",
+  "tailwind.config"
+];
+function isConfigParseable(filePath) {
+  const name2 = basename4(filePath);
+  if (CONFIG_FILENAMES.has(name2))
+    return true;
+  for (const prefix of CONFIG_PREFIXES2) {
+    if (name2.startsWith(prefix))
+      return true;
+  }
+  if (/^\.env\.(example|template|local\.example|sample)$/.test(name2))
+    return true;
+  return false;
+}
+function qualify4(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount3(content) {
+  return content.split("\n").length;
+}
+function findLine(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 0;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function stripJsonComments(input) {
+  let result = "";
+  let i2 = 0;
+  const len = input.length;
+  while (i2 < len) {
+    if (input[i2] === '"') {
+      result += '"';
+      i2++;
+      while (i2 < len && input[i2] !== '"') {
+        if (input[i2] === "\\") {
+          result += input[i2] + (input[i2 + 1] ?? "");
+          i2 += 2;
+        } else {
+          result += input[i2];
+          i2++;
+        }
+      }
+      if (i2 < len) {
+        result += '"';
+        i2++;
+      }
+      continue;
+    }
+    if (input[i2] === "/" && input[i2 + 1] === "/") {
+      while (i2 < len && input[i2] !== "\n")
+        i2++;
+      continue;
+    }
+    if (input[i2] === "/" && input[i2 + 1] === "*") {
+      i2 += 2;
+      while (i2 < len && !(input[i2] === "*" && input[i2 + 1] === "/"))
+        i2++;
+      i2 += 2;
+      continue;
+    }
+    result += input[i2];
+    i2++;
+  }
+  return result.replace(/,(\s*[}\]])/g, "$1");
+}
+function parseConfigFile(filePath) {
+  let content;
+  try {
+    content = readFileSync4(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const name2 = basename4(filePath);
+  if (name2.startsWith("tsconfig"))
+    return parseTsConfig(filePath, content);
+  if (name2.startsWith("next.config"))
+    return parseNextConfig(filePath, content);
+  if (name2.startsWith("tailwind.config"))
+    return parseTailwindConfig(filePath, content);
+  if (name2.startsWith(".env"))
+    return parseEnvFile(filePath, content);
+  if (name2 === "vercel.json")
+    return parseVercelJson(filePath, content);
+  return { nodes: [], edges: [] };
+}
+function parseTsConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  let config;
+  try {
+    config = JSON.parse(stripJsonComments(content));
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const compilerOptions = config.compilerOptions ?? {};
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: {
+      configType: "tsconfig",
+      strict: compilerOptions.strict ?? false,
+      target: compilerOptions.target ?? null,
+      module: compilerOptions.module ?? null,
+      moduleResolution: compilerOptions.moduleResolution ?? null,
+      jsx: compilerOptions.jsx ?? null,
+      extends: config.extends ?? null,
+      paths: compilerOptions.paths ? Object.keys(compilerOptions.paths) : [],
+      include: config.include ?? [],
+      exclude: config.exclude ?? []
+    }
+  });
+  const paths = compilerOptions.paths;
+  if (paths) {
+    for (const [alias, targets] of Object.entries(paths)) {
+      nodes.push({
+        kind: "Type",
+        name: alias,
+        file_path: filePath,
+        line_start: findLine(content, `"${alias}"`),
+        line_end: findLine(content, `"${alias}"`),
+        language: "json",
+        parent_name: "tsconfig",
+        return_type: Array.isArray(targets) ? targets[0] : String(targets),
+        is_test: false,
+        extra: { configType: "path-alias", targets }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: filePath,
+        target: qualify4(alias, filePath, "tsconfig"),
+        file_path: filePath,
+        line: findLine(content, `"${alias}"`)
+      });
+    }
+  }
+  if (config.extends) {
+    edges.push({
+      kind: "DEPENDS_ON",
+      source: filePath,
+      target: `config::${config.extends}`,
+      file_path: filePath,
+      line: findLine(content, `"extends"`),
+      extra: { type: "extends" }
+    });
+  }
+  return { nodes, edges };
+}
+function parseNextConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  const experimental = content.match(/experimental\s*:\s*\{([^}]*)\}/s);
+  const experimentalFlags = [];
+  if (experimental) {
+    const flagMatches = experimental[1].matchAll(/(\w+)\s*:\s*true/g);
+    for (const m of flagMatches)
+      experimentalFlags.push(m[1]);
+  }
+  const hasImages = /images\s*:/i.test(content);
+  const hasRedirects = /redirects\s*\(/i.test(content) || /redirects\s*:/i.test(content);
+  const hasHeaders = /headers\s*\(/i.test(content) || /headers\s*:/i.test(content);
+  const hasRewrites = /rewrites\s*\(/i.test(content) || /rewrites\s*:/i.test(content);
+  const hasWebpack = /webpack\s*\(/i.test(content) || /webpack\s*:/i.test(content);
+  const hasTurbopack = /turbopack/i.test(content);
+  const hasOutput = content.match(/output\s*:\s*['"](\w+)['"]/);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: extname3(filePath) === ".ts" ? "typescript" : "javascript",
+    is_test: false,
+    extra: {
+      configType: "next.config",
+      experimentalFlags,
+      hasImages,
+      hasRedirects,
+      hasHeaders,
+      hasRewrites,
+      hasWebpack,
+      hasTurbopack,
+      output: hasOutput?.[1] ?? null
+    }
+  });
+  return { nodes, edges };
+}
+function parseTailwindConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  const contentPaths = [];
+  const contentMatch = content.match(/content\s*:\s*\[([\s\S]*?)\]/);
+  if (contentMatch) {
+    const pathMatches = contentMatch[1].matchAll(/['"]([^'"]+)['"]/g);
+    for (const m of pathMatches)
+      contentPaths.push(m[1]);
+  }
+  const plugins = [];
+  const pluginMatch = content.match(/plugins\s*:\s*\[([\s\S]*?)\]/);
+  if (pluginMatch) {
+    const pluginMatches = pluginMatch[1].matchAll(/require\(['"]([^'"]+)['"]\)|(\w+)\(/g);
+    for (const m of pluginMatches)
+      plugins.push(m[1] ?? m[2]);
+  }
+  const hasExtend = /extend\s*:/i.test(content);
+  const hasCustomColors = /colors\s*:/i.test(content);
+  const hasCustomFonts = /fontFamily\s*:/i.test(content);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: extname3(filePath) === ".ts" ? "typescript" : "javascript",
+    is_test: false,
+    extra: {
+      configType: "tailwind.config",
+      contentPaths,
+      plugins,
+      hasExtend,
+      hasCustomColors,
+      hasCustomFonts
+    }
+  });
+  return { nodes, edges };
+}
+function parseEnvFile(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "env",
+    is_test: false,
+    extra: { configType: "env" }
+  });
+  const envVars = [];
+  const contentLines = content.split("\n");
+  for (let i2 = 0; i2 < contentLines.length; i2++) {
+    const line = contentLines[i2].trim();
+    if (!line || line.startsWith("#"))
+      continue;
+    const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (!match)
+      continue;
+    const varName = match[1];
+    const value = match[2];
+    const hasDefault = value.length > 0 && value !== '""' && value !== "''";
+    const lineNum = i2 + 1;
+    envVars.push({ name: varName, line: lineNum, hasDefault });
+    nodes.push({
+      kind: "Type",
+      name: varName,
+      file_path: filePath,
+      line_start: lineNum,
+      line_end: lineNum,
+      language: "env",
+      parent_name: "env",
+      is_test: false,
+      extra: {
+        configType: "env-var",
+        hasDefault,
+        isPublic: varName.startsWith("NEXT_PUBLIC_") || varName.startsWith("EXPO_PUBLIC_"),
+        category: categorizeEnvVar(varName)
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify4(varName, filePath, "env"),
+      file_path: filePath,
+      line: lineNum
+    });
+  }
+  return { nodes, edges };
+}
+function categorizeEnvVar(name2) {
+  if (/SUPABASE/i.test(name2))
+    return "supabase";
+  if (/DATABASE|DB_|POSTGRES/i.test(name2))
+    return "database";
+  if (/AUTH|SECRET|JWT|SESSION/i.test(name2))
+    return "auth";
+  if (/STRIPE|PAYMENT/i.test(name2))
+    return "payment";
+  if (/REDIS|CACHE/i.test(name2))
+    return "cache";
+  if (/SMTP|EMAIL|RESEND|SENDGRID/i.test(name2))
+    return "email";
+  if (/API_KEY|API_SECRET|TOKEN/i.test(name2))
+    return "api-key";
+  if (/S3|STORAGE|BUCKET|CLOUDINARY/i.test(name2))
+    return "storage";
+  if (/NEXT_PUBLIC_|EXPO_PUBLIC_/i.test(name2))
+    return "public";
+  if (/URL|HOST|PORT|DOMAIN/i.test(name2))
+    return "connection";
+  return "other";
+}
+function parseVercelJson(filePath, content) {
+  const nodes = [];
+  const lines = lineCount3(content);
+  let config;
+  try {
+    config = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: {
+      configType: "vercel",
+      framework: config.framework ?? null,
+      buildCommand: config.buildCommand ?? null,
+      outputDirectory: config.outputDirectory ?? null,
+      hasRewrites: !!config.rewrites,
+      hasRedirects: !!config.redirects,
+      hasHeaders: !!config.headers,
+      hasCrons: !!config.crons,
+      regions: config.regions ?? []
+    }
+  });
+  return { nodes, edges: [] };
+}
+
+// dist/md-parser.js
+import { readFileSync as readFileSync5 } from "node:fs";
+import { basename as basename5, dirname as dirname5, extname as extname4 } from "node:path";
+var MD_EXTENSIONS2 = /* @__PURE__ */ new Set([".md", ".mdx"]);
+var INDEXED_MD_NAMES = /* @__PURE__ */ new Set([
+  "claude.md",
+  "readme.md",
+  "changelog.md",
+  "contributing.md",
+  "architecture.md",
+  "design.md",
+  "decisions.md"
+]);
+var INDEXED_MD_DIRS = [
+  "/docs/",
+  "/doc/",
+  "/documentation/",
+  "/decisions/",
+  "/adr/",
+  "/adrs/",
+  "/appendices/",
+  "/appendix/",
+  "/specs/",
+  "/spec/",
+  "/tasks-plans/",
+  "/.claude/"
+];
+function isMdParseable(filePath) {
+  const ext = extname4(filePath).toLowerCase();
+  if (!MD_EXTENSIONS2.has(ext))
+    return false;
+  const name2 = basename5(filePath).toLowerCase();
+  const lowerPath = filePath.toLowerCase();
+  if (INDEXED_MD_NAMES.has(name2))
+    return true;
+  for (const dir of INDEXED_MD_DIRS) {
+    if (lowerPath.includes(dir))
+      return true;
+  }
+  const rel = lowerPath;
+  if (!rel.includes("node_modules") && !rel.includes(".git/") && !rel.includes("dist/")) {
+    const parts2 = filePath.split("/");
+    const mdIndex = parts2.findIndex((p) => p.toLowerCase().endsWith(".md"));
+    if (mdIndex >= 0 && mdIndex <= parts2.length - 1) {
+      return true;
+    }
+  }
+  return false;
+}
+function qualify5(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function classifySection(heading, body2) {
+  const h = heading.toLowerCase();
+  const b = body2.toLowerCase().slice(0, 500);
+  if (/\b(rule|constraint|must|never|always|critical|important)\b/i.test(h))
+    return "rule";
+  if (/\b(rule|constraint)\b/i.test(h) || b.includes("must") && b.includes("never"))
+    return "rule";
+  if (/\b(convention|pattern|standard|practice|style)\b/i.test(h))
+    return "convention";
+  if (/\b(decision|adr|status:\s*(accepted|deprecated|proposed))\b/i.test(h + " " + b))
+    return "decision";
+  if (/\b(reference|resource|link|see also)\b/i.test(h))
+    return "reference";
+  if (/\b(setup|install|getting started|quickstart|prerequisite)\b/i.test(h))
+    return "setup";
+  if (/\b(overview|about|introduction|what is|summary)\b/i.test(h))
+    return "overview";
+  if (/\b(api|endpoint|route|method)\b/i.test(h))
+    return "api";
+  return "section";
+}
+function parseMdFile(filePath) {
+  let content;
+  try {
+    content = readFileSync5(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+  const name2 = basename5(filePath);
+  const docType = classifyDocType(filePath);
+  let contentStart = 0;
+  if (lines[0]?.trim() === "---") {
+    for (let i2 = 1; i2 < lines.length; i2++) {
+      if (lines[i2].trim() === "---") {
+        contentStart = i2 + 1;
+        break;
+      }
+    }
+  }
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "markdown",
+    is_test: false,
+    extra: {
+      docType,
+      sections: 0,
+      // will be updated
+      hasRules: false,
+      hasConventions: false,
+      hasCode: content.includes("```"),
+      hasTables: content.includes("| ")
+    }
+  });
+  const sections = [];
+  let currentSection = null;
+  let inCodeBlock = false;
+  for (let i2 = contentStart; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    if (line.trimStart().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock)
+      continue;
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      if (currentSection) {
+        currentSection.lineEnd = i2;
+        currentSection.body = lines.slice(currentSection.lineStart, i2).join("\n");
+        sections.push(currentSection);
+      }
+      currentSection = {
+        heading: headingMatch[2].trim(),
+        level: headingMatch[1].length,
+        lineStart: i2 + 1,
+        lineEnd: totalLines,
+        body: ""
+      };
+    }
+  }
+  if (currentSection) {
+    currentSection.lineEnd = totalLines;
+    currentSection.body = lines.slice(currentSection.lineStart - 1).join("\n");
+    sections.push(currentSection);
+  }
+  let ruleCount = 0;
+  let conventionCount = 0;
+  for (const section of sections) {
+    const sectionType = classifySection(section.heading, section.body);
+    const sectionName = sanitizeName(section.heading);
+    if (sectionType === "rule")
+      ruleCount++;
+    if (sectionType === "convention")
+      conventionCount++;
+    const codeBlocks = (section.body.match(/```[\s\S]*?```/g) ?? []).length;
+    const bulletPoints = (section.body.match(/^\s*[-*]\s/gm) ?? []).length;
+    const fileRefs = extractFileReferences(section.body);
+    nodes.push({
+      kind: "Type",
+      name: sectionName,
+      file_path: filePath,
+      line_start: section.lineStart,
+      line_end: section.lineEnd,
+      language: "markdown",
+      parent_name: name2,
+      modifiers: `h${section.level} ${sectionType}`,
+      is_test: false,
+      extra: {
+        docSection: true,
+        sectionType,
+        heading: section.heading,
+        level: section.level,
+        codeBlocks,
+        bulletPoints,
+        hasImperatives: /\b(MUST|NEVER|ALWAYS|DO NOT|REQUIRED|CRITICAL)\b/.test(section.body),
+        contentLength: section.body.length
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify5(sectionName, filePath, name2),
+      file_path: filePath,
+      line: section.lineStart
+    });
+    for (const ref of fileRefs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: qualify5(sectionName, filePath, name2),
+        target: ref.path,
+        file_path: filePath,
+        line: ref.line,
+        extra: { type: "file-reference", raw: ref.raw }
+      });
+    }
+  }
+  const fileNode = nodes[0];
+  if (fileNode?.extra) {
+    fileNode.extra.sections = sections.length;
+    fileNode.extra.hasRules = ruleCount > 0;
+    fileNode.extra.hasConventions = conventionCount > 0;
+    fileNode.extra.ruleCount = ruleCount;
+    fileNode.extra.conventionCount = conventionCount;
+  }
+  return { nodes, edges };
+}
+function classifyDocType(filePath) {
+  const name2 = basename5(filePath).toLowerCase();
+  const dir = dirname5(filePath).toLowerCase();
+  if (name2 === "claude.md")
+    return "claude-md";
+  if (name2 === "readme.md")
+    return "readme";
+  if (name2 === "changelog.md")
+    return "changelog";
+  if (name2 === "contributing.md")
+    return "contributing";
+  if (dir.includes("/decisions/") || dir.includes("/adr"))
+    return "adr";
+  if (dir.includes("/tasks-plans/"))
+    return "task";
+  if (dir.includes("/specs/") || dir.includes("/spec/"))
+    return "spec";
+  if (dir.includes("/.claude/"))
+    return "claude-config";
+  return "documentation";
+}
+function extractFileReferences(body2) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  const lines = body2.split("\n");
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const pathMatches = line.matchAll(/(?:^|\s|`|"|')([./]?(?:[\w@.-]+\/)+[\w.-]+\.(?:ts|tsx|js|jsx|json|sql|md|yaml|yml|env|toml|prisma|css|scss))\b/g);
+    for (const match of pathMatches) {
+      const path = match[1];
+      if (!seen.has(path)) {
+        seen.add(path);
+        refs.push({ path, line: i2 + 1, raw: match[0].trim() });
+      }
+    }
+    const backtickMatches = line.matchAll(/`([\w/.-]+\.(?:ts|tsx|js|jsx|json|sql|md|yaml|yml|env|toml|prisma|css|scss))`/g);
+    for (const match of backtickMatches) {
+      const path = match[1];
+      if (!seen.has(path)) {
+        seen.add(path);
+        refs.push({ path, line: i2 + 1, raw: match[0] });
+      }
+    }
+  }
+  return refs;
+}
+function sanitizeName(heading) {
+  return heading.replace(/[`*_#[\](){}]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
 
 // dist/entities.js
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
   let dir = start2 ? resolve2(start2) : process.cwd();
   while (true) {
-    if (existsSync3(join2(dir, ".git")))
+    if (existsSync4(join3(dir, ".git")))
       return dir;
-    const parent = dirname4(dir);
+    const parent = dirname6(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -4982,7 +6382,7 @@ function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
 function getDbPath(repoRoot) {
-  return join2(repoRoot, ".code-review-graph", "graph.db");
+  return join3(repoRoot, ".code-review-graph", "graph.db");
 }
 function findDependents(store, filePath) {
   const edges = store.getEdgesByTarget(filePath);
@@ -4994,34 +6394,57 @@ function findDependents(store, filePath) {
   }
   return [...dependents];
 }
+function routeParse(filePath, tsParser) {
+  if (isSqlParseable(filePath))
+    return parseSqlFile(filePath);
+  if (isPkgParseable(filePath))
+    return parsePkgFile(filePath);
+  if (isConfigParseable(filePath))
+    return parseConfigFile(filePath);
+  if (isMdParseable(filePath))
+    return parseMdFile(filePath);
+  if (tsParser)
+    return tsParser.parseFile(filePath);
+  return { nodes: [], edges: [] };
+}
 async function singleFileUpdate(repoRoot, store, filePath) {
   const absPath = resolve2(repoRoot, filePath);
-  if (!existsSync3(absPath)) {
+  if (!existsSync4(absPath)) {
     store.removeFileData(absPath);
     return;
   }
   if (!isParseable(absPath))
     return;
-  const parser = new CodeParser();
-  await parser.init();
+  let tsParser = null;
+  if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath)) {
+    tsParser = new CodeParser();
+    await tsParser.init();
+  }
+  const { nodes, edges } = routeParse(absPath, tsParser);
   const hash = fileHash(absPath);
-  const { nodes, edges } = parser.parseFile(absPath);
   if (nodes.length > 0) {
     store.storeFileNodesEdges(absPath, nodes, edges, hash);
   }
   const dependents = findDependents(store, absPath);
-  for (const dep of dependents) {
-    if (existsSync3(dep) && isParseable(dep)) {
-      try {
-        const depHash = fileHash(dep);
-        const existing = store.getNode(dep);
-        if (existing?.file_hash !== depHash) {
-          const result = parser.parseFile(dep);
-          if (result.nodes.length > 0) {
-            store.storeFileNodesEdges(dep, result.nodes, result.edges, depHash);
+  if (dependents.length > 0) {
+    let depTsParser = null;
+    for (const dep of dependents) {
+      if (existsSync4(dep) && isParseable(dep)) {
+        try {
+          const depHash = fileHash(dep);
+          const existing = store.getNode(dep);
+          if (existing?.file_hash !== depHash) {
+            if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep)) {
+              depTsParser = new CodeParser();
+              await depTsParser.init();
+            }
+            const result = routeParse(dep, depTsParser);
+            if (result.nodes.length > 0) {
+              store.storeFileNodesEdges(dep, result.nodes, result.edges, depHash);
+            }
           }
+        } catch {
         }
-      } catch {
       }
     }
   }
@@ -5045,12 +6468,12 @@ async function main() {
   if (!isParseable(filePath)) {
     process.exit(0);
   }
-  if (!existsSync4(filePath)) {
+  if (!existsSync5(filePath)) {
     process.exit(0);
   }
   const root = findProjectRoot();
   const dbPath = getDbPath(root);
-  if (!existsSync4(dbPath)) {
+  if (!existsSync5(dbPath)) {
     process.exit(0);
   }
   let store;
