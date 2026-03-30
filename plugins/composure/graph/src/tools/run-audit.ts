@@ -84,6 +84,115 @@ function toSeverity(raw: unknown): FindingSeverity {
   return "moderate";
 }
 
+// ── Recommendation Engine ────────────────────────────────────────
+
+type RecommendedAction = "split" | "split-on-next-touch" | "monitor" | "ignore";
+
+interface Recommendation {
+  action: RecommendedAction;
+  reason: string;
+  severity: FindingSeverity;
+  impact: number;
+}
+
+function recommendAction(
+  findingType: string,
+  lines: number,
+  cohesionRatio: number,
+  funcCount: number,
+  fanOut?: number,
+): Recommendation {
+  if (findingType === "grab-bag") {
+    // Large + low cohesion = definitely split
+    if (lines > 500 && cohesionRatio < 0.1) {
+      return {
+        action: "split",
+        reason: `${lines} lines with ${Math.round(cohesionRatio * 100)}% cohesion — functions are unrelated. Split into domain-specific modules.`,
+        severity: "high",
+        impact: IMPACTS.GRAB_BAG,
+      };
+    }
+    // Large + some cohesion = split when touching
+    if (lines > 300) {
+      return {
+        action: "split-on-next-touch",
+        reason: `Over 300 lines with low cohesion. Split when you're already editing this file.`,
+        severity: "moderate",
+        impact: IMPACTS.GRAB_BAG,
+      };
+    }
+    // Small file with many functions = utility file, probably fine
+    return {
+      action: "monitor",
+      reason: `${funcCount} functions but only ${lines} lines — small utility file. Monitor for growth.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.GRAB_BAG / 2),
+    };
+  }
+
+  if (findingType === "mixed-concerns") {
+    // High fan-out + large file = real problem
+    if (lines > 400 && (fanOut ?? 0) >= 6) {
+      return {
+        action: "split",
+        reason: `${lines} lines reaching into ${fanOut} different files — too many responsibilities. Extract focused modules.`,
+        severity: "moderate",
+        impact: IMPACTS.MIXED_CONCERNS,
+      };
+    }
+    // Pipeline/orchestrator files naturally have high fan-out
+    if (funcCount <= 3) {
+      return {
+        action: "ignore",
+        reason: `Only ${funcCount} functions — this is a pipeline/orchestrator, high fan-out is expected.`,
+        severity: "info",
+        impact: 0,
+      };
+    }
+    return {
+      action: "monitor",
+      reason: `Moderate fan-out. Not urgent — revisit if the file keeps growing.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.MIXED_CONCERNS / 2),
+    };
+  }
+
+  // Default for unknown types
+  return {
+    action: "monitor",
+    reason: "Review manually.",
+    severity: "info",
+    impact: 0,
+  };
+}
+
+// Now add recommendations to oversized file/function findings too
+
+function recommendForSize(
+  lines: number,
+  threshold: number,
+  kind: "file" | "function",
+): { recommendation: RecommendedAction; reason: string } {
+  const ratio = lines / threshold;
+
+  if (ratio > 2.5) {
+    return {
+      recommendation: "split",
+      reason: `${lines} lines is ${ratio.toFixed(1)}x the ${threshold}-line limit. This needs decomposition.`,
+    };
+  }
+  if (ratio > 1.5) {
+    return {
+      recommendation: "split-on-next-touch",
+      reason: `${lines} lines is ${ratio.toFixed(1)}x the limit. Split when you're already editing this ${kind}.`,
+    };
+  }
+  return {
+    recommendation: "monitor",
+    reason: `Just over the ${threshold}-line limit. Not urgent — watch for growth.`,
+  };
+}
+
 // ── Cohesion Analysis (structural, not just size) ────────────────
 
 interface DbRow {
@@ -143,11 +252,19 @@ function analyzeCohesion(
       : 0;
 
     if (cohesionRatio < 0.3) {
+      // Get file size for recommendation
+      const fileSize = db
+        .prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?")
+        .get(file.file_qn) as { lines: number } | undefined;
+      const lines = fileSize?.lines ?? 0;
+
+      const rec = recommendAction("grab-bag", lines, cohesionRatio, file.func_count);
+
       insertFinding(store, {
         audit_run_id: runId,
         category: "code-quality",
         finding_type: "grab-bag",
-        severity: "moderate",
+        severity: rec.severity,
         node_qualified_name: file.file_qn,
         file_path: relative(repoRoot, file.file_path),
         title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
@@ -155,8 +272,11 @@ function analyzeCohesion(
           function_count: file.func_count,
           internal_calls: internalCalls.cnt,
           cohesion_ratio: Math.round(cohesionRatio * 100) / 100,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason,
         },
-        score_impact: IMPACTS.GRAB_BAG,
+        score_impact: rec.impact,
       });
       findingCount++;
     }
@@ -189,19 +309,29 @@ function analyzeCohesion(
       .get(row.file_path) as { cnt: number };
 
     if (funcCount.cnt >= 5) {
+      const fileSize = db
+        .prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?")
+        .get(row.file_qn) as { lines: number } | undefined;
+      const lines = fileSize?.lines ?? 0;
+
+      const rec = recommendAction("mixed-concerns", lines, 0, funcCount.cnt, row.call_files);
+
       insertFinding(store, {
         audit_run_id: runId,
         category: "code-quality",
         finding_type: "mixed-concerns",
-        severity: "low",
+        severity: rec.severity,
         node_qualified_name: row.file_qn,
         file_path: relative(repoRoot, row.file_path),
         title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
         detail: {
           function_count: funcCount.cnt,
           external_file_targets: row.call_files,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason,
         },
-        score_impact: IMPACTS.MIXED_CONCERNS,
+        score_impact: rec.impact,
       });
       findingCount++;
     }
@@ -253,6 +383,8 @@ function analyzeCohesion(
           detail: {
             function_name: f.name,
             sole_caller: relative(repoRoot, f.sole_caller_file),
+            recommendation: "move-on-next-touch",
+            reason: "Function has a single consumer. Co-locate when you're already editing either file — not worth a dedicated refactor.",
           },
           score_impact: IMPACTS.INLINE_CANDIDATE,
         });
@@ -307,6 +439,8 @@ function analyzeCohesion(
             name: t.name,
             sole_importer: relative(repoRoot, t.sole_importer),
           })),
+          recommendation: "move-on-next-touch",
+          reason: "Types have single consumers. Move them when you're already editing the consumer file.",
         },
         score_impact: IMPACTS.COLOCATE_CANDIDATE,
       });
@@ -355,6 +489,8 @@ function analyzeCodeQuality(
       findingType = "oversized-file-400";
     }
 
+    const sizeRec = recommendForSize(f.lines, f.lines > 800 ? 800 : f.lines > 600 ? 600 : 400, "file");
+
     insertFinding(store, {
       audit_run_id: runId,
       category: "code-quality",
@@ -363,7 +499,11 @@ function analyzeCodeQuality(
       node_qualified_name: f.qualified_name,
       file_path: relative(repoRoot, f.file_path),
       title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
-      detail: { lines: f.lines },
+      detail: {
+        lines: f.lines,
+        recommendation: sizeRec.recommendation,
+        reason: sizeRec.reason,
+      },
       score_impact: impact,
     });
     findingCount++;
@@ -387,6 +527,8 @@ function analyzeCodeQuality(
   }>;
 
   for (const f of funcRows) {
+    const funcRec = recommendForSize(f.lines, 150, "function");
+
     insertFinding(store, {
       audit_run_id: runId,
       category: "code-quality",
@@ -395,7 +537,12 @@ function analyzeCodeQuality(
       node_qualified_name: f.qualified_name,
       file_path: relative(repoRoot, f.file_path),
       title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
-      detail: { lines: f.lines, name: f.name },
+      detail: {
+        lines: f.lines,
+        name: f.name,
+        recommendation: funcRec.recommendation,
+        reason: funcRec.reason,
+      },
       score_impact: IMPACTS.FUNC_150,
     });
     findingCount++;
@@ -677,6 +824,22 @@ export async function runAudit(params: {
       0,
     );
 
+    // Build recommendation summary from findings with recommendation field
+    const allFindings = store
+      .getDb()
+      .prepare("SELECT detail FROM audit_findings WHERE audit_run_id = ? AND detail IS NOT NULL")
+      .all(runId) as Array<{ detail: string }>;
+
+    const recCounts: Record<string, number> = { split: 0, "split-on-next-touch": 0, monitor: 0, ignore: 0 };
+    for (const f of allFindings) {
+      try {
+        const detail = JSON.parse(f.detail);
+        if (detail.recommendation && recCounts[detail.recommendation] !== undefined) {
+          recCounts[detail.recommendation]++;
+        }
+      } catch {}
+    }
+
     return {
       status: "ok",
       run_id: runId,
@@ -685,6 +848,17 @@ export async function runAudit(params: {
       overall_color: overallColor,
       categories: categorySummary,
       finding_counts: findingCounts,
+      recommendations: {
+        split: recCounts.split,
+        split_on_next_touch: recCounts["split-on-next-touch"],
+        monitor: recCounts.monitor,
+        ignore: recCounts.ignore,
+        summary: recCounts.split > 0
+          ? `${recCounts.split} files need splitting. ${recCounts["split-on-next-touch"]} can wait until next touch. ${recCounts.monitor} to monitor.`
+          : recCounts["split-on-next-touch"] > 0
+            ? `No urgent splits. ${recCounts["split-on-next-touch"]} files to split on next touch. ${recCounts.monitor} to monitor.`
+            : `No splits needed. ${recCounts.monitor} files to monitor for growth.`,
+      },
       summary: `Audit complete: ${overallGrade} (${Math.round(overallScore)}). ${totalFindings} findings across ${availableCategories.size} categories.`,
     };
   } finally {
