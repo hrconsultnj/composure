@@ -2,7 +2,7 @@
 
 Claude writes code fast. These plugins make sure it writes it right.
 
-> 5 plugins &middot; 29 skills &middot; 20 automated hooks &middot; 7 languages &middot; One command setup
+> 5 plugins &middot; 29 skills &middot; 20 automated hooks &middot; 8 indexed languages &middot; One command setup
 
 <p align="center">
   <img src="assets/hero-ecosystem.png" alt="The Pentagon — 5 plugins covering every stage of your project" width="800">
@@ -42,7 +42,9 @@ All plugins, all skills, all hooks — free for personal use, education, and non
 | Hooks | 19 | Code quality, secret detection, type safety, CI validation |
 | Reference docs | 23 | Security patterns, testing patterns, deployment guides |
 | Templates | 12 | Test files, GH Actions workflows, Dockerfiles |
-| Languages | 7 | TypeScript, Python, Go, Rust, C++, Swift, Kotlin |
+| Hook enforcement | 7 languages | TypeScript, Python, Go, Rust, C++, Swift, Kotlin |
+| Graph indexing | 8 languages | TypeScript, JavaScript, SQL, JSON, YAML, Markdown, ENV, Prisma |
+| Graph node types | 13 | Functions, Classes, Types, Tables, Columns, RLS Policies, Indexes, Packages, Scripts, and more |
 
 <p align="center">
   <img src="assets/multi-language.png" alt="Multi-language support — same enforcement across 7 languages" width="800">
@@ -92,11 +94,7 @@ Composure operates at three layers — each one doing a different job:
 
 **Skills (The Playbook)** — 27 slash commands covering architecture (`/composure:app-architecture`), security scanning (`/sentinel:scan`), test generation (`/testbench:generate`), CI/CD (`/shipyard:ci-generate`), and more. Each skill loads framework-specific reference docs so Claude builds features using current API patterns, not stale training data.
 
-**Graph (The Brain)** — A tree-sitter AST parser that builds a SQLite knowledge graph of your codebase. Functions, imports, call chains, file sizes — all queryable through 7 MCP tools. When you run `/composure:review-pr`, Claude knows the blast radius of every change. When you edit a file, the graph updates automatically.
-
-<p align="center">
-  <img src="assets/code-graph.png" alt="Code review knowledge graph visualization" width="800">
-</p>
+**Graph (The Brain)** — Covered in its own section below.
 
 <details>
 <summary><strong>How the plugins connect</strong></summary>
@@ -106,7 +104,7 @@ Composure (foundation)
   ├── .claude/no-bandaids.json      ← All plugins read this for stack detection
   ├── tasks-plans/tasks.md          ← All plugins write findings here
   ├── /composure:commit             ← Blocks on Critical findings from ANY plugin
-  └── composure-graph MCP           ← Testbench uses for coverage intelligence
+  └── composure-graph MCP           ← 8 languages, 13 node types, cross-project queries
 
 Sentinel (security layer)
   ├── secret-guard.sh               ← Blocks exposed secrets on every Edit/Write
@@ -127,6 +125,85 @@ Shipyard (deployment layer)
 Design Forge (design layer)
   └── /design-forge                 ← Premium components adapted to your stack
 ```
+
+</details>
+
+## The Graph
+
+The graph is a multi-language parser that builds a SQLite knowledge graph of your entire project — not just source code. It runs silently in the background. Claude uses it automatically for better answers. No configuration needed beyond `/composure:initialize`.
+
+<p align="center">
+  <img src="assets/graph-languages.png" alt="The Graph indexes your entire project — 8 languages, 13 node types" width="800">
+</p>
+
+Most AI coding tools only understand source code. The graph understands your **whole project** — migrations, dependencies, config, and documentation — so Claude can answer structural questions instantly instead of searching file by file.
+
+| What you ask | What the graph does |
+|---|---|
+| "What tables have RLS policies?" | Queries SECURES edges across all SQL migrations |
+| "What would break if I upgrade Next.js?" | Checks DEPENDS_ON edges in the dependency layer |
+| "What does CLAUDE.md say about auth?" | Searches markdown section nodes classified as rules/conventions |
+| "Show me the blast radius of this PR" | Traces CALLS, IMPORTS_FROM, and CONTAINS edges from changed files |
+| "What entities does this project have?" | Runs entity_scope — tables + routes + hooks + components, cross-referenced |
+
+<p align="center">
+  <img src="assets/graph-vs-explore.png" alt="Graph queries vs Explorer agents — instant structural answers" width="800">
+</p>
+
+Every graph tool accepts a `repo_root` parameter. From a parent directory like `~/Projects`, you can query any child project's graph without switching directories — enabling cross-project comparison, version drift detection, and migration planning.
+
+<details>
+<summary><strong>Full graph reference — 13 node types, 10 edge types, 11 MCP tools</strong></summary>
+
+### Node Types
+
+| Kind | Source | What it captures |
+|------|--------|-----------------|
+| **File** | All languages | Every parsed file as a structural unit |
+| **Function** | TS/JS | Named functions, arrow functions, methods with params and return types |
+| **Class** | TS/JS | Class declarations with inheritance chains |
+| **Type** | TS/JS, config, markdown | Type aliases, interfaces, enums, path aliases, env vars, doc sections |
+| **Test** | TS/JS | Test functions (auto-detected from file patterns) |
+| **Table** | SQL, Prisma | `CREATE TABLE` with column list, foreign keys |
+| **Column** | SQL, Prisma | Column name, type, nullable, default — parented to table |
+| **RLSPolicy** | SQL | Policy name, operation, roles, USING/CHECK expressions, auth.uid() detection |
+| **Index** | SQL | Index name, columns, uniqueness — linked to table |
+| **DbFunction** | SQL | Postgres functions with params, return type, trigger detection |
+| **Migration** | SQL | Migration files as structural units with timestamp ordering |
+| **Package** | package.json | Every dependency with version range, type (prod/dev/peer), framework detection |
+| **Script** | package.json, turbo.json | npm scripts, turbo tasks with dependency chains |
+| **Workspace** | package.json, pnpm-workspace.yaml | Monorepo workspace definitions with glob patterns |
+
+### Edge Types
+
+| Kind | What it connects |
+|------|-----------------|
+| **CALLS** | Function → Function (call graph) |
+| **IMPORTS_FROM** | File → Module (import resolution) |
+| **CONTAINS** | File → Node, Class → Method, Table → Column |
+| **INHERITS** | Class → Base class |
+| **IMPLEMENTS** | Class → Interface |
+| **TESTED_BY** | Function → Test function |
+| **DEPENDS_ON** | Package → Package, Turbo task → Task |
+| **REFERENCES** | Table → Table (foreign keys), Doc section → File path |
+| **SECURES** | RLS Policy → Table, Grant → Table |
+| **INDEXES** | Index → Table |
+
+### MCP Tools
+
+| Tool | What it does |
+|------|-------------|
+| `build_or_update_graph` | Full or incremental rebuild (auto-detects changed files) |
+| `semantic_search_nodes` | Keyword search across all node names |
+| `query_graph` | Callers, callees, importers, children, tests, inheritance |
+| `entity_scope` | Domain entity discovery — tables + routes + hooks + components |
+| `get_review_context` | PR review with source snippets and impact analysis |
+| `get_impact_radius` | Blast radius for changed files |
+| `find_large_functions` | Oversized function detection |
+| `run_audit` | Code quality scoring (testing, security, size) |
+| `list_graph_stats` | Node/edge counts, languages, last updated |
+| `generate_graph_html` | Interactive visualization (self-contained HTML) |
+| `generate_audit_html` | Audit report with grades and findings |
 
 </details>
 
