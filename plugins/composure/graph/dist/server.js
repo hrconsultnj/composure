@@ -30027,7 +30027,22 @@ server.tool("find_large_functions", "Find functions and components exceeding a l
 });
 server.tool("semantic_search_nodes", "Search for code entities by name using keyword patterns. Matches against node names and qualified names. Use this to find functions, classes, types, or files by name.", {
   query: external_exports.string().describe("Search string to match against node names. Supports multi-word AND matching."),
-  kind: external_exports.enum(["File", "Class", "Function", "Type", "Test"]).optional().describe("Optional filter by node kind."),
+  kind: external_exports.enum([
+    "File",
+    "Class",
+    "Function",
+    "Type",
+    "Test",
+    "Table",
+    "Column",
+    "RLSPolicy",
+    "Index",
+    "DbFunction",
+    "Migration",
+    "Package",
+    "Script",
+    "Workspace"
+  ]).optional().describe("Optional filter by node kind."),
   limit: external_exports.number().int().default(20).describe("Maximum results to return."),
   repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
 }, async (params) => {
