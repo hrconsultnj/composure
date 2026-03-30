@@ -29526,7 +29526,11 @@ var IMPACTS = {
   MISSING_HEADER: 3,
   UNTESTED_FUNC: 2,
   PREFLIGHT_FAIL: 15,
-  PREFLIGHT_WARN: 5
+  PREFLIGHT_WARN: 5,
+  GRAB_BAG: 8,
+  MIXED_CONCERNS: 5,
+  INLINE_CANDIDATE: 2,
+  COLOCATE_CANDIDATE: 2
 };
 var CATEGORY_WEIGHTS = {
   "code-quality": 0.3,
@@ -29564,6 +29568,151 @@ function toSeverity(raw) {
   }
   return "moderate";
 }
+function analyzeCohesion(store, db, runId, repoRoot) {
+  let findingCount = 0;
+  const filesWithManyFunctions = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn, COUNT(n.id) as func_count
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind IN ('Function', 'Test')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING func_count >= 8
+       ORDER BY func_count DESC`).all();
+  for (const file of filesWithManyFunctions) {
+    const funcQns = db.prepare(`SELECT qualified_name FROM nodes
+         WHERE file_path = ? AND kind IN ('Function', 'Test')`).all(file.file_path);
+    const qnSet = new Set(funcQns.map((r) => r.qualified_name));
+    const internalCalls = db.prepare(`SELECT COUNT(*) as cnt FROM edges
+         WHERE kind = 'CALLS'
+           AND source_qualified IN (${funcQns.map(() => "?").join(",")})
+           AND target_qualified IN (${funcQns.map(() => "?").join(",")})`).get(...funcQns.map((r) => r.qualified_name), ...funcQns.map((r) => r.qualified_name));
+    const cohesionRatio = file.func_count > 0 ? internalCalls.cnt / file.func_count : 0;
+    if (cohesionRatio < 0.3) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "grab-bag",
+        severity: "moderate",
+        node_qualified_name: file.file_qn,
+        file_path: relative6(repoRoot, file.file_path),
+        title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
+        detail: {
+          function_count: file.func_count,
+          internal_calls: internalCalls.cnt,
+          cohesion_ratio: Math.round(cohesionRatio * 100) / 100
+        },
+        score_impact: IMPACTS.GRAB_BAG
+      });
+      findingCount++;
+    }
+  }
+  const fanOutRows = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn,
+              COUNT(DISTINCT e.file_path) as call_files
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind = 'Function'
+       JOIN edges e ON e.source_qualified = n.qualified_name AND e.kind = 'CALLS'
+         AND e.target_qualified NOT LIKE (f.file_path || '%')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING call_files >= 4
+       ORDER BY call_files DESC`).all();
+  for (const row of fanOutRows) {
+    const funcCount = db.prepare(`SELECT COUNT(*) as cnt FROM nodes
+         WHERE file_path = ? AND kind = 'Function'`).get(row.file_path);
+    if (funcCount.cnt >= 5) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "mixed-concerns",
+        severity: "low",
+        node_qualified_name: row.file_qn,
+        file_path: relative6(repoRoot, row.file_path),
+        title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
+        detail: {
+          function_count: funcCount.cnt,
+          external_file_targets: row.call_files
+        },
+        score_impact: IMPACTS.MIXED_CONCERNS
+      });
+      findingCount++;
+    }
+  }
+  const singleCallerRows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as caller_files,
+              MIN(e.file_path) as sole_caller_file
+       FROM nodes n
+       JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'CALLS'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+         AND n.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY n.qualified_name
+       HAVING caller_files = 1
+         AND sole_caller_file != n.file_path`).all();
+  const singleCallerByFile = /* @__PURE__ */ new Map();
+  for (const row of singleCallerRows) {
+    const existing = singleCallerByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    singleCallerByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, funcs] of singleCallerByFile) {
+    if (funcs.length >= 3) {
+      for (const f of funcs) {
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "inline-candidate",
+          severity: "info",
+          node_qualified_name: f.qualified_name,
+          file_path: relative6(repoRoot, f.file_path),
+          title: `"${f.name}" only called from ${relative6(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
+          detail: {
+            function_name: f.name,
+            sole_caller: relative6(repoRoot, f.sole_caller_file)
+          },
+          score_impact: IMPACTS.INLINE_CANDIDATE
+        });
+        findingCount++;
+      }
+    }
+  }
+  const singleImporterTypes = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as importer_files,
+              MIN(e.file_path) as sole_importer
+       FROM nodes n
+       JOIN edges e ON e.target_qualified LIKE ('%' || n.name || '%')
+         AND e.kind = 'IMPORTS_FROM'
+       WHERE n.kind = 'Type'
+         AND n.language IN ('typescript', 'tsx')
+       GROUP BY n.qualified_name
+       HAVING importer_files = 1
+         AND sole_importer != n.file_path`).all();
+  const typesByFile = /* @__PURE__ */ new Map();
+  for (const row of singleImporterTypes) {
+    const existing = typesByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    typesByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, types] of typesByFile) {
+    if (types.length >= 3) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "colocate-types",
+        severity: "info",
+        file_path: relative6(repoRoot, filePath),
+        title: `${types.length} types each only imported by one file \u2014 co-locate with consumers?`,
+        detail: {
+          type_count: types.length,
+          types: types.slice(0, 5).map((t) => ({
+            name: t.name,
+            sole_importer: relative6(repoRoot, t.sole_importer)
+          }))
+        },
+        score_impact: IMPACTS.COLOCATE_CANDIDATE
+      });
+      findingCount++;
+    }
+  }
+  return findingCount;
+}
 function analyzeCodeQuality(store, runId, repoRoot) {
   const db = store.getDb();
   let findingCount = 0;
@@ -29600,6 +29749,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
     });
     findingCount++;
   }
+  findingCount += analyzeCohesion(store, db, runId, repoRoot);
   const funcRows = db.prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
        FROM nodes WHERE kind = 'Function' AND (line_end - line_start + 1) > 150
        ORDER BY lines DESC`).all();

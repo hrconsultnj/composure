@@ -29,6 +29,10 @@ const IMPACTS = {
     UNTESTED_FUNC: 2,
     PREFLIGHT_FAIL: 15,
     PREFLIGHT_WARN: 5,
+    GRAB_BAG: 8,
+    MIXED_CONCERNS: 5,
+    INLINE_CANDIDATE: 2,
+    COLOCATE_CANDIDATE: 2,
 };
 const CATEGORY_WEIGHTS = {
     "code-quality": 0.3,
@@ -67,6 +71,182 @@ function toSeverity(raw) {
         }
     }
     return "moderate";
+}
+function analyzeCohesion(store, db, runId, repoRoot) {
+    let findingCount = 0;
+    // ── 1. Grab bag: 8+ exported functions with low internal cohesion ──
+    // A file with many functions that don't call each other is a utility dump.
+    const filesWithManyFunctions = db
+        .prepare(`SELECT f.file_path, f.qualified_name as file_qn, COUNT(n.id) as func_count
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind IN ('Function', 'Test')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING func_count >= 8
+       ORDER BY func_count DESC`)
+        .all();
+    for (const file of filesWithManyFunctions) {
+        // Get all function qualified names in this file
+        const funcQns = db
+            .prepare(`SELECT qualified_name FROM nodes
+         WHERE file_path = ? AND kind IN ('Function', 'Test')`)
+            .all(file.file_path);
+        const qnSet = new Set(funcQns.map((r) => r.qualified_name));
+        // Count internal calls (functions in this file calling each other)
+        const internalCalls = db
+            .prepare(`SELECT COUNT(*) as cnt FROM edges
+         WHERE kind = 'CALLS'
+           AND source_qualified IN (${funcQns.map(() => "?").join(",")})
+           AND target_qualified IN (${funcQns.map(() => "?").join(",")})`)
+            .get(...funcQns.map((r) => r.qualified_name), ...funcQns.map((r) => r.qualified_name));
+        // Low cohesion: many functions but few call each other
+        // Ratio: internal calls / function count. Below 0.3 = grab bag.
+        const cohesionRatio = file.func_count > 0
+            ? internalCalls.cnt / file.func_count
+            : 0;
+        if (cohesionRatio < 0.3) {
+            insertFinding(store, {
+                audit_run_id: runId,
+                category: "code-quality",
+                finding_type: "grab-bag",
+                severity: "moderate",
+                node_qualified_name: file.file_qn,
+                file_path: relative(repoRoot, file.file_path),
+                title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
+                detail: {
+                    function_count: file.func_count,
+                    internal_calls: internalCalls.cnt,
+                    cohesion_ratio: Math.round(cohesionRatio * 100) / 100,
+                },
+                score_impact: IMPACTS.GRAB_BAG,
+            });
+            findingCount++;
+        }
+    }
+    // ── 2. Mixed concerns: file has functions calling into 4+ different files ──
+    // High fan-out = file is doing too many things.
+    const fanOutRows = db
+        .prepare(`SELECT f.file_path, f.qualified_name as file_qn,
+              COUNT(DISTINCT e.file_path) as call_files
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind = 'Function'
+       JOIN edges e ON e.source_qualified = n.qualified_name AND e.kind = 'CALLS'
+         AND e.target_qualified NOT LIKE (f.file_path || '%')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING call_files >= 4
+       ORDER BY call_files DESC`)
+        .all();
+    // Only flag files that also have many functions (small files with high fan-out are just glue, which is fine)
+    for (const row of fanOutRows) {
+        const funcCount = db
+            .prepare(`SELECT COUNT(*) as cnt FROM nodes
+         WHERE file_path = ? AND kind = 'Function'`)
+            .get(row.file_path);
+        if (funcCount.cnt >= 5) {
+            insertFinding(store, {
+                audit_run_id: runId,
+                category: "code-quality",
+                finding_type: "mixed-concerns",
+                severity: "low",
+                node_qualified_name: row.file_qn,
+                file_path: relative(repoRoot, row.file_path),
+                title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
+                detail: {
+                    function_count: funcCount.cnt,
+                    external_file_targets: row.call_files,
+                },
+                score_impact: IMPACTS.MIXED_CONCERNS,
+            });
+            findingCount++;
+        }
+    }
+    // ── 3. Inline candidate: function only called from ONE other file ──
+    // If a function is exported but only consumed in one place, co-locate it.
+    const singleCallerRows = db
+        .prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as caller_files,
+              MIN(e.file_path) as sole_caller_file
+       FROM nodes n
+       JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'CALLS'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+         AND n.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY n.qualified_name
+       HAVING caller_files = 1
+         AND sole_caller_file != n.file_path`)
+        .all();
+    // Only flag if the function's file has other single-caller functions too (pattern, not one-off)
+    const singleCallerByFile = new Map();
+    for (const row of singleCallerRows) {
+        const existing = singleCallerByFile.get(row.file_path) ?? [];
+        existing.push(row);
+        singleCallerByFile.set(row.file_path, existing);
+    }
+    for (const [filePath, funcs] of singleCallerByFile) {
+        if (funcs.length >= 3) {
+            // 3+ functions in this file each only called from one other file — inline candidates
+            for (const f of funcs) {
+                insertFinding(store, {
+                    audit_run_id: runId,
+                    category: "code-quality",
+                    finding_type: "inline-candidate",
+                    severity: "info",
+                    node_qualified_name: f.qualified_name,
+                    file_path: relative(repoRoot, f.file_path),
+                    title: `"${f.name}" only called from ${relative(repoRoot, f.sole_caller_file)} — co-locate?`,
+                    detail: {
+                        function_name: f.name,
+                        sole_caller: relative(repoRoot, f.sole_caller_file),
+                    },
+                    score_impact: IMPACTS.INLINE_CANDIDATE,
+                });
+                findingCount++;
+            }
+        }
+    }
+    // ── 4. Co-locate candidate: type only imported by ONE other file ──
+    const singleImporterTypes = db
+        .prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as importer_files,
+              MIN(e.file_path) as sole_importer
+       FROM nodes n
+       JOIN edges e ON e.target_qualified LIKE ('%' || n.name || '%')
+         AND e.kind = 'IMPORTS_FROM'
+       WHERE n.kind = 'Type'
+         AND n.language IN ('typescript', 'tsx')
+       GROUP BY n.qualified_name
+       HAVING importer_files = 1
+         AND sole_importer != n.file_path`)
+        .all();
+    // Group by file — only flag if a file has 3+ single-importer types
+    const typesByFile = new Map();
+    for (const row of singleImporterTypes) {
+        const existing = typesByFile.get(row.file_path) ?? [];
+        existing.push(row);
+        typesByFile.set(row.file_path, existing);
+    }
+    for (const [filePath, types] of typesByFile) {
+        if (types.length >= 3) {
+            insertFinding(store, {
+                audit_run_id: runId,
+                category: "code-quality",
+                finding_type: "colocate-types",
+                severity: "info",
+                file_path: relative(repoRoot, filePath),
+                title: `${types.length} types each only imported by one file — co-locate with consumers?`,
+                detail: {
+                    type_count: types.length,
+                    types: types.slice(0, 5).map((t) => ({
+                        name: t.name,
+                        sole_importer: relative(repoRoot, t.sole_importer),
+                    })),
+                },
+                score_impact: IMPACTS.COLOCATE_CANDIDATE,
+            });
+            findingCount++;
+        }
+    }
+    return findingCount;
 }
 // ── Code Quality Analysis (pure SQL) ──────────────────────────────
 function analyzeCodeQuality(store, runId, repoRoot) {
@@ -110,6 +290,8 @@ function analyzeCodeQuality(store, runId, repoRoot) {
         });
         findingCount++;
     }
+    // ── Cohesion analysis (structural, not just size) ──────────────
+    findingCount += analyzeCohesion(store, db, runId, repoRoot);
     // Oversized functions
     const funcRows = db
         .prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
