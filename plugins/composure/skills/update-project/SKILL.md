@@ -1,7 +1,7 @@
 ---
 name: update-project
 description: Refresh Composure config, hooks, or reference docs without full re-initialization. Targets only what changed.
-argument-hint: "[docs] [hooks] [stack] [all]"
+argument-hint: "[config] [docs] [hooks] [stack] [all]"
 ---
 
 # Composure Update Project
@@ -14,13 +14,14 @@ Lightweight refresh for an already-initialized project. Unlike `/initialize`, th
 
 | Argument | What it updates |
 |---|---|
+| `config` | Refresh `no-bandaids.json`: stamp `composureVersion`, regenerate project `frameworkValidation` rules from generated docs, report active plugin defaults |
 | `docs` | Re-query Context7 for reference docs. Regenerates files in `generated/` directories |
 | `hooks` | Sync hooks from the plugin to the project's hook config |
 | `stack` | Re-detect the project stack and update `.claude/no-bandaids.json` |
 | `all` | All of the above |
 | *(no argument)* | Same as `all` |
 
-Arguments can be combined: `/update-project docs hooks`
+Arguments can be combined: `/update-project config docs`
 
 ## Workflow
 
@@ -30,7 +31,71 @@ Arguments can be combined: `/update-project docs hooks`
 2. If missing → stop with: "Project not initialized. Run `/composure:initialize` first."
 3. Read the current config — this is the baseline for diffing
 
-### Step 2: Re-detect stack (if `stack` or `all`)
+### Step 2: Refresh config (if `config` or `all`)
+
+Updates `.claude/no-bandaids.json` to sync with the current plugin version and regenerate project-specific `frameworkValidation` rules.
+
+**2a. Stamp `composureVersion`**
+
+Extract the plugin version from `$CLAUDE_PLUGIN_ROOT` path and write it to the config:
+
+```bash
+PLUGIN_VERSION=$(echo "$CLAUDE_PLUGIN_ROOT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
+```
+
+Update `composureVersion` in `.claude/no-bandaids.json`. If it doesn't exist, add it. This enables the `init-check.sh` freshness check to detect when the project config is stale.
+
+**2b. Report active plugin defaults**
+
+Read each file in `${CLAUDE_PLUGIN_ROOT}/defaults/` that would be loaded for this project's detected stack (same logic as `no-bandaids.sh` Layer 1). Count and report:
+
+```
+Plugin defaults active for this stack:
+  shared.json: 10 rules (always loaded)
+  frontend/react.json: 5 rules (frontend detected)
+  frontend/tailwind.json: 4 rules (tailwindcss in deps)
+  frontend/shadcn.json: 2 rules (components.json exists)
+  fullstack/nextjs.json: 9 rules (frontend=nextjs)
+  backend/supabase.json: 5 rules (backend=supabase)
+  sdks/tanstack-query.json: 4 rules (@tanstack/react-query in deps)
+  sdks/zod.json: 2 rules (zod in deps)
+  Total: 41 plugin rules active
+```
+
+**2c. Regenerate project `frameworkValidation` from generated docs**
+
+Scan the generated framework docs at `{generatedRefsRoot}/**/generated/*.md` for regex-blockable anti-patterns:
+
+1. For each `*.md`, find lines starting with `- ❌` and `| Before |` migration table rows
+2. For each anti-pattern that is regex-blockable (contains a concrete code pattern like an import, function call, or config value):
+   - Check if it's already covered by a plugin default rule (compare regex patterns)
+   - If NOT covered: generate a `frameworkValidation` rule
+   - If already covered: skip (plugin defaults handle it)
+3. Preserve existing project-specific rules (icons, monorepo patterns, etc.) — only add/update doc-sourced rules
+4. Report:
+   ```
+   Project frameworkValidation:
+     = Kept: nextjs (1 rule — project-specific server component check)
+     = Kept: icons (1 rule — project-specific @iconify/react)
+     + Added: nextjs-suspense (1 rule — from 01-nextjs-16.md anti-patterns)
+     ~ Covered by plugin: hsl colors, @tailwind directives (no project rule needed)
+   ```
+
+**2d. Diff and confirm**
+
+Show the user what changed in `no-bandaids.json` before writing:
+
+```
+Config changes:
+  composureVersion: "1.5.0" → "1.6.0"
+  frameworkValidation: 4 groups → 5 groups (+1 from docs)
+  
+Apply? [Y/n]
+```
+
+Use `AskUserQuestion` for confirmation if more than just the version stamp changed.
+
+### Step 3: Re-detect stack (if `stack` or `all`)
 
 Run the same detection logic as `/initialize` Step 1, but instead of writing from scratch:
 
@@ -44,7 +109,7 @@ Run the same detection logic as `/initialize` Step 1, but instead of writing fro
 4. **Update** `.claude/no-bandaids.json` with the new values
 5. If nothing changed → report "Stack unchanged" and skip
 
-### Step 3: Update reference docs (if `docs` or `all`)
+### Step 4: Update reference docs (if `docs` or `all`)
 
 Compare the detected stack (from Step 2, or from existing config if `stack` was skipped) against what's already in `generated/` directories.
 
@@ -74,7 +139,7 @@ Reference docs:
   ? Orphaned: sdks/generated/03-stripe-v15.md (stripe no longer in dependencies)
 ```
 
-### Step 4: Sync hooks (if `hooks` or `all`)
+### Step 5: Sync hooks (if `hooks` or `all`)
 
 The plugin ships hooks in `hooks/hooks.json`. Projects may need hook updates when:
 - The plugin added new hooks
@@ -95,7 +160,7 @@ The plugin ships hooks in `hooks/hooks.json`. Projects may need hook updates whe
    ```
 5. Don't auto-overwrite local hook overrides — report the diff and let the user decide
 
-### Step 5: Ensure Companion Plugins
+### Step 6: Ensure Companion Plugins
 
 Same logic as `/composure:initialize` Step 8 — check if companion plugins are installed and initialized. This ensures `/update-project all` is a complete refresh, not just Composure.
 
@@ -107,18 +172,22 @@ Same logic as `/composure:initialize` Step 8 — check if companion plugins are 
 3. For any companion NOT installed: install it from the marketplace, then initialize
 4. Skip this step if only `docs`, `hooks`, or `stack` was passed (not `all`)
 
-### Step 6: Report
+### Step 7: Report
 
 Print a concise summary. Only show sections that had changes.
 
 ```
 Composure updated for <project-name>
 
-Stack: typescript 5.9, react 19.3 (up from 19.2), vite 8.0, tailwind 4.2, shadcn 4.1
-  ~ react version bumped 19.2 -> 19.3
+Config: composureVersion 1.5.0 → 1.6.0
+  Plugin defaults: 41 rules active (shared:10, frontend:11, nextjs:9, supabase:5, sdks:6)
+  Project rules: 4 groups (nextjs, icons, icons-mobile, expo)
 
-Docs: 2 updated, 1 created, 4 unchanged
-  + frontend/generated/05-tanstack-query-5.90.md
+Stack: typescript 6.0, react 19.2, next 16.2, tailwind 4.2
+  = No changes
+
+Docs: 2 updated, 1 created, 5 unchanged
+  + frontend/generated/05-tanstack-query-5.95.md
   ~ frontend/generated/02-react-19.md (19.2 -> 19.3)
 
 Hooks: no changes (using plugin hooks directly)
@@ -131,5 +200,5 @@ Companion plugins:
 
 If nothing changed at all:
 ```
-All plugins: everything up to date.
+Everything up to date. composureVersion: 1.6.0, 41 plugin rules active, 4 project rules.
 ```
