@@ -56,4 +56,55 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   printf '[composure] Run /composure:initialize to set up everything in one step.\n'
 fi
 
+# ── Config freshness check ──────────────────────────────────
+# Compare plugin version against what the project was last initialized with.
+# If stale, suggest /composure:update-project to pick up new defaults + docs.
+STALE_ITEMS=()
+
+# 1. Plugin version stamp — written by initialize, checked here
+PLUGIN_VERSION_DIR=$(basename "$(dirname "$CLAUDE_PLUGIN_ROOT")" 2>/dev/null)
+# Fallback: extract from the path (e.g., .../composure/1.5.1/...)
+[ -z "$PLUGIN_VERSION_DIR" ] && PLUGIN_VERSION_DIR=$(echo "$CLAUDE_PLUGIN_ROOT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
+
+PROJECT_VERSION=$(jq -r '.composureVersion // ""' .claude/no-bandaids.json 2>/dev/null)
+if [ -n "$PLUGIN_VERSION_DIR" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION_DIR" != "$PROJECT_VERSION" ]; then
+  STALE_ITEMS+=("Plugin updated (project: v${PROJECT_VERSION}, plugin: v${PLUGIN_VERSION_DIR}) — new defaults and rules available")
+fi
+
+# 2. Framework docs freshness — flag if any generated doc is >14 days old
+OLDEST_DOC=""
+if [ -d ".claude/frameworks" ]; then
+  NOW=$(date +%s)
+  for doc in $(find .claude/frameworks -name "*.md" -path "*/generated/*" 2>/dev/null); do
+    DOC_MOD=$(stat -f %m "$doc" 2>/dev/null || stat -c %Y "$doc" 2>/dev/null)
+    if [ -n "$DOC_MOD" ]; then
+      AGE_DAYS=$(( (NOW - DOC_MOD) / 86400 ))
+      if [ "$AGE_DAYS" -gt 14 ]; then
+        OLDEST_DOC="$doc (${AGE_DAYS} days old)"
+        break
+      fi
+    fi
+  done
+fi
+[ -n "$OLDEST_DOC" ] && STALE_ITEMS+=("Framework docs stale: ${OLDEST_DOC}")
+
+# 3. Stack drift — check if package.json changed since config was generated
+CONFIG_MOD=$(stat -f %m .claude/no-bandaids.json 2>/dev/null || stat -c %Y .claude/no-bandaids.json 2>/dev/null)
+for pkg in package.json apps/*/package.json; do
+  [ ! -f "$pkg" ] && continue
+  PKG_MOD=$(stat -f %m "$pkg" 2>/dev/null || stat -c %Y "$pkg" 2>/dev/null)
+  if [ -n "$PKG_MOD" ] && [ -n "$CONFIG_MOD" ] && [ "$PKG_MOD" -gt "$CONFIG_MOD" ]; then
+    STALE_ITEMS+=("package.json newer than config — stack may have changed")
+    break
+  fi
+done
+
+if [ ${#STALE_ITEMS[@]} -gt 0 ]; then
+  printf '[composure:update] Project config may be stale:\n'
+  for s in "${STALE_ITEMS[@]}"; do
+    printf '  - %s\n' "$s"
+  done
+  printf '[composure:update] Run /composure:update-project to refresh.\n'
+fi
+
 exit 0

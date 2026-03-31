@@ -1,0 +1,46 @@
+{
+  "_comment": "Tailwind CSS 4 rules. Loaded when tailwindcss is detected.",
+  "rules": {
+    "tailwind-v4-directives": {
+      "appliesTo": ["**/*.css"],
+      "rules": [
+        {
+          "pattern": "@tailwind\\s+(base|components|utilities)",
+          "severity": "error",
+          "message": "Tailwind 4 uses @import 'tailwindcss', not @tailwind directives."
+        }
+      ]
+    },
+    "tailwind-v4-colors": {
+      "appliesTo": ["**/*.css", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "hsl\\(\\s*\\d+",
+          "severity": "warn",
+          "message": "Tailwind 4 / shadcn v4 uses oklch() color format, not hsl().",
+          "skipIf": "oklch"
+        }
+      ]
+    },
+    "tailwind-v4-config-file": {
+      "appliesTo": ["**/tailwind.config.ts", "**/tailwind.config.js"],
+      "rules": [
+        {
+          "pattern": "module\\.exports|export default",
+          "severity": "warn",
+          "message": "Tailwind 4 uses CSS-based config via @theme inline, not tailwind.config.js/ts. This file may be unnecessary."
+        }
+      ]
+    },
+    "tailwind-v4-autoprefixer": {
+      "appliesTo": ["**/postcss.config.*"],
+      "rules": [
+        {
+          "pattern": "autoprefixer",
+          "severity": "warn",
+          "message": "Tailwind 4 includes autoprefixing built-in. Remove autoprefixer from postcss config."
+        }
+      ]
+    }
+  }
+}

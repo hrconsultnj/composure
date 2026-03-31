@@ -1,0 +1,40 @@
+{
+  "_comment": "TanStack Query v5 rules. Loaded when @tanstack/react-query is detected.",
+  "rules": {
+    "tanstack-cache-time": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "cacheTime\\s*:",
+          "severity": "error",
+          "message": "cacheTime renamed to gcTime in TanStack Query v5. Use gcTime (garbage collect time) instead."
+        }
+      ]
+    },
+    "tanstack-positional-args": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "useQuery\\(\\s*['\"]|useQuery\\(\\s*\\[",
+          "severity": "error",
+          "message": "TanStack Query v5 requires object syntax: useQuery({ queryKey, queryFn }). Positional arguments (string/array as first arg) are removed."
+        }
+      ]
+    },
+    "tanstack-query-callbacks": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "useQuery\\([^)]*onSuccess\\s*:",
+          "severity": "error",
+          "message": "onSuccess/onError/onSettled removed from useQuery in v5. Use React.useEffect(() => fn(data), [data]) for side effects. These callbacks are only valid on useMutation."
+        },
+        {
+          "pattern": "useQuery\\([^)]*onError\\s*:",
+          "severity": "error",
+          "message": "onError removed from useQuery in v5. Use the error return value: const { error } = useQuery(...). Callbacks only on useMutation."
+        }
+      ]
+    }
+  }
+}

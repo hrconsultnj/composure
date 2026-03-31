@@ -1,0 +1,51 @@
+{
+  "_comment": "Supabase SSR rules. Loaded when frameworks.*.backend is 'supabase'.",
+  "rules": {
+    "supabase-anon-key": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/.env*"],
+      "rules": [
+        {
+          "pattern": "ANON_KEY",
+          "severity": "error",
+          "message": "Use PUBLISHABLE_KEY, not ANON_KEY. Supabase SSR 0.10+ renamed this."
+        }
+      ]
+    },
+    "supabase-auth-helpers": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]@supabase/auth-helpers",
+          "severity": "error",
+          "message": "@supabase/auth-helpers-nextjs is deprecated. Use @supabase/ssr with createClient from @/lib/supabase/server or client."
+        },
+        {
+          "pattern": "createServerComponentClient|createRouteHandlerClient|createClientComponentClient",
+          "severity": "error",
+          "message": "Deprecated Supabase auth helper. Use createClient() from @/lib/supabase/server (server) or @/lib/supabase/client (client)."
+        }
+      ]
+    },
+    "supabase-get-session": {
+      "appliesTo": ["**/proxy.ts", "**/middleware.ts", "**/actions/**/*.ts", "**/app/**/layout.tsx", "**/app/**/page.tsx"],
+      "rules": [
+        {
+          "pattern": "auth\\.getSession\\(\\)",
+          "severity": "error",
+          "message": "Never trust getSession() in server code — session data can be spoofed. Use auth.getClaims() (validates JWT signature) or auth.getUser() (hits Auth server) instead."
+        }
+      ]
+    },
+    "supabase-service-role": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "SERVICE_ROLE_KEY|service_role",
+          "severity": "error",
+          "message": "Never expose service_role key in client code — it bypasses RLS. Use PUBLISHABLE_KEY for client, service_role only in server actions or edge functions.",
+          "skipIf": "use server|server\\.ts|actions/"
+        }
+      ]
+    }
+  }
+}

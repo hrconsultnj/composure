@@ -1,0 +1,51 @@
+{
+  "_comment": "React 19 rules. Loaded when any frontend framework is detected (React is universal).",
+  "rules": {
+    "react-19-forwardref": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "forwardRef\\(",
+          "severity": "warn",
+          "message": "React 19 passes ref as a prop — forwardRef is no longer needed. Use function MyComponent({ ref }) instead.",
+          "skipIf": "components/ui"
+        }
+      ]
+    },
+    "react-19-proptypes": {
+      "appliesTo": ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]prop-types['\"]",
+          "severity": "error",
+          "message": "PropTypes removed in React 19. Use TypeScript for type checking."
+        },
+        {
+          "pattern": "\\.defaultProps\\s*=",
+          "severity": "error",
+          "message": "defaultProps removed in React 19. Use ES6 default parameters: function Comp({ text = 'default' })."
+        }
+      ]
+    },
+    "react-19-string-refs": {
+      "appliesTo": ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "this\\.refs\\.",
+          "severity": "error",
+          "message": "String refs removed in React 19. Use ref callbacks or useRef."
+        }
+      ]
+    },
+    "react-19-legacy-context": {
+      "appliesTo": ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "childContextTypes|getChildContext|contextTypes",
+          "severity": "error",
+          "message": "Legacy Context API removed in React 19. Use React.createContext() + useContext()."
+        }
+      ]
+    }
+  }
+}

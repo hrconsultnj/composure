@@ -1,0 +1,98 @@
+{
+  "_comment": "Next.js 16 App Router rules. Loaded when frameworks.*.frontend is 'nextjs'.",
+  "rules": {
+    "nextjs-config": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]next/config['\"]",
+          "severity": "error",
+          "message": "next/config (serverRuntimeConfig/publicRuntimeConfig) removed in Next.js 16. Use environment variables directly."
+        }
+      ]
+    },
+    "nextjs-pages-patterns": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "getServerSideProps|getStaticProps|getInitialProps",
+          "severity": "error",
+          "message": "getServerSideProps/getStaticProps/getInitialProps are pages directory patterns. Use Server Components with async/await in App Router.",
+          "skipIf": "pages/"
+        }
+      ]
+    },
+    "nextjs-head": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]next/head['\"]",
+          "severity": "error",
+          "message": "next/head is deprecated in App Router. Use the Metadata API (export const metadata) or generateMetadata()."
+        }
+      ]
+    },
+    "nextjs-router": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]next/router['\"]",
+          "severity": "error",
+          "message": "next/router is the pages directory router. Use next/navigation (useRouter, usePathname, useSearchParams) in App Router."
+        }
+      ]
+    },
+    "nextjs-legacy-image": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]next/legacy/image['\"]",
+          "severity": "error",
+          "message": "next/legacy/image removed in Next.js 16. Use next/image directly."
+        }
+      ]
+    },
+    "nextjs-server-hooks": {
+      "appliesTo": ["**/app/**/page.tsx", "**/app/**/layout.tsx", "**/app/**/loading.tsx"],
+      "rules": [
+        {
+          "pattern": "useState|useEffect|useReducer|useRef",
+          "severity": "error",
+          "message": "Client hooks (useState/useEffect/useReducer/useRef) in a server component file. Extract into a client component with 'use client' in components/.",
+          "skipIf": "use client"
+        }
+      ]
+    },
+    "nextjs-window-document": {
+      "appliesTo": ["**/*.tsx", "**/*.ts"],
+      "rules": [
+        {
+          "pattern": "\\bwindow\\.|\\bdocument\\.|\\blocalStorage\\.|\\bnavigator\\.",
+          "severity": "warn",
+          "message": "Browser API (window/document/localStorage/navigator) used — ensure this is inside a 'use client' component and behind useEffect or typeof window check.",
+          "skipIf": "use client|useEffect|typeof window"
+        }
+      ]
+    },
+    "nextjs-middleware-file": {
+      "appliesTo": ["**/middleware.ts", "**/middleware.js"],
+      "rules": [
+        {
+          "pattern": "export\\s+(function|const|async)",
+          "severity": "error",
+          "message": "Next.js 16 renamed middleware.ts to proxy.ts. Rename this file to proxy.ts and export function proxy() instead."
+        }
+      ]
+    },
+    "nextjs-public-env-secrets": {
+      "appliesTo": ["**/.env*", "**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "NEXT_PUBLIC_.*(SECRET|PRIVATE|SERVICE_ROLE|PASSWORD|_KEY(?!.*PUBLISHABLE))",
+          "severity": "error",
+          "message": "Secret value in NEXT_PUBLIC_ env var — this is exposed to the browser. Only use NEXT_PUBLIC_ for non-sensitive values. Secrets go in server-only env vars."
+        }
+      ]
+    }
+  }
+}

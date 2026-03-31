@@ -1,0 +1,108 @@
+{
+  "_comment": "Universal rules loaded for every project. Cannot be disabled by project config.",
+  "rules": {
+    "monorepo-js-ext": {
+      "appliesTo": ["packages/**/*.ts"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]\\.[^'\"]*\\.js['\"]",
+          "severity": "error",
+          "message": "Remove .js extension from imports. bundler moduleResolution resolves .ts directly."
+        }
+      ]
+    },
+    "security-eval": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "\\beval\\s*\\(",
+          "severity": "error",
+          "message": "Never use eval(). It enables code injection attacks. Use JSON.parse(), Function constructor with validation, or structured alternatives."
+        }
+      ]
+    },
+    "security-innerhtml": {
+      "appliesTo": ["**/*.tsx", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "dangerouslySetInnerHTML",
+          "severity": "warn",
+          "message": "dangerouslySetInnerHTML risks XSS. Sanitize with DOMPurify or use a markdown renderer. Never pass user input directly.",
+          "skipIf": "DOMPurify|sanitize"
+        }
+      ]
+    },
+    "security-hardcoded-secrets": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "(sk_live_|sk_test_|ghp_|gho_|github_pat_|xoxb-|xoxp-|AKIA[A-Z0-9])",
+          "severity": "error",
+          "message": "Possible hardcoded API key/secret detected. Use environment variables instead."
+        }
+      ]
+    },
+    "security-prototype-pollution": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "__proto__|constructor\\s*\\.\\s*prototype",
+          "severity": "error",
+          "message": "Prototype pollution vector detected. __proto__ and constructor.prototype manipulation enables RCE (CVE-2025-55182 class). Use Object.create(null) or Map for user-controlled data."
+        }
+      ]
+    },
+    "security-sql-injection": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "`\\s*(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\\b[^`]*\\$\\{",
+          "severity": "error",
+          "message": "SQL template literal with interpolation detected — SQL injection risk. Use parameterized queries (supabase.from().select(), pg prepared statements) instead.",
+          "skipIf": "sql\\.raw|sql`|tagged template"
+        }
+      ]
+    },
+    "security-dom-innerhtml": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "\\.innerHTML\\s*=",
+          "severity": "error",
+          "message": "Direct innerHTML assignment enables XSS (2.74x more common in AI code — CodeRabbit 2025). Use textContent, React JSX, or DOMPurify.sanitize().",
+          "skipIf": "DOMPurify|sanitize|textContent"
+        }
+      ]
+    },
+    "security-url-credentials": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/.env*"],
+      "rules": [
+        {
+          "pattern": "https?://[^@\\s]+:[^@\\s]+@",
+          "severity": "error",
+          "message": "URL with embedded credentials detected. Use environment variables for auth, never hardcode user:pass in URLs."
+        }
+      ]
+    },
+    "security-console-secrets": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "console\\.(log|debug|info)\\(.*\\b(password|token|secret|apiKey|credential|sessionId)\\b",
+          "severity": "warn",
+          "message": "Logging potentially sensitive data (password/token/secret). Remove before production or use structured logging with redaction."
+        }
+      ]
+    },
+    "security-empty-catch": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js"],
+      "rules": [
+        {
+          "pattern": "catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}",
+          "severity": "warn",
+          "message": "Empty catch block silently swallows errors (1.88x more common in AI code). At minimum, log the error or re-throw."
+        }
+      ]
+    }
+  }
+}

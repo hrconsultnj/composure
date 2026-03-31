@@ -1,0 +1,25 @@
+{
+  "_comment": "Zod 4 rules. Loaded when zod is detected in project dependencies.",
+  "rules": {
+    "zod-v4-message": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "\\.(min|max)\\s*\\([^)]*\\{\\s*message:",
+          "severity": "warn",
+          "message": "Zod 4 uses { error: '...' }, not { message: '...' } for validation messages."
+        }
+      ]
+    },
+    "zod-v4-error-params": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "z\\.(string|number|boolean|date|array)\\(\\s*\\{\\s*(required_error|invalid_type_error)\\s*:",
+          "severity": "warn",
+          "message": "Zod 4 unified required_error/invalid_type_error into a single error function: z.string({ error: (issue) => ... })."
+        }
+      ]
+    }
+  }
+}

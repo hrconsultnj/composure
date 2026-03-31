@@ -1,0 +1,26 @@
+{
+  "_comment": "shadcn/ui v4 rules. Loaded when shadcn is detected (via components.json).",
+  "rules": {
+    "shadcn-css-variables": {
+      "appliesTo": ["**/components.json"],
+      "rules": [
+        {
+          "pattern": "\"cssVariables\"\\s*:\\s*false",
+          "severity": "error",
+          "message": "shadcn v4 requires cssVariables: true for theme integration."
+        }
+      ]
+    },
+    "shadcn-hardcoded-colors": {
+      "appliesTo": ["**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "(bg|text|border|fill)-\\[(oklch|hsl|rgb)\\(",
+          "severity": "warn",
+          "message": "Hardcoded color in Tailwind class. Use semantic tokens (bg-primary, text-muted-foreground) for theme support.",
+          "skipIf": "globals\\.css|theme"
+        }
+      ]
+    }
+  }
+}

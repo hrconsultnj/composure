@@ -1,0 +1,35 @@
+{
+  "_comment": "Expo / React Native rules. Loaded when frameworks.*.frontend is 'expo'.",
+  "rules": {
+    "expo-env-prefix": {
+      "appliesTo": ["apps/mobile/**/*.ts", "apps/mobile/**/*.tsx", "**/.env*"],
+      "rules": [
+        {
+          "pattern": "NEXT_PUBLIC_",
+          "severity": "error",
+          "message": "Expo uses EXPO_PUBLIC_ prefix, not NEXT_PUBLIC_."
+        }
+      ]
+    },
+    "expo-pinned-versions": {
+      "appliesTo": ["**/package.json"],
+      "rules": [
+        {
+          "pattern": "\"react\"\\s*:\\s*\"\\^",
+          "severity": "error",
+          "message": "Expo pins React — do not use ^ ranges. Use the exact version from expo's peer dependencies."
+        }
+      ]
+    },
+    "expo-async-storage": {
+      "appliesTo": ["**/*.ts", "**/*.tsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]@react-native-async-storage/async-storage['\"]",
+          "severity": "warn",
+          "message": "Expo 55 recommends expo-sqlite/kv-store as a drop-in replacement for AsyncStorage. Same API, backed by SQLite."
+        }
+      ]
+    }
+  }
+}
