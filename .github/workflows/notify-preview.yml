@@ -1,0 +1,18 @@
+name: Notify Preview App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/design-forge/**'
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger design-forge-preview sync
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.PREVIEW_DISPATCH_TOKEN }}
+          repository: hrconsultnj/design-forge-preview
+          event-type: design-forge-updated
