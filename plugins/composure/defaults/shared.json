@@ -103,6 +103,31 @@
           "message": "Empty catch block silently swallows errors (1.88x more common in AI code). At minimum, log the error or re-throw."
         }
       ]
+    },
+    "lint-suppression-blanket": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "/\\*\\s*eslint-disable\\s*\\*/",
+          "severity": "error",
+          "message": "Blanket eslint-disable disables ALL rules for the entire file. Fix the lint errors instead. If one rule must be disabled, use /* eslint-disable specific-rule */."
+        },
+        {
+          "pattern": "//\\s*eslint-disable-next-line\\s*$",
+          "severity": "error",
+          "message": "eslint-disable-next-line without a rule name disables ALL rules for the next line. Specify the rule: // eslint-disable-next-line rule-name"
+        },
+        {
+          "pattern": "//\\s*@ts-nocheck",
+          "severity": "error",
+          "message": "@ts-nocheck disables TypeScript checking for the entire file. Fix the type errors instead."
+        },
+        {
+          "pattern": "//\\s*biome-ignore\\s*$",
+          "severity": "error",
+          "message": "Blanket biome-ignore without a rule name. Specify: // biome-ignore lint/specific-rule: reason"
+        }
+      ]
     }
   }
 }

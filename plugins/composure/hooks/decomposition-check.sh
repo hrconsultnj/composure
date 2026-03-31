@@ -237,6 +237,19 @@ if [ "$IS_ROUTE" -eq 1 ] && [ "$LINE_COUNT" -gt 80 ]; then
   OTHER_ITEMS="${OTHER_ITEMS}  - REFACTOR: Route file (${LINE_COUNT} lines, should be <50) — move logic to container component\n"
 fi
 
+# ── 5. TODO/FIXME/HACK comments (AI debt markers) ──
+TODO_ITEMS=""
+TODO_COUNT=0
+TODO_MATCHES=$(grep -nE '//\s*(TODO|FIXME|HACK|XXX|TEMP|WORKAROUND)\b' "$FILE_PATH" 2>/dev/null | head -10)
+if [ -n "$TODO_MATCHES" ]; then
+  TODO_COUNT=$(echo "$TODO_MATCHES" | wc -l | tr -d ' ')
+  while IFS= read -r line; do
+    LNUM=$(echo "$line" | cut -d: -f1 | tr -d ' ')
+    COMMENT=$(echo "$line" | cut -d: -f2- | sed 's/^[[:space:]]*//' | cut -c1-80)
+    TODO_ITEMS="${TODO_ITEMS}  - Line ${LNUM}: \`${COMMENT}\`\n"
+  done <<< "$TODO_MATCHES"
+fi
+
 # ── Determine severity ──
 SEVERITY=""
 EMOJI=""
@@ -338,6 +351,17 @@ fi
 if [ -n "$SHARED_TASK" ]; then
   insert_into_section "$SECTION_MODERATE" "$SHARED_TASK"
   TASKS_ADDED=$((TASKS_ADDED + 1))
+fi
+
+# Write TODO/FIXME task (Moderate section — AI debt markers)
+if [ "$TODO_COUNT" -gt 0 ]; then
+  # Dedup: skip if we already have a TODO task for this file
+  TODO_DEDUP='`'"${RELATIVE_PATH}"'`.*TODO'
+  if ! grep -qF "TODO" "$TASK_FILE" 2>/dev/null || ! grep -q "$TODO_DEDUP" "$TASK_FILE" 2>/dev/null; then
+    TODO_BLOCK="- [ ] \xF0\x9F\x94\xB5 **TODO** \`${RELATIVE_PATH}\` (${TODO_COUNT} comment(s)) [${TODAY}]\n${TODO_ITEMS}"
+    insert_into_section "$SECTION_MODERATE" "$TODO_BLOCK"
+    TASKS_ADDED=$((TASKS_ADDED + 1))
+  fi
 fi
 
 # ── Count total open tasks ──
