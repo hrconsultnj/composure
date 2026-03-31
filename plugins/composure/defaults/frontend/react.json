@@ -46,6 +46,34 @@
           "message": "Legacy Context API removed in React 19. Use React.createContext() + useContext()."
         }
       ]
+    },
+    "react-hydration-mismatch": {
+      "appliesTo": ["**/*.tsx", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "Math\\.random\\(\\)",
+          "severity": "warn",
+          "message": "Math.random() causes hydration mismatch — server and client generate different values. Use a seeded random, pass as prop from server, or move to useEffect/useState initializer.",
+          "skipIf": "useEffect|onClick|onChange|onSubmit|use server"
+        },
+        {
+          "pattern": "Date\\.now\\(\\)",
+          "severity": "warn",
+          "message": "Date.now() causes hydration mismatch — server and client timestamps differ. Use useEffect for client-only timestamps, or wrap in Suspense boundary.",
+          "skipIf": "useEffect|onClick|onChange|onSubmit|use server"
+        },
+        {
+          "pattern": "crypto\\.randomUUID\\(\\)",
+          "severity": "warn",
+          "message": "crypto.randomUUID() causes hydration mismatch. Use React.useId() for stable IDs, or generate on server and pass as prop.",
+          "skipIf": "useEffect|use server"
+        },
+        {
+          "pattern": "suppressHydrationWarning",
+          "severity": "warn",
+          "message": "suppressHydrationWarning is an escape hatch, not a fix. It only works one level deep and hides real bugs. Fix the mismatch instead: use useEffect for client-only values, useId() for IDs, or pass dynamic values as props from the server."
+        }
+      ]
     }
   }
 }
