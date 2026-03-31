@@ -250,6 +250,19 @@ if [ -n "$TODO_MATCHES" ]; then
   done <<< "$TODO_MATCHES"
 fi
 
+# ── 6. Lint/type suppression comments (AI band-aid markers) ──
+SUPPRESS_ITEMS=""
+SUPPRESS_COUNT=0
+SUPPRESS_MATCHES=$(grep -nE '(//\s*@ts-nocheck|//\s*@ts-ignore|/\*\s*eslint-disable\s*\*/|//\s*eslint-disable-next-line\s*$|//\s*biome-ignore\s*$|//\s*@ts-expect-error)' "$FILE_PATH" 2>/dev/null | head -10)
+if [ -n "$SUPPRESS_MATCHES" ]; then
+  SUPPRESS_COUNT=$(echo "$SUPPRESS_MATCHES" | wc -l | tr -d ' ')
+  while IFS= read -r line; do
+    LNUM=$(echo "$line" | cut -d: -f1 | tr -d ' ')
+    COMMENT=$(echo "$line" | cut -d: -f2- | sed 's/^[[:space:]]*//' | cut -c1-80)
+    SUPPRESS_ITEMS="${SUPPRESS_ITEMS}  - Line ${LNUM}: \`${COMMENT}\`\n"
+  done <<< "$SUPPRESS_MATCHES"
+fi
+
 # ── Determine severity ──
 SEVERITY=""
 EMOJI=""
@@ -353,11 +366,20 @@ if [ -n "$SHARED_TASK" ]; then
   TASKS_ADDED=$((TASKS_ADDED + 1))
 fi
 
+# Write lint suppression task (High section — hiding real errors)
+if [ "$SUPPRESS_COUNT" -gt 0 ]; then
+  SUPPRESS_DEDUP='`'"${RELATIVE_PATH}"'`.*SUPPRESS'
+  if ! grep -q "$SUPPRESS_DEDUP" "$TASK_FILE" 2>/dev/null; then
+    SUPPRESS_BLOCK="- [ ] \xF0\x9F\x9F\xA1 **SUPPRESS** \`${RELATIVE_PATH}\` (${SUPPRESS_COUNT} suppression(s)) [${TODAY}]\n${SUPPRESS_ITEMS}"
+    insert_into_section "$SECTION_HIGH" "$SUPPRESS_BLOCK"
+    TASKS_ADDED=$((TASKS_ADDED + 1))
+  fi
+fi
+
 # Write TODO/FIXME task (Moderate section — AI debt markers)
 if [ "$TODO_COUNT" -gt 0 ]; then
-  # Dedup: skip if we already have a TODO task for this file
   TODO_DEDUP='`'"${RELATIVE_PATH}"'`.*TODO'
-  if ! grep -qF "TODO" "$TASK_FILE" 2>/dev/null || ! grep -q "$TODO_DEDUP" "$TASK_FILE" 2>/dev/null; then
+  if ! grep -q "$TODO_DEDUP" "$TASK_FILE" 2>/dev/null; then
     TODO_BLOCK="- [ ] \xF0\x9F\x94\xB5 **TODO** \`${RELATIVE_PATH}\` (${TODO_COUNT} comment(s)) [${TODAY}]\n${TODO_ITEMS}"
     insert_into_section "$SECTION_MODERATE" "$TODO_BLOCK"
     TASKS_ADDED=$((TASKS_ADDED + 1))
