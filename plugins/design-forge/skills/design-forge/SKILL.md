@@ -142,27 +142,118 @@ To add a premium design element to a user's project:
 - **Lighthouse > 90** — all categories, including accessibility
 - **60fps target** — GPU-accelerated properties (transform, opacity), lazy-load heavy deps
 
-## Design Aesthetic Reference
+## Taxonomy-Aware Routing
 
-The "control room" aesthetic from the reference analysis:
+Design Forge includes a taxonomy that routes to the right patterns based on platform, industry, and style. This replaces one-size-fits-all recommendations.
 
-- **Colors**: Near-black (#070809) + cream text, accents: blue (#4a78ff), green (#7de58d), orange (#ff9447)
-- **Border radius**: 0 everywhere — deliberately sharp
-- **Typography**: Uppercase monospace labels with wide letter-spacing
-- **Panels**: Glassmorphism with blur(28px) saturate(120%)
-- **Scanlines**: 4px repeating gradient at 18% opacity
-- **Numbering**: Two-digit padded indices (01, 02, 03)
+### How Routing Works
+
+1. **Check for UX researcher report**: Look for the most recent `.claude/research/*.md` file. If it has a `## Classification` block, extract platform, industry, style, and intensity.
+
+2. **If no report exists, detect from project**:
+   - Scan `package.json` for framework (Next.js, Expo, etc.)
+   - Check for `components.json` (shadcn/ui presence)
+   - Read CLAUDE.md or project docs for industry context
+   - Examine color tokens in `globals.css` or `tailwind.config`
+
+3. **Load taxonomy files** (selective — never load all):
+   - Always: `${CLAUDE_SKILL_DIR}/taxonomy/index.json` (the routing brain)
+   - Match: one platform file from `taxonomy/platforms/`
+   - Match: one industry file from `taxonomy/industries/`
+   - Match: one style file from `taxonomy/styles/`
+   - If shadcn detected: `taxonomy/shadcn-bridge.md`
+
+4. **Find the mapping** in `index.json` → get specific patterns, components, intensity, depth strategy
+
+5. **Present recommendations** to the user before implementing
+
+### Explicit Invocation
+
+Users can specify axes directly: `/design-forge health webapp modern`
+
+Accepted values:
+- **Platforms**: website, webapp, mobile
+- **Industries**: health, saas, fintech, legal, ecommerce, creative, services, hospitality
+- **Styles**: modern, minimalistic, glassmorphism, futuristic, brutalist, organic
+
+### UX Researcher Integration
+
+The `/ux-researcher` skill produces reports to `.claude/research/`. When it includes a Classification block, Design Forge uses it automatically:
+
+```markdown
+## Classification
+- platform: webapp
+- industry: health
+- style: modern
+- animation_intensity: gentle
+- depth_strategy: css-layers
+- scroll_choreography: section-fade-sequence
+```
+
+### Default Behavior
+
+When no taxonomy context is available, defaults to: **saas + webapp + modern** (the most common case).
+
+The "control room" aesthetic (near-black, scanlines, monospace, sharp corners) is now the `futuristic` style in the taxonomy — used for creative portfolios and developer tools, not as the default.
 
 ## Research Before Building
 
 Use `/ux-researcher` (bundled in this plugin) to gather design intelligence before implementing:
 
 ```
-/ux-researcher [topic]     → produces research report with patterns, tech recs, examples
-/design-forge [component]  → implements using research findings + component library
+/ux-researcher [topic]     → produces research report with Classification block + patterns
+/design-forge [axes]       → loads taxonomy, applies patterns from research or explicit axes
 ```
 
 The research agent uses WebSearch and WebFetch to discover real-world patterns, evaluate technologies, analyze competitors, and create actionable reports — so you're building on proven approaches, not guessing.
+
+## Section Templates
+
+Composable page sections decomposed from Apple MacBook Pro and Google Gemini. Each section accepts `animationIntensity` from taxonomy routing. Located in `${CLAUDE_SKILL_DIR}/templates/sections/`.
+
+### Available Sections
+
+| Category | Templates | Source |
+|----------|-----------|--------|
+| **Heroes** | `gradient-headline-hero`, `product-reveal-hero`, `split-media-hero` | Gemini, Apple |
+| **Showcases** | `pinned-timeline-showcase`, `feature-card-grid`, `capabilities-bento`, `image-sequence-scroll` | Apple, Gemini |
+| **Metrics** | `counter-bar`, `spec-comparison`, `stats-showcase` | Apple |
+| **Media** | `video-scroll-reveal`, `full-bleed-media`, `parallax-layers` | Apple, Gemini |
+| **Social Proof** | `testimonial-carousel`, `logo-marquee`, `trust-signals` | General |
+| **Content** | `faq-accordion`, `interactive-demo`, `sticky-sidebar-content` | Gemini |
+| **CTAs** | `gradient-cta`, `product-options-cta`, `newsletter-cta` | Gemini, Apple |
+
+### Section Workflow
+
+When building a page, the taxonomy `sections` key recommends which sections to use per industry/platform/style. Claude reads the relevant section templates and adapts them for the user's project.
+
+Typical page composition: Hero → Showcase(s) → Metrics → Social Proof → Content → CTA
+
+## Asset Generation
+
+Programmatic asset generation pipeline. Generate branded social media posts, OG images, device mockups, and more using code — no Figma or MidJourney needed. Located in `${CLAUDE_SKILL_DIR}/templates/assets/`.
+
+### Available Asset Types
+
+| Type | Pipeline | Output |
+|------|----------|--------|
+| **OG Image** | Satori → resvg → Sharp | 1200×630 PNG |
+| **Social Media Kit** | Satori → resvg → Sharp | 6 platform-sized PNGs |
+| **Generative Background** | @napi-rs/canvas → Sharp | Custom-sized PNG |
+| **Device Mockup** | Sharp composite | Device-framed PNG |
+| **Quality Showcase** | Sharp composite | Annotated zoom-bubble PNG |
+| **Website Hero** | @napi-rs/canvas → Sharp | 1920×1080 PNG |
+
+### Asset Workflow
+
+1. Detect or ask for industry → resolve BrandConfig from taxonomy palettes
+2. Ask for brand details (name, tagline, logo)
+3. Read the relevant asset template
+4. Adapt and write generation script to user's project
+5. Install core deps if needed (`satori`, `@resvg/resvg-js`, `sharp`)
+6. Run script → output to `./generated-assets/`
+
+Core pipeline: **Satori + @resvg/resvg-js + Sharp** (~25MB). Alt: Playwright for full CSS, @napi-rs/canvas for generative art.
 
 ## Additional Resources
 
