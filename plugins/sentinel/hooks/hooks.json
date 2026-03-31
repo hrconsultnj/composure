@@ -41,6 +41,17 @@
             "statusMessage": "Checking for insecure patterns..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dep-guard.sh\" 2>&1 || { echo '[sentinel:dep-guard] hook failed' >&2; exit 0; }",
+            "timeout": 10,
+            "statusMessage": "Checking package safety..."
+          }
+        ]
       }
     ]
   }

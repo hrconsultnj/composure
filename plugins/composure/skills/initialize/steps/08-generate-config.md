@@ -99,6 +99,43 @@ After generating the base config, scan the generated framework docs for regex-bl
 
 **Do NOT duplicate plugin default rules.** Check `defaults/framework-rules.json` for existing coverage before adding a project rule. Plugin group names are reserved — project groups with matching names are silently skipped by the hook.
 
+## pnpm supply chain hardening check
+
+After generating the config, check the project's `package.json` for postinstall script protection. This is a critical supply chain defense — it prevents malicious packages from executing arbitrary code during `pnpm install`.
+
+**Check for:**
+
+1. `pnpm.onlyBuiltDependencies` — whitelist of packages allowed to run install scripts (legacy setting)
+2. `pnpm.allowBuilds` — granular build script control (newer pnpm, replaces onlyBuiltDependencies)
+
+**If neither exists** in the root `package.json`:
+
+```
+[composure:init] WARNING: No postinstall script protection detected.
+
+Your package.json is missing pnpm.onlyBuiltDependencies or pnpm.allowBuilds.
+Without this, ANY dependency can execute arbitrary code during `pnpm install`.
+
+Case study: Axios supply chain attack (2026-03-31) deployed a RAT via a postinstall
+script in a malicious transitive dependency. onlyBuiltDependencies would have blocked it.
+
+Add to your package.json:
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp", "@tailwindcss/oxide"]
+  }
+
+Only whitelist packages that genuinely need build scripts (native binaries, etc.).
+Run `pnpm ignored-builds` to see what's currently blocked.
+```
+
+**If it exists**, report it as a positive finding in Step 11:
+```
+Supply chain hardening:
+  + pnpm.onlyBuiltDependencies active (N packages whitelisted)
+```
+
+**Do NOT auto-add this setting** — the whitelist must be curated per project. Just warn and provide the template.
+
 ---
 
 **Next:** Read `steps/09-build-graph.md`
