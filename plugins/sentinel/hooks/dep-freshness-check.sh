@@ -108,4 +108,23 @@ if [ "$CVE_COUNT" -gt 0 ]; then
   echo "$TAG Found $CVE_COUNT known CVE(s) in dependencies. Run /sentinel:audit-deps for details."
 fi
 
+# --- Check banned-packages.json staleness (30 day threshold) ---
+BANNED_FILE="$(cd "$(dirname "$0")" && pwd)/../data/banned-packages.json"
+if [ -f "$BANNED_FILE" ]; then
+  LAST_UPDATED=$(jq -r '._lastUpdated // ""' "$BANNED_FILE" 2>/dev/null)
+  if [ -n "$LAST_UPDATED" ]; then
+    # Convert date string to epoch
+    if [[ "$OSTYPE" == darwin* ]]; then
+      UPDATED_EPOCH=$(date -j -f "%Y-%m-%d" "$LAST_UPDATED" "+%s" 2>/dev/null || echo 0)
+    else
+      UPDATED_EPOCH=$(date -d "$LAST_UPDATED" "+%s" 2>/dev/null || echo 0)
+    fi
+    NOW=$(date +%s)
+    AGE_DAYS=$(( (NOW - UPDATED_EPOCH) / 86400 ))
+    if [ "$AGE_DAYS" -gt 30 ]; then
+      echo "$TAG Banned packages list is ${AGE_DAYS} days old. Consider updating sentinel/data/banned-packages.json."
+    fi
+  fi
+fi
+
 exit 0

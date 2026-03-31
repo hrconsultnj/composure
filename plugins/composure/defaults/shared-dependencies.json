@@ -1,0 +1,117 @@
+{
+  "_comment": "Universal dependency hygiene rules. Catches imports of banned packages at write-time. Complement to Sentinel dep-guard.sh (install-time) and audit-deps (commit-time).",
+  "rules": {
+    "banned-js-axios": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]axios['\"]|require\\(['\"]axios['\"]\\)|import\\s+['\"]axios['\"]",
+          "severity": "error",
+          "message": "axios is banned -- 9+ CVEs, state-sponsored supply chain compromise (2026-03-31). Use native fetch() or ky instead. See: sentinel/data/banned-packages.json"
+        }
+      ]
+    },
+    "banned-js-request": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]request['\"]|require\\(['\"]request['\"]\\)",
+          "severity": "error",
+          "message": "request is banned -- deprecated since 2020, unmaintained, multiple unpatched CVEs. Use native fetch() or got instead."
+        }
+      ]
+    },
+    "banned-js-moment": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]moment['\"]|require\\(['\"]moment['\"]\\)",
+          "severity": "warn",
+          "message": "moment is deprecated (2020). 300KB+ with no tree-shaking. Use date-fns, dayjs, or luxon instead."
+        }
+      ]
+    },
+    "banned-js-event-stream": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]event-stream['\"]|require\\(['\"]event-stream['\"]\\)",
+          "severity": "error",
+          "message": "event-stream is banned -- supply chain attack (2018) injected cryptocurrency theft via flatmap-stream. Use Node.js streams API or Highland.js."
+        }
+      ]
+    },
+    "banned-js-colors": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]colors['\"]|require\\(['\"]colors['\"]\\)",
+          "severity": "error",
+          "message": "colors is banned -- maintainer sabotage (2022) injected infinite loop. Use chalk, picocolors, or kleur instead."
+        }
+      ]
+    },
+    "banned-js-faker": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]faker['\"]|require\\(['\"]faker['\"]\\)",
+          "severity": "error",
+          "message": "faker is banned -- maintainer sabotage (2022). Use @faker-js/faker (community fork) instead.",
+          "skipIf": "@faker-js/faker"
+        }
+      ]
+    },
+    "banned-js-node-uuid": {
+      "appliesTo": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]node-uuid['\"]|require\\(['\"]node-uuid['\"]\\)",
+          "severity": "warn",
+          "message": "node-uuid is deprecated. Use uuid package or native crypto.randomUUID() (Node 19+)."
+        }
+      ]
+    },
+    "banned-python-pycrypto": {
+      "appliesTo": ["**/*.py"],
+      "rules": [
+        {
+          "pattern": "from\\s+Crypto\\b|import\\s+Crypto\\b",
+          "severity": "error",
+          "message": "pycrypto (Crypto) is banned -- unmaintained since 2014, heap overflow CVEs. Use pycryptodome (from Cryptodome) or cryptography instead.",
+          "skipIf": "Cryptodome"
+        }
+      ]
+    },
+    "banned-python-jwt-unsafe": {
+      "appliesTo": ["**/*.py"],
+      "rules": [
+        {
+          "pattern": "import\\s+python_jwt|from\\s+python_jwt",
+          "severity": "error",
+          "message": "python-jwt is banned -- authentication bypass CVE-2022-39227. Use PyJWT, python-jose, or authlib instead."
+        }
+      ]
+    },
+    "banned-go-jwt-deprecated": {
+      "appliesTo": ["**/*.go"],
+      "rules": [
+        {
+          "pattern": "\"github\\.com/dgrijalva/jwt-go\"",
+          "severity": "error",
+          "message": "dgrijalva/jwt-go is unmaintained. Use github.com/golang-jwt/jwt/v5 (community fork) instead."
+        }
+      ]
+    },
+    "banned-rust-openssl-warn": {
+      "appliesTo": ["**/*.rs"],
+      "rules": [
+        {
+          "pattern": "extern\\s+crate\\s+openssl|use\\s+openssl::",
+          "severity": "warn",
+          "message": "openssl crate wraps C OpenSSL and inherits its CVE surface. Consider rustls or ring for pure-Rust TLS."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "_lastUpdated": "2026-03-31",
+  "_description": "Banned packages by ecosystem. Checked by dep-guard.sh (install-time) and composure shared-dependencies.json (write-time).",
+  "js": {
+    "axios": {
+      "severity": "critical",
+      "reason": "9+ CVEs (SSRF, credential leakage, DoS). State-sponsored supply chain compromise 2026-03-31 injected RAT via hijacked maintainer account.",
+      "alternatives": ["native fetch()", "ky", "ofetch"],
+      "cves": ["CVE-2025-58754", "CVE-2025-27152", "CVE-2024-39338", "CVE-2023-45857"]
+    },
+    "request": {
+      "severity": "critical",
+      "reason": "Deprecated since February 2020. Unmaintained with multiple unpatched vulnerabilities. 11+ known CVEs.",
+      "alternatives": ["native fetch()", "got", "ky"],
+      "cves": []
+    },
+    "event-stream": {
+      "severity": "critical",
+      "reason": "Supply chain attack (2018). Malicious flatmap-stream dependency stole cryptocurrency wallet keys. Package abandoned.",
+      "alternatives": ["Node.js streams API", "Highland.js"],
+      "cves": ["CVE-2018-16491"]
+    },
+    "colors": {
+      "severity": "high",
+      "reason": "Maintainer sabotage (2022). Intentionally injected infinite loop into v1.4.1+. Governance failure demonstrates supply chain risk.",
+      "alternatives": ["chalk", "picocolors", "kleur"],
+      "cves": []
+    },
+    "faker": {
+      "severity": "high",
+      "reason": "Maintainer sabotage (2022). Same author as colors. Intentionally corrupted. Community fork available.",
+      "alternatives": ["@faker-js/faker"],
+      "cves": []
+    },
+    "node-uuid": {
+      "severity": "medium",
+      "reason": "Deprecated. Renamed to 'uuid'. No longer maintained under this name. Native crypto.randomUUID() available in Node 19+.",
+      "alternatives": ["uuid", "crypto.randomUUID()"],
+      "cves": []
+    },
+    "moment": {
+      "severity": "medium",
+      "reason": "Deprecated by maintainers (September 2020). 300KB+ with no tree-shaking support. Known ReDoS vulnerabilities in older versions.",
+      "alternatives": ["date-fns", "dayjs", "luxon", "Temporal API"],
+      "cves": ["CVE-2022-31129"]
+    },
+    "querystring": {
+      "severity": "medium",
+      "reason": "Prototype pollution vulnerability. Node.js built-in querystring is deprecated in favor of URLSearchParams.",
+      "alternatives": ["URLSearchParams", "qs"],
+      "cves": ["CVE-2022-24999"]
+    }
+  },
+  "python": {
+    "pycrypto": {
+      "severity": "critical",
+      "reason": "Unmaintained since 2014. Heap-based buffer overflow and other vulnerabilities. Use actively maintained alternatives.",
+      "alternatives": ["pycryptodome", "cryptography"],
+      "cves": ["CVE-2013-7459", "CVE-2018-6594"]
+    },
+    "python-jwt": {
+      "severity": "critical",
+      "reason": "Authentication bypass vulnerabilities. Confusingly named — not the same as PyJWT. Has allowed forged tokens.",
+      "alternatives": ["PyJWT", "python-jose", "authlib"],
+      "cves": ["CVE-2022-39227"]
+    },
+    "pyyaml-unsafe": {
+      "severity": "high",
+      "reason": "yaml.load() without SafeLoader enables arbitrary code execution. This is a usage pattern issue — always use yaml.safe_load().",
+      "alternatives": ["pyyaml with safe_load()", "ruamel.yaml"],
+      "cves": ["CVE-2020-1747"]
+    },
+    "django-debug-toolbar": {
+      "severity": "medium",
+      "reason": "SQL injection in older versions. Must never be enabled in production. Ensure DEBUG=False gating.",
+      "alternatives": [],
+      "cves": ["CVE-2021-30459"]
+    }
+  },
+  "rust": {
+    "openssl": {
+      "severity": "medium",
+      "reason": "Wrapper around C OpenSSL library inherits its CVE surface. Consider pure-Rust alternatives for new projects.",
+      "alternatives": ["rustls", "ring"],
+      "cves": []
+    }
+  },
+  "go": {
+    "github.com/dgrijalva/jwt-go": {
+      "severity": "high",
+      "reason": "Unmaintained. Forked to golang-jwt/jwt. Known vulnerabilities in token validation.",
+      "alternatives": ["github.com/golang-jwt/jwt/v5"],
+      "cves": ["CVE-2020-26160"]
+    }
+  }
+}
