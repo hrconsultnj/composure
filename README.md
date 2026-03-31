@@ -267,6 +267,20 @@ Sentinel also runs automatically via hooks:
 
 </details>
 
+<details>
+<summary><strong>Case studies</strong></summary>
+
+Real-world scenarios where Composure solved problems that vanilla Claude Code can't.
+
+| Case Study | Feature | Impact |
+|-----------|---------|--------|
+| [Code Graph vs Explore Agents](use-cases/graph-vs-explore/) | Code review graph | 18x less context, 9x faster, zero missed code |
+| [Multi-Project Graph at Scale](use-cases/multi-project-graph/) | 8-language parsers, cross-project queries | 15 projects, 100K nodes, 90x faster discovery |
+| [12-Minute Vulnerability Resolution](use-cases/vulnerability-resolution/) | Sentinel + Shipyard parallel audit | 4 CVEs patched in one session |
+| [Session Context Optimization](use-cases/session-context-optimization/) | Lightweight hooks, on-demand loading | ~200 lines → ~8 lines at session start |
+
+</details>
+
 ## Composure Pro ($39)
 
 The free plugins catch mistakes as they happen — band-aids blocked, secrets caught, decomposition violations logged. But catching mistakes is reactive. **Pro makes Claude proactive.**
