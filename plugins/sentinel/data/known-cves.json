@@ -1,0 +1,51 @@
+{
+  "_lastUpdated": "2026-03-31",
+  "_description": "Known framework-specific CVEs that dependency scanners may miss. Checked by scan step 06. Refresh via Context7 when staleness > 30 days.",
+  "react": [
+    {
+      "cve": "CVE-2025-55182",
+      "cvss": 10.0,
+      "severity": "critical",
+      "description": "Unauthenticated RCE via payload decoding in Server Functions. Attacker can execute arbitrary code on the server without authentication.",
+      "affectedVersions": ">=19.0.0 <19.0.1, >=19.1.0 <19.1.2, >=19.2.0 <19.2.1",
+      "fixedIn": ["19.0.1", "19.1.2", "19.2.1"],
+      "detection": "grep -rE '\"react\":\\s*\"19\\.(0\\.0|1\\.[01]|2\\.0)\"' package.json pnpm-lock.yaml",
+      "exploitedInWild": true
+    },
+    {
+      "cve": "CVE-2025-XXXXX",
+      "cvss": 8.6,
+      "severity": "high",
+      "description": "DoS + source code exposure in Server Components. Server can be crashed and source code leaked via crafted requests.",
+      "affectedVersions": ">=19.0.0 <19.0.4, >=19.1.0 <19.1.5, >=19.2.0 <19.2.4",
+      "fixedIn": ["19.0.4", "19.1.5", "19.2.4"],
+      "detection": "grep -rE '\"react\":\\s*\"19\\.(0\\.[0-3]|1\\.[0-4]|2\\.[0-3])\"' package.json pnpm-lock.yaml",
+      "exploitedInWild": false
+    }
+  ],
+  "supabase": [
+    {
+      "pattern": "service_role_client_side",
+      "severity": "critical",
+      "description": "service_role key used in client-side code. This key bypasses ALL Row Level Security policies, granting full database access to anyone who inspects the browser network tab.",
+      "detection": "grep -rn 'service_role\\|serviceRole\\|SERVICE_ROLE' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' src/ app/ | grep -v 'edge\\|server\\|api\\|middleware\\|\\.server\\.'",
+      "fix": "Move service_role usage to Edge Functions, API routes, or server-only files. Use the anon key for client-side Supabase clients."
+    },
+    {
+      "pattern": "rpc_without_rls",
+      "severity": "high",
+      "description": "Supabase .rpc() calls execute database functions. If the underlying function has no RLS policies or SECURITY DEFINER without proper checks, it bypasses row-level security.",
+      "detection": "grep -rn '\\.rpc(' --include='*.ts' --include='*.tsx' src/ app/",
+      "fix": "Ensure all RPC functions use SECURITY INVOKER (default) or have explicit permission checks if using SECURITY DEFINER."
+    }
+  ],
+  "nextjs": [
+    {
+      "pattern": "server_action_exposure",
+      "severity": "high",
+      "description": "Server Actions are public HTTP endpoints. Any function marked 'use server' is callable by anyone with the endpoint URL, regardless of where it's imported in the UI.",
+      "detection": "grep -rn '\"use server\"' --include='*.ts' --include='*.tsx' src/ app/ | head -20",
+      "fix": "Add authentication checks at the TOP of every Server Action. Never assume the caller is authenticated just because the UI is behind auth."
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "_description": "Default path-based auth boundary heuristics for exposure classification. Override per-project in .claude/sentinel.json under exposureBoundaries.",
+  "exposureBoundaries": {
+    "public": [
+      "src/app/api/public/**",
+      "src/app/(public)/**",
+      "app/api/public/**",
+      "pages/api/public/**",
+      "routes/public/**",
+      "src/app/api/webhooks/**",
+      "app/api/webhooks/**",
+      "public/**"
+    ],
+    "authenticated": [
+      "src/app/api/**",
+      "src/app/(auth)/**",
+      "src/app/(dashboard)/**",
+      "src/app/(protected)/**",
+      "app/api/**",
+      "pages/api/**",
+      "routes/**",
+      "src/routes/**",
+      "src/pages/**"
+    ],
+    "internal": [
+      "scripts/**",
+      "tools/**",
+      "migrations/**",
+      "seed/**",
+      "supabase/**",
+      "src/lib/**",
+      "src/utils/**",
+      "src/helpers/**",
+      "internal/**",
+      "cli/**"
+    ]
+  },
+  "resolutionOrder": ["public", "authenticated", "internal"],
+  "fallback": "internal"
+}

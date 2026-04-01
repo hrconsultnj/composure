@@ -117,8 +117,8 @@ Generated:
 Composure integration: yes (.claude/no-bandaids.json found)
 
 Active hooks:
-  - PreToolUse: secret-guard (19 patterns), insecure-pattern-guard (22 patterns)
-  - SessionStart: dep-freshness-check (24h CVE cache)
+  - PreToolUse: secret-guard (19 patterns), insecure-pattern-guard (22 patterns), dep-guard (package safety)
+  - SessionStart: dep-freshness-check (24h CVE cache + banned list staleness)
 
 Available skills:
   /sentinel:scan        — Full security scan (Semgrep + dependency audit)
