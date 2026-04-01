@@ -1,0 +1,46 @@
+{
+  "_comment": "Decomposition rules for vanilla HTML/CSS/JS projects (no framework). Loaded when config has 'html' in frameworks. Prevents monolithic single-file apps.",
+  "rules": {
+    "vanilla-no-inline-styles": {
+      "appliesTo": ["**/*.html"],
+      "rules": [
+        {
+          "pattern": "<style[^>]*>[\\s\\S]{200,}",
+          "severity": "error",
+          "message": "Large inline <style> block detected. Move styles to a separate CSS file and use <link rel=\"stylesheet\" href=\"css/styles.css\">. Inline styles create monolithic files that are hard to troubleshoot and waste context window when reading."
+        }
+      ]
+    },
+    "vanilla-no-inline-scripts": {
+      "appliesTo": ["**/*.html"],
+      "rules": [
+        {
+          "pattern": "<script(?!\\s+src)[^>]*>[\\s\\S]{200,}",
+          "severity": "error",
+          "message": "Large inline <script> block detected. Move logic to a separate JS file and use <script type=\"module\" src=\"js/app.js\">. Inline scripts create monolithic files that burn tokens on every read. ES modules let you split by concern."
+        }
+      ]
+    },
+    "vanilla-html-thin-shell": {
+      "appliesTo": ["**/index.html"],
+      "rules": [
+        {
+          "pattern": "document\\.getElementById|document\\.querySelector|addEventListener",
+          "severity": "warn",
+          "message": "DOM manipulation in index.html — move to a separate JS file. index.html should be a thin shell: structure + <link> + <script src> only. Keep logic in js/ files.",
+          "skipIf": "src=['\"]"
+        }
+      ]
+    },
+    "vanilla-security-innerhtml": {
+      "appliesTo": ["**/*.html"],
+      "rules": [
+        {
+          "pattern": "\\.innerHTML\\s*=",
+          "severity": "error",
+          "message": "Direct innerHTML assignment in HTML file — XSS risk. Use textContent for text, or build DOM nodes with createElement/appendChild."
+        }
+      ]
+    }
+  }
+}

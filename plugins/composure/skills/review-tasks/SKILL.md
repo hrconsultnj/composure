@@ -159,3 +159,14 @@ When the same file appears in both `tasks-plans/tasks.md` and `tasks-plans/audit
 - DECOMPOSE tasks are larger and benefit from the app-architecture skill patterns
 - After processing, run `pnpm typecheck && pnpm lint` to verify nothing broke
 - **Audit files live in `tasks-plans/audits/`**, blueprint files in `tasks-plans/blueprints/`
+
+## Handoff — After Processing Tasks
+
+Based on what was done, suggest the natural next step:
+
+| After mode | Suggest |
+|---|---|
+| `batch` or `delegate` (tasks were fixed) | "`/composure:review-delta` — review all changes before committing" |
+| `verify` (all tasks verified complete) | "`/composure:review-tasks archive` — archive completed audits and clear queue" |
+| `summary` (tasks exist but untouched) | "`batch` to process sequentially, or `delegate` to dispatch sub-agents in parallel" |
+| `archive` (everything cleaned up) | "Task queue clean. Use `/composure:blueprint` to plan your next feature." |

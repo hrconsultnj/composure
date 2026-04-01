@@ -303,6 +303,11 @@ if [[ -f "$CONFIG_FILE" ]]; then
     esac
   done
 
+  # Vanilla HTML rules — load for non-framework projects
+  if printf '%s' "$CONFIG" | jq -e '.frameworks.html' >/dev/null 2>&1; then
+    load_plugin_rules "${PLUGIN_DEFAULTS}/vanilla.json"
+  fi
+
   # SDK rules — detect from project dependencies
   # TanStack Query
   if printf '%s' "$CONFIG" | jq -r '.frameworks[].versions' 2>/dev/null | grep -q 'tanstack-query\|@tanstack/react-query'; then

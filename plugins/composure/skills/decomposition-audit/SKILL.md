@@ -15,7 +15,7 @@ Comprehensive codebase assessment that produces a scored health report with lett
 - **No arguments**: Full audit of the entire project (all categories)
 - **Path**: Audit only files matching the path (e.g., `src/components/`)
 - **`--threshold N`**: Change the minimum line count for reporting (default: 200)
-- **`--quick`**: Skip graph-dependent checks (architecture, dead exports, ghost detection). Runs size + suppressions + TODOs + deps only. Good for quick check-ins.
+- **`--quick`**: Fast health snapshot — runs only size/structure (Step 1) + architecture (Step 3, if graph available) + score (Step 7). Skips decomposition deep-dive, security, quality census, and dependency audit. Good for walking into existing projects or quick check-ins. ~30 seconds vs ~3 minutes for full audit.
 
 ## Workflow
 
@@ -36,7 +36,8 @@ Comprehensive codebase assessment that produces a scored health report with lett
 
 ## Conditional Steps
 
-- **Step 3 (architecture)**: Skip if `--quick`, `--skip-graph`, or graph MCP unavailable
+- **`--quick` mode**: Run only Steps 0 → 1 → 3 → 7. Skip Steps 2, 4, 5, 6. Produces a focused health snapshot with size distribution + architecture grades. Security and dependency checks are handled by Sentinel and Shipyard separately.
+- **Step 3 (architecture)**: Skip if `--skip-graph` or graph MCP unavailable (but NOT skipped for `--quick` — architecture is the most valuable check for walking into a project)
 - **Step 2 ghost detection**: Skip graph parts if no graph, use file-name heuristic fallback
 - **Step 5 test coverage**: Uses TESTED_BY graph edges if available, bash fallback otherwise
 
