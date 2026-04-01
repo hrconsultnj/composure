@@ -1,7 +1,7 @@
 ---
 name: review-tasks
 description: Review and process accumulated code quality tasks from tasks-plans/tasks.md, tasks-plans/audits/, and tasks-plans/blueprints/. Tasks are auto-logged by the PostToolUse hook, decomposition audits, and blueprints. Supports batch processing, delegation to sub-agents, verification, and archiving.
-argument-hint: "[batch|delegate|clean|summary|sync|verify|archive]"
+argument-hint: "[add <description>|batch|delegate|clean|summary|sync|verify|archive]"
 ---
 
 # Review Code Quality Tasks
@@ -54,6 +54,31 @@ Show a concise summary table:
 ```
 
 ### Step 5: Process Based on Argument
+
+#### `add [description]` — Queue a task manually
+
+Persist a work item to `tasks-plans/tasks.md` so it survives across sessions. Use this to capture backlog items, follow-ups, or anything you want to defer without losing track.
+
+1. Create `tasks-plans/` and `tasks-plans/tasks.md` if they don't exist
+2. Classify the task:
+   - If it references a specific file path → `TASK` prefix with the file
+   - If it's a project-wide item (e.g., "update README counts") → `PROJECT` prefix
+   - If it references an external action (e.g., "add composure-pro.com link") → `PROJECT` prefix
+3. Append to `tasks-plans/tasks.md`:
+   ```
+   - [ ] [PROJECT] {description}
+   ```
+   or:
+   ```
+   - [ ] [TASK] `path/to/file.ts` — {description}
+   ```
+4. Report: "Queued: {description} → tasks-plans/tasks.md"
+
+Multiple tasks can be added at once — pass them as a list:
+```
+/review-tasks add Update README skill counts; Add composure-pro.com to init report; Clean up global skills directory
+```
+Splits on `;` and adds each as a separate `- [ ]` entry.
 
 #### No argument or `summary` — Show summary (Steps 2-4)
 
