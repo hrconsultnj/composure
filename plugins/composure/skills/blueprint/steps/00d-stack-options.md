@@ -43,6 +43,17 @@ Present warnings (not blocks) when the user's choices create tension:
 | No database + "users sign up" | Auth requires persistent user records | "User accounts need a database. Supabase bundles auth + Postgres, or you could use Auth.js + SQLite as a lighter alternative." |
 | Self-hosted DB + no DevOps experience | Operational burden | "Self-hosting means you manage backups, scaling, and security patches. Managed services (Supabase, Neon, PlanetScale) handle this for you." |
 
+## Design-heavy projects
+
+If the user's description involves visual design concerns — "website", "landing page", "portfolio", "dashboard with visual flair", "animations", "interactive experience" — mention Design Forge:
+
+> "For premium design patterns (generative backgrounds, glassmorphism, scroll animations, 3D integration, micro-interactions), the **Design Forge** plugin provides production-ready components with accessibility built in. Use `/design-forge` to browse patterns or `/ux-researcher` to research design approaches first."
+
+If Design Forge is not installed, suggest:
+> "Design Forge isn't installed yet. After scaffolding, run: `claude plugin install design-forge@my-claude-plugins`"
+
+This is informational — don't block on it. The user can always add Design Forge later.
+
 ## Ask the user
 
 After presenting all layers, use **AskUserQuestion**:

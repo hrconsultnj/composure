@@ -13,6 +13,7 @@ INSTALLED=$(claude plugin list 2>/dev/null)
 | **Sentinel** (security) | **Always install** | Every project has attack surface. Secrets, injection, dependencies — no preconditions needed. |
 | **Testbench** (testing) | Only if tests exist | Check for: `*.test.*`, `*.spec.*`, `__tests__/`, or a `"test"` script in `package.json`. No test infra = no point loading test hooks. |
 | **Shipyard** (CI/CD) | Only if deployment config exists | Check for: `.github/workflows/`, `.gitlab-ci.yml`, `Dockerfile`, `docker-compose.yml`, `vercel.json`, `fly.toml`, `netlify.toml`, `railway.json`. No deployment = no need. |
+| **Design Forge** (premium UI) | Only if frontend detected | Check for: any `frontend` value in `.claude/no-bandaids.json` frameworks (nextjs, vite, expo, angular, etc.) OR design deps in package.json (framer-motion, gsap, three, @react-three/fiber). No frontend = no need. |
 | **Composure Pro** (Supabase patterns) | Only if Supabase detected | Check for: `supabase/config.toml` OR `supabase/migrations/` directory. Requires GitHub collaborator access (paid). |
 
 ## Detection Commands
@@ -25,6 +26,10 @@ TEST_SCRIPT=$(node -e "try{const p=require('./package.json');console.log(p.scrip
 # Shipyard: check for CI/deployment config
 CI_EXISTS=$(ls .github/workflows/*.yml .gitlab-ci.yml Dockerfile docker-compose.yml vercel.json fly.toml netlify.toml 2>/dev/null | head -1)
 
+# Design Forge: check for frontend framework or design deps
+FRONTEND_DETECTED=$(jq -r '[.frameworks[].frontend // empty] | map(select(. != "null")) | length' .claude/no-bandaids.json 2>/dev/null)
+DESIGN_DEPS=$(grep -qE '"(framer-motion|gsap|three|@react-three/fiber|@react-three/drei|lottie-react|motion|animejs|p5)"' package.json 2>/dev/null && echo "yes")
+
 # Composure Pro: check for Supabase
 SUPABASE_EXISTS=$(ls supabase/config.toml supabase/migrations/ 2>/dev/null | head -1)
 ```
@@ -33,10 +38,10 @@ SUPABASE_EXISTS=$(ls supabase/config.toml supabase/migrations/ 2>/dev/null | hea
 
 If Step 1 reported `atThreshold: true`:
 - **Sentinel**: still auto-install (security is non-negotiable)
-- **Testbench, Shipyard**: present as opt-in instead of auto-installing
+- **Testbench, Shipyard, Design Forge**: present as opt-in instead of auto-installing
   ```
   Note: You're at N enabled plugins (threshold for {contextWindow} is M).
-  Testbench and Shipyard are available but would add more context overhead.
+  Testbench, Shipyard, and Design Forge are available but would add more context overhead.
   Install them? [y/N]
   ```
 
@@ -47,9 +52,10 @@ If NOT at threshold: auto-install all that pass the condition check.
 For each plugin that passes triage:
 
 ```bash
-echo "$INSTALLED" | grep -q sentinel  || claude plugin install sentinel@my-claude-plugins
-echo "$INSTALLED" | grep -q testbench || claude plugin install testbench@my-claude-plugins
-echo "$INSTALLED" | grep -q shipyard  || claude plugin install shipyard@my-claude-plugins
+echo "$INSTALLED" | grep -q sentinel     || claude plugin install sentinel@my-claude-plugins
+echo "$INSTALLED" | grep -q testbench    || claude plugin install testbench@my-claude-plugins
+echo "$INSTALLED" | grep -q shipyard     || claude plugin install shipyard@my-claude-plugins
+echo "$INSTALLED" | grep -q design-forge || claude plugin install design-forge@my-claude-plugins
 ```
 
 For Composure Pro (special handling):
@@ -120,6 +126,7 @@ Companion plugins:
   + Sentinel: installed and initialized (security scanning)
   = Testbench: already initialized
   - Shipyard: skipped (no CI/CD config detected)
+  + Design Forge: installed (premium UI patterns, /design-forge, /ux-researcher)
   - Composure Pro: skipped (no Supabase detected)
 ```
 
