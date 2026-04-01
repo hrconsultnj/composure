@@ -24,12 +24,6 @@ Structured "think before building" step. Uses the code graph to find related cod
 | 1 | `steps/01-classify.md` | Classify work type, checkpoint if ambiguous |
 | 2 | `steps/02-graph-scan.md` | Graph pre-scan, present findings, confirm scope with user |
 | 3 | `steps/03-impact-analysis.md` | Blast radius + test gaps, present approach options if multiple exist |
-| 4 | `steps/04-write-blueprint.md` | Load docs, write blueprint, contextual handoff |
-
-Step 4 is further decomposed:
-
-| Sub-step | File | What it does |
-|----------|------|-------------|
 | 4a | `steps/04a-load-docs.md` | Load architecture docs based on classification |
 | 4b | `steps/04b-write-blueprint.md` | Write blueprint following `BLUEPRINT-TEMPLATE.md` |
 | 4c | `steps/04c-handoff.md` | Present summary, ask contextual questions if gaps remain |
@@ -53,7 +47,6 @@ By step 4, most questions are already resolved through the conversation.
 
 - **Steps 2 and 3**: Skip if `--skip-graph`, `--quick`, or graph MCP unavailable
 - **Step 4a (doc loading)**: Skip if `--quick` or classification is `bug-fix`
-- **Step 3c (approach direction)**: Skip if only one viable approach
 
 ## Template
 
