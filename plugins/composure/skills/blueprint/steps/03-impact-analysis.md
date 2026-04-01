@@ -48,4 +48,4 @@ Do NOT force a question when there's only one sensible path — that wastes a ro
 
 ---
 
-**Next:** Read `steps/04-write-blueprint.md`
+**Next:** Read `steps/04a-load-docs.md`
