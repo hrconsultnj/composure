@@ -6,7 +6,21 @@
 # Non-blocking (exit 0 always). Runs on startup only.
 
 # If Composure is installed, it handles the unified init message — skip verbose output
-[ -f ".claude/no-bandaids.json" ] && exit 0
+if [ -f ".claude/no-bandaids.json" ]; then
+  exit 0
+fi
+
+# Composure NOT installed — recommend it for scaffolding, architecture, and quality
+PLUGIN_CACHE="${CLAUDE_PLUGIN_ROOT%/*}"
+COMPOSURE_INSTALLED=false
+for d in "${PLUGIN_CACHE}"/composure/*/; do
+  [ -d "$d" ] && COMPOSURE_INSTALLED=true && break
+done
+
+if [ "$COMPOSURE_INSTALLED" = "false" ]; then
+  printf '[design-forge] Design Forge works best with Composure (scaffolding, architecture docs, code quality).\n'
+  printf '[design-forge] Install it: claude plugin install composure@my-claude-plugins\n'
+fi
 
 # Check for design-related dependencies in package.json
 if [ -f "package.json" ]; then
