@@ -190,6 +190,94 @@ show_missing = true
 
 ---
 
+## Python Import Troubleshooting
+
+Non-installable packages with relative imports (`from .types import Foo`) are the #1 cause of test collection failures. These patterns handle it.
+
+### conftest.py bootstrap (preferred)
+
+Create `tests/conftest.py` to handle path setup once for all test files:
+
+```python
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+```
+
+### Fake package for relative imports
+
+When the source uses relative imports but isn't an installed package, build a fake package with `importlib`:
+
+```python
+import sys, os, types, importlib, importlib.util
+
+pkg_path = '/path/to/package'
+fake_pkg = types.ModuleType('my_pkg')
+fake_pkg.__path__ = [pkg_path]
+fake_pkg.__package__ = 'my_pkg'
+sys.modules['my_pkg'] = fake_pkg
+
+# Load submodules in dependency order
+for name in ('types', 'validation', 'main_module'):
+    spec = importlib.util.spec_from_file_location(
+        f'my_pkg.{name}', os.path.join(pkg_path, f'{name}.py'))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[f'my_pkg.{name}'] = mod
+    spec.loader.exec_module(mod)
+```
+
+### Hyphenated directory names
+
+Directories like `my-package/` can't be imported with `import my-package`. Use `importlib.import_module('my-package')` or the fake package approach above.
+
+---
+
+## Mock Patch Targets
+
+**The golden rule: patch where it's imported, not where it's defined.**
+
+If `my_module.py` does `import whois` and you want to mock `whois.whois()`:
+
+```python
+# CORRECT - patch in the module that imports it
+with patch('my_pkg.my_module.whois.whois', return_value=mock_data):
+
+# WRONG - patching the source library does nothing
+with patch('whois.whois', return_value=mock_data):
+```
+
+When using the fake package approach, the patch target must match the `sys.modules` key:
+
+```python
+# If you registered the module as 'my_pkg.whois_module'
+_WM = 'my_pkg.whois_module'
+with patch(f'{_WM}.whois.whois', return_value=mock_data):
+```
+
+### Async context manager mocking (aiohttp, httpx)
+
+```python
+mock_resp = AsyncMock()
+mock_resp.status = 200
+mock_resp.json = AsyncMock(return_value={"key": "value"})
+mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+mock_session = AsyncMock()
+mock_session.get = Mock(return_value=mock_resp)
+mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+mock_session.__aexit__ = AsyncMock(return_value=False)
+
+with patch(f'{_WM}.aiohttp.ClientSession', return_value=mock_session):
+    result = await module.some_method("example.com")
+```
+
+### Catching the right exceptions
+
+Read the source's `except` clauses before writing failure tests. If the source catches `(ConnectionError, TimeoutError)`, using `side_effect=Exception("fail")` will NOT be caught and your test will fail unexpectedly.
+
+---
+
 ## CLI Quick Reference
 
 ```bash
