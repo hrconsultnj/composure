@@ -27,6 +27,7 @@ export function rowToNode(row) {
         params: row.params ?? null,
         return_type: row.return_type ?? null,
         modifiers: row.modifiers ?? null,
+        summary: row.summary ?? null,
         is_test: row.is_test === 1,
         file_hash: row.file_hash ?? null,
         extra: JSON.parse(row.extra ?? "{}"),
@@ -59,6 +60,7 @@ export function nodeToDict(n) {
         parent_name: n.parent_name,
         params: n.params,
         return_type: n.return_type,
+        ...(n.summary ? { summary: n.summary } : {}),
         is_test: n.is_test,
     };
 }

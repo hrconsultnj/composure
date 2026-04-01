@@ -2,7 +2,7 @@
  * MCP tool: generate_audit_html
  *
  * Reads stored audit findings and scores from graph.db, fills the
- * HTML templates from skills/project-audit/templates/, and writes
+ * HTML templates from skills/report/templates/, and writes
  * a self-contained report. Zero tokens — pure template assembly.
  */
 import type { ToolResult } from "../types.js";

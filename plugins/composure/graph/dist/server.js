@@ -2981,7 +2981,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve7.call(this, root, ref);
+      let _sch = resolve8.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3008,7 +3008,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve7(root, ref) {
+    function resolve8(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3583,55 +3583,55 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve7(baseURI, relativeURI, options) {
+    function resolve8(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative7, options, skipNormalization) {
+    function resolveComponent(base, relative8, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative7 = parse3(serialize(relative7, options), options);
+        relative8 = parse3(serialize(relative8, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative7.scheme) {
-        target.scheme = relative7.scheme;
-        target.userinfo = relative7.userinfo;
-        target.host = relative7.host;
-        target.port = relative7.port;
-        target.path = removeDotSegments(relative7.path || "");
-        target.query = relative7.query;
+      if (!options.tolerant && relative8.scheme) {
+        target.scheme = relative8.scheme;
+        target.userinfo = relative8.userinfo;
+        target.host = relative8.host;
+        target.port = relative8.port;
+        target.path = removeDotSegments(relative8.path || "");
+        target.query = relative8.query;
       } else {
-        if (relative7.userinfo !== void 0 || relative7.host !== void 0 || relative7.port !== void 0) {
-          target.userinfo = relative7.userinfo;
-          target.host = relative7.host;
-          target.port = relative7.port;
-          target.path = removeDotSegments(relative7.path || "");
-          target.query = relative7.query;
+        if (relative8.userinfo !== void 0 || relative8.host !== void 0 || relative8.port !== void 0) {
+          target.userinfo = relative8.userinfo;
+          target.host = relative8.host;
+          target.port = relative8.port;
+          target.path = removeDotSegments(relative8.path || "");
+          target.query = relative8.query;
         } else {
-          if (!relative7.path) {
+          if (!relative8.path) {
             target.path = base.path;
-            if (relative7.query !== void 0) {
-              target.query = relative7.query;
+            if (relative8.query !== void 0) {
+              target.query = relative8.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative7.path[0] === "/") {
-              target.path = removeDotSegments(relative7.path);
+            if (relative8.path[0] === "/") {
+              target.path = removeDotSegments(relative8.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative7.path;
+                target.path = "/" + relative8.path;
               } else if (!base.path) {
-                target.path = relative7.path;
+                target.path = relative8.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative7.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative8.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative7.query;
+            target.query = relative8.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3639,7 +3639,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative7.fragment;
+      target.fragment = relative8.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3810,7 +3810,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve7,
+      resolve: resolve8,
       resolveComponent,
       equal,
       serialize,
@@ -18871,7 +18871,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
+        await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -18888,7 +18888,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve7, reject) => {
+    return new Promise((resolve8, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -18966,7 +18966,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve7(parseResult.data);
+            resolve8(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -19227,12 +19227,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve7, reject) => {
+    return new Promise((resolve8, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve7, interval);
+      const timeoutId = setTimeout(resolve8, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -20332,7 +20332,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
+      await new Promise((resolve8) => setTimeout(resolve8, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -20975,12 +20975,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve7) => {
+    return new Promise((resolve8) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve7();
+        resolve8();
       } else {
-        this._stdout.once("drain", resolve7);
+        this._stdout.once("drain", resolve8);
       }
     });
   }
@@ -21013,6 +21013,7 @@ function rowToNode(row) {
     params: row.params ?? null,
     return_type: row.return_type ?? null,
     modifiers: row.modifiers ?? null,
+    summary: row.summary ?? null,
     is_test: row.is_test === 1,
     file_hash: row.file_hash ?? null,
     extra: JSON.parse(row.extra ?? "{}"),
@@ -21044,6 +21045,7 @@ function nodeToDict(n) {
     parent_name: n.parent_name,
     params: n.params,
     return_type: n.return_type,
+    ...n.summary ? { summary: n.summary } : {},
     is_test: n.is_test
   };
 }
@@ -21072,6 +21074,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     params TEXT,
     return_type TEXT,
     modifiers TEXT,
+    summary TEXT,
     is_test INTEGER DEFAULT 0,
     file_hash TEXT,
     extra TEXT DEFAULT '{}',
@@ -21182,6 +21185,10 @@ var GraphStore = class {
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA busy_timeout = 30000");
     this.db.exec(SCHEMA_SQL);
+    try {
+      this.db.exec("ALTER TABLE nodes ADD COLUMN summary TEXT");
+    } catch {
+    }
   }
   /** Expose the raw database for audit-store and other modules. */
   getDb() {
@@ -21206,18 +21213,18 @@ var GraphStore = class {
     const now = Date.now() / 1e3;
     const stmt = this.db.prepare(`
       INSERT INTO nodes (kind, name, qualified_name, file_path, line_start, line_end,
-                         language, parent_name, params, return_type, modifiers,
+                         language, parent_name, params, return_type, modifiers, summary,
                          is_test, file_hash, extra, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(qualified_name) DO UPDATE SET
         kind=excluded.kind, name=excluded.name, file_path=excluded.file_path,
         line_start=excluded.line_start, line_end=excluded.line_end,
         language=excluded.language, parent_name=excluded.parent_name,
         params=excluded.params, return_type=excluded.return_type,
-        modifiers=excluded.modifiers, is_test=excluded.is_test,
+        modifiers=excluded.modifiers, summary=excluded.summary, is_test=excluded.is_test,
         file_hash=excluded.file_hash, extra=excluded.extra, updated_at=excluded.updated_at
     `);
-    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
+    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.summary ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
     return Number(info2.lastInsertRowid);
   }
   upsertEdge(edge) {
@@ -21267,10 +21274,10 @@ var GraphStore = class {
     const words = query.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0)
       return [];
-    const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ?)");
+    const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ? OR summary LIKE ?)");
     const params = [];
     for (const w of words) {
-      params.push(`%${w}%`, `%${w}%`);
+      params.push(`%${w}%`, `%${w}%`, `%${w}%`);
     }
     const sql = `SELECT * FROM nodes WHERE ${conditions.join(" AND ")} LIMIT ?`;
     params.push(limit);
@@ -23007,13 +23014,13 @@ async function Module2(moduleArg = {}) {
       }
       readAsync = /* @__PURE__ */ __name(async (url) => {
         if (isFileURI(url)) {
-          return new Promise((resolve7, reject) => {
+          return new Promise((resolve8, reject) => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
             xhr.responseType = "arraybuffer";
             xhr.onload = () => {
               if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                resolve7(xhr.response);
+                resolve8(xhr.response);
                 return;
               }
               reject(xhr.status);
@@ -23209,9 +23216,9 @@ async function Module2(moduleArg = {}) {
     __name(receiveInstantiationResult, "receiveInstantiationResult");
     var info2 = getWasmImports();
     if (Module["instantiateWasm"]) {
-      return new Promise((resolve7, reject) => {
+      return new Promise((resolve8, reject) => {
         Module["instantiateWasm"](info2, (mod, inst) => {
-          resolve7(receiveInstance(mod, inst));
+          resolve8(receiveInstance(mod, inst));
         });
       });
     }
@@ -24542,8 +24549,8 @@ async function Module2(moduleArg = {}) {
   if (runtimeInitialized) {
     moduleRtn = Module;
   } else {
-    moduleRtn = new Promise((resolve7, reject) => {
-      readyPromiseResolve = resolve7;
+    moduleRtn = new Promise((resolve8, reject) => {
+      readyPromiseResolve = resolve8;
       readyPromiseReject = reject;
     });
   }
@@ -25798,6 +25805,29 @@ var CodeParser = class _CodeParser {
       this.extractFromTree(child, language, filePath, nodes, edges, enclosingClass, enclosingFunc, importMap, definedNames, depth + 1);
     }
   }
+  // ── JSDoc extraction ─────────────────────────────────────────────
+  /**
+   * Extract the first sentence of a JSDoc comment preceding a node.
+   * Only for exported functions — internal helpers don't need searchable summaries.
+   */
+  extractJsDocSummary(node) {
+    const parent = node.parent;
+    const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+    if (!isExported)
+      return void 0;
+    const exportNode = parent?.type === "export_statement" ? parent : parent?.parent;
+    const commentNode = exportNode?.previousNamedSibling ?? node.previousNamedSibling;
+    if (!commentNode || commentNode.type !== "comment")
+      return void 0;
+    const text = getNodeText(commentNode);
+    if (!text.startsWith("/**"))
+      return void 0;
+    const content = text.replace(/^\/\*\*\s*/, "").replace(/\s*\*\/$/, "").split("\n").map((line) => line.replace(/^\s*\*\s?/, "").trim()).filter((line) => line && !line.startsWith("@")).join(" ").trim();
+    if (!content)
+      return void 0;
+    const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
+    return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
+  }
   // ── Node handlers (called from extractFromTree) ──────────────────
   handleClass(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
     const name2 = getName(child, "class");
@@ -25862,6 +25892,7 @@ var CodeParser = class _CodeParser {
       return false;
     const isTest = isTestFunction(name2, filePath);
     const qualified = qualify(name2, filePath, enclosingClass);
+    const summary = isTest ? void 0 : this.extractJsDocSummary(child);
     nodes.push({
       kind: isTest ? "Test" : "Function",
       name: name2,
@@ -25872,6 +25903,7 @@ var CodeParser = class _CodeParser {
       parent_name: enclosingClass ?? void 0,
       params: getParams(child) ?? void 0,
       return_type: getReturnType(child) ?? void 0,
+      summary,
       is_test: isTest
     });
     const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
@@ -25896,6 +25928,7 @@ var CodeParser = class _CodeParser {
       const name2 = getNodeText(nameNode);
       const isTest = isTestFunction(name2, filePath);
       const qualified = qualify(name2, filePath, enclosingClass);
+      const summary = isTest ? void 0 : this.extractJsDocSummary(child);
       nodes.push({
         kind: isTest ? "Test" : "Function",
         name: name2,
@@ -25906,6 +25939,7 @@ var CodeParser = class _CodeParser {
         parent_name: enclosingClass ?? void 0,
         params: getParams(valueNode) ?? void 0,
         return_type: getReturnType(valueNode) ?? void 0,
+        summary,
         is_test: isTest
       });
       const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
@@ -28431,6 +28465,59 @@ function buildAdjacencyList(edges) {
   }
   return { forward, reverse };
 }
+function getShortestPath(store, fromQN, toQN, maxDepth = 10) {
+  const allEdges = store.getAllEdges();
+  const adj = buildAdjacencyList(allEdges);
+  const parent = /* @__PURE__ */ new Map();
+  const visited = /* @__PURE__ */ new Set([fromQN]);
+  let frontier = /* @__PURE__ */ new Set([fromQN]);
+  let found = false;
+  for (let depth = 0; depth < maxDepth && frontier.size > 0; depth++) {
+    const nextFrontier = /* @__PURE__ */ new Set();
+    for (const qn of frontier) {
+      for (const neighbors of [adj.forward.get(qn), adj.reverse.get(qn)]) {
+        if (!neighbors)
+          continue;
+        for (const neighbor of neighbors) {
+          if (visited.has(neighbor))
+            continue;
+          visited.add(neighbor);
+          parent.set(neighbor, qn);
+          nextFrontier.add(neighbor);
+          if (neighbor === toQN) {
+            found = true;
+            break;
+          }
+        }
+        if (found)
+          break;
+      }
+      if (found)
+        break;
+    }
+    if (found)
+      break;
+    frontier = nextFrontier;
+  }
+  if (!found) {
+    return { path: [], edges: [], depth: 0, found: false };
+  }
+  const pathQNs = [toQN];
+  let current = toQN;
+  while (current !== fromQN && parent.has(current)) {
+    current = parent.get(current);
+    pathQNs.unshift(current);
+  }
+  const pathNodes = [];
+  for (const qn of pathQNs) {
+    const node = store.getNode(qn);
+    if (node)
+      pathNodes.push(node);
+  }
+  const pathSet = new Set(pathQNs);
+  const pathEdges = allEdges.filter((e) => pathSet.has(e.source_qualified) && pathSet.has(e.target_qualified));
+  return { path: pathNodes, edges: pathEdges, depth: pathQNs.length - 1, found: true };
+}
 function getImpactRadius(store, changedFiles, maxDepth = 2, maxNodes = 500) {
   const allEdges = store.getAllEdges();
   const adj = buildAdjacencyList(allEdges);
@@ -29858,7 +29945,8 @@ var IMPACTS = {
   GRAB_BAG: 8,
   MIXED_CONCERNS: 5,
   INLINE_CANDIDATE: 2,
-  COLOCATE_CANDIDATE: 2
+  COLOCATE_CANDIDATE: 2,
+  MISPLACED_APP_CONTENT: 5
 };
 var CATEGORY_WEIGHTS = {
   "code-quality": 0.3,
@@ -30220,6 +30308,65 @@ function analyzeCodeQuality(store, runId, repoRoot) {
   }
   return findingCount;
 }
+var NEXTJS_CONVENTION_FILES = /* @__PURE__ */ new Set([
+  "page.tsx",
+  "layout.tsx",
+  "loading.tsx",
+  "error.tsx",
+  "not-found.tsx",
+  "global-error.tsx",
+  "template.tsx",
+  "default.tsx",
+  "opengraph-image.tsx",
+  "twitter-image.tsx",
+  "icon.tsx",
+  "apple-icon.tsx",
+  "sitemap.tsx",
+  "robots.tsx",
+  "manifest.tsx"
+]);
+function analyzeFileOrganization(store, runId, repoRoot) {
+  const configPath = join5(repoRoot, ".claude", "no-bandaids.json");
+  if (!existsSync5(configPath))
+    return 0;
+  try {
+    const config2 = JSON.parse(readFileSync10(configPath, "utf-8"));
+    const frameworks = config2.frameworks || {};
+    const isNextJs = Object.values(frameworks).some((fw) => fw.frontend === "nextjs");
+    if (!isNextJs)
+      return 0;
+  } catch {
+    return 0;
+  }
+  const db = store.getDb();
+  let findingCount = 0;
+  const rows = db.prepare(`SELECT qualified_name, file_path, name
+       FROM nodes
+       WHERE kind = 'File'
+         AND name LIKE '%.tsx'
+         AND file_path LIKE '%/app/%'
+       ORDER BY file_path`).all();
+  for (const f of rows) {
+    if (NEXTJS_CONVENTION_FILES.has(f.name))
+      continue;
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: "misplaced-app-content",
+      severity: "moderate",
+      node_qualified_name: f.qualified_name,
+      file_path: relative6(repoRoot, f.file_path),
+      title: `Content component '${f.name}' in app/ \u2014 move to components/`,
+      detail: {
+        recommendation: "split",
+        reason: `Route directories should only contain Next.js convention files. Move '${f.name}' to components/pages/ or components/features/ and import from the route's page.tsx.`
+      },
+      score_impact: IMPACTS.MISPLACED_APP_CONTENT
+    });
+    findingCount++;
+  }
+  return findingCount;
+}
 function analyzeTestCoverage(store, runId, repoRoot) {
   const db = store.getDb();
   let findingCount = 0;
@@ -30344,6 +30491,7 @@ async function runAudit(params) {
     const runId = (/* @__PURE__ */ new Date()).toISOString();
     const availableCategories = /* @__PURE__ */ new Set(["code-quality"]);
     analyzeCodeQuality(store, runId, root);
+    analyzeFileOrganization(store, runId, root);
     if (params.include_testing !== false) {
       analyzeTestCoverage(store, runId, root);
       availableCategories.add("testing");
@@ -30405,9 +30553,9 @@ import { existsSync as existsSync6, readFileSync as readFileSync11, writeFileSyn
 import { basename as basename8, dirname as dirname9, join as join6 } from "node:path";
 function findTemplateDir() {
   const candidates = [
-    join6(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "project-audit", "templates"),
+    join6(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
     // Fallback: check CLAUDE_PLUGIN_ROOT
-    process.env.CLAUDE_PLUGIN_ROOT ? join6(process.env.CLAUDE_PLUGIN_ROOT, "skills", "project-audit", "templates") : ""
+    process.env.CLAUDE_PLUGIN_ROOT ? join6(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
   ].filter(Boolean);
   for (const dir of candidates) {
     if (existsSync6(join6(dir, "audit-header.html")))
@@ -30513,7 +30661,7 @@ function generateAuditHtml(params) {
     if (!templateDir) {
       return {
         status: "error",
-        error: "Cannot find audit HTML templates. Expected at skills/project-audit/templates/."
+        error: "Cannot find audit HTML templates. Expected at skills/report/templates/."
       };
     }
     const header = readTemplate(templateDir, "audit-header.html");
@@ -30542,6 +30690,267 @@ function generateAuditHtml(params) {
   } finally {
     store.close();
   }
+}
+
+// dist/tools/search-references.js
+import { execSync } from "node:child_process";
+import { relative as relative7, resolve as resolve7 } from "node:path";
+function classifyFileRole(filePath) {
+  if (/\/skills\//.test(filePath))
+    return "skill";
+  if (/\/hooks\//.test(filePath))
+    return "hook";
+  if (/\/components\//.test(filePath))
+    return "component";
+  if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
+    return "route";
+  if (/\/hooks\//.test(filePath))
+    return "hook";
+  if (/\.(test|spec)\./.test(filePath))
+    return "test";
+  if (/\/lib\//.test(filePath))
+    return "lib";
+  if (/\.(config|rc)\.\w+$/.test(filePath))
+    return "config";
+  if (/\/defaults\//.test(filePath))
+    return "defaults";
+  if (/\/templates\//.test(filePath))
+    return "template";
+  if (/\/steps\//.test(filePath))
+    return "skill-step";
+  if (/\/references\//.test(filePath))
+    return "reference";
+  return "source";
+}
+function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
+  const target = scope ? resolve7(root, scope) : root;
+  const cmd = [
+    "rg",
+    "--no-heading",
+    "-n",
+    contextLines > 0 ? `-C${contextLines}` : "",
+    "--max-count",
+    String(maxResults),
+    "--glob",
+    "!node_modules",
+    "--glob",
+    "!.git",
+    "--glob",
+    "!dist",
+    "--glob",
+    "!*.map",
+    JSON.stringify(pattern),
+    JSON.stringify(target)
+  ].filter(Boolean).join(" ");
+  try {
+    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+    return parseRipgrepOutput(output, root, contextLines);
+  } catch {
+    return [];
+  }
+}
+function parseRipgrepOutput(output, root, contextLines) {
+  const matches = [];
+  const lines = output.split("\n").filter(Boolean);
+  if (contextLines === 0) {
+    for (const line of lines) {
+      const m = line.match(/^(.+?):(\d+):(.*)$/);
+      if (m) {
+        matches.push({
+          file: relative7(root, m[1]),
+          line: parseInt(m[2], 10),
+          text: m[3]
+        });
+      }
+    }
+  } else {
+    let currentMatch = null;
+    const beforeLines = [];
+    for (const line of lines) {
+      if (line === "--") {
+        if (currentMatch)
+          matches.push(currentMatch);
+        currentMatch = null;
+        beforeLines.length = 0;
+        continue;
+      }
+      const matchLine = line.match(/^(.+?):(\d+):(.*)$/);
+      const ctxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
+      if (matchLine) {
+        currentMatch = {
+          file: relative7(root, matchLine[1]),
+          line: parseInt(matchLine[2], 10),
+          text: matchLine[3],
+          context_before: beforeLines.length > 0 ? beforeLines.join("\n") : void 0
+        };
+        beforeLines.length = 0;
+      } else if (ctxLine) {
+        if (currentMatch) {
+          currentMatch.context_after = (currentMatch.context_after ?? "") + (currentMatch.context_after ? "\n" : "") + ctxLine[3];
+        } else {
+          beforeLines.push(ctxLine[3]);
+        }
+      }
+    }
+    if (currentMatch)
+      matches.push(currentMatch);
+  }
+  return matches;
+}
+function searchReferences(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  const contextLines = params.context_lines ?? 1;
+  const maxResults = params.max_results ?? 50;
+  const matches = searchWithRipgrep(root, params.pattern, params.scope, contextLines, maxResults);
+  if (matches.length === 0) {
+    return {
+      status: "ok",
+      summary: `No matches for "${params.pattern}"`,
+      pattern: params.pattern,
+      results: []
+    };
+  }
+  let store = null;
+  try {
+    store = new GraphStore(dbPath);
+  } catch {
+  }
+  const results = matches.map((m) => {
+    const absPath = resolve7(root, m.file);
+    let containingNode = null;
+    let entity = null;
+    let importersCount = 0;
+    if (store) {
+      const fileNodes = store.getNodesByFile(absPath);
+      for (const node of fileNodes) {
+        if (node.kind === "File")
+          continue;
+        if (node.line_start <= m.line && node.line_end >= m.line) {
+          containingNode = node.name;
+          break;
+        }
+      }
+      const fileNode = fileNodes.find((n) => n.kind === "File");
+      if (fileNode) {
+        try {
+          const rows = store.getDb().prepare("SELECT COUNT(*) as cnt FROM edges WHERE target_qualified = ? AND kind = 'IMPORTS_FROM'").all(fileNode.qualified_name);
+          importersCount = rows[0]?.cnt ?? 0;
+        } catch {
+        }
+      }
+      try {
+        const entityRows = store.getDb().prepare("SELECT entity_name FROM entity_members WHERE node_qualified_name = ? LIMIT 1").all(fileNode?.qualified_name ?? "");
+        entity = entityRows[0]?.entity_name ?? null;
+      } catch {
+      }
+    }
+    return {
+      file: m.file,
+      line: m.line,
+      text: m.text,
+      ...m.context_before ? { context_before: m.context_before } : {},
+      ...m.context_after ? { context_after: m.context_after } : {},
+      containing_node: containingNode,
+      entity,
+      importers_count: importersCount,
+      role: classifyFileRole(m.file)
+    };
+  });
+  if (store)
+    store.close();
+  return {
+    status: "ok",
+    summary: `Found ${results.length} matches for "${params.pattern}"`,
+    pattern: params.pattern,
+    results
+  };
+}
+
+// dist/tools/get-dependency-chain.js
+function getDependencyChain(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const fromNode = resolveTarget(store, params.from);
+    const toNode = resolveTarget(store, params.to);
+    if (!fromNode) {
+      const candidates = store.searchNodes(params.from, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.from}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.from}'`
+      };
+    }
+    if (!toNode) {
+      const candidates = store.searchNodes(params.to, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.to}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.to}'`
+      };
+    }
+    const result = getShortestPath(store, fromNode.qualified_name, toNode.qualified_name, params.max_depth ?? 10);
+    if (!result.found) {
+      return {
+        status: "ok",
+        summary: `No path found between '${fromNode.name}' and '${toNode.name}' within ${params.max_depth ?? 10} hops`,
+        from: nodeToDict(fromNode),
+        to: nodeToDict(toNode),
+        path: [],
+        edges: [],
+        connected: false
+      };
+    }
+    const pathNames = result.path.map((n) => n.name);
+    const summary = `${pathNames.join(" \u2192 ")} (${result.depth} hop${result.depth === 1 ? "" : "s"})`;
+    return {
+      status: "ok",
+      summary,
+      from: nodeToDict(fromNode),
+      to: nodeToDict(toNode),
+      path: result.path.map(nodeToDict),
+      edges: result.edges.map(edgeToDict),
+      depth: result.depth,
+      connected: true
+    };
+  } finally {
+    store.close();
+  }
+}
+function resolveTarget(store, target) {
+  let node = store.getNode(target);
+  if (node)
+    return node;
+  const fileNodes = store.getNodesByFile(target);
+  const fileNode = fileNodes.find((n) => n.kind === "File");
+  if (fileNode)
+    return fileNode;
+  const candidates = store.searchNodes(target, 2);
+  if (candidates.length === 1)
+    return candidates[0];
+  return null;
 }
 
 // dist/server.js
@@ -30699,6 +31108,25 @@ server.tool("generate_audit_html", "Generate a self-contained HTML audit report 
   repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
 }, async (params) => {
   const result = generateAuditHtml(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
+server.tool("search_references", "Search for string patterns across the repo with graph context enrichment. Like grep but returns matches with containing node, entity membership, importer count, and file role. Use for finding all references to a skill name, function, pattern, or any text string.", {
+  pattern: external_exports.string().describe("Regex pattern to search for (e.g., '/composure:blueprint', 'useAuth')."),
+  scope: external_exports.string().optional().describe("File glob to narrow search (e.g., '**/*.md', 'plugins/composure/skills/**'). Defaults to entire repo."),
+  context_lines: external_exports.number().default(1).describe("Lines of context before/after each match (like grep -C). Default: 1."),
+  max_results: external_exports.number().default(50).describe("Maximum results to return. Default: 50."),
+  repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
+}, async (params) => {
+  const result = searchReferences(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
+server.tool("get_dependency_chain", "Find the shortest path between two code entities in the graph. Shows how two files, functions, or types are connected through imports and calls. Use for understanding dependency relationships and tracing how code connects.", {
+  from: external_exports.string().describe("Source node \u2014 name, qualified name, or file path."),
+  to: external_exports.string().describe("Target node \u2014 name, qualified name, or file path."),
+  max_depth: external_exports.number().default(10).describe("Maximum hops to search. Default: 10."),
+  repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
+}, async (params) => {
+  const result = getDependencyChain(params);
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 });
 async function main() {

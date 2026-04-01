@@ -4376,6 +4376,29 @@ var CodeParser = class _CodeParser {
       this.extractFromTree(child, language, filePath, nodes, edges, enclosingClass, enclosingFunc, importMap, definedNames, depth + 1);
     }
   }
+  // ── JSDoc extraction ─────────────────────────────────────────────
+  /**
+   * Extract the first sentence of a JSDoc comment preceding a node.
+   * Only for exported functions — internal helpers don't need searchable summaries.
+   */
+  extractJsDocSummary(node) {
+    const parent = node.parent;
+    const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+    if (!isExported)
+      return void 0;
+    const exportNode = parent?.type === "export_statement" ? parent : parent?.parent;
+    const commentNode = exportNode?.previousNamedSibling ?? node.previousNamedSibling;
+    if (!commentNode || commentNode.type !== "comment")
+      return void 0;
+    const text = getNodeText(commentNode);
+    if (!text.startsWith("/**"))
+      return void 0;
+    const content = text.replace(/^\/\*\*\s*/, "").replace(/\s*\*\/$/, "").split("\n").map((line) => line.replace(/^\s*\*\s?/, "").trim()).filter((line) => line && !line.startsWith("@")).join(" ").trim();
+    if (!content)
+      return void 0;
+    const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
+    return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
+  }
   // ── Node handlers (called from extractFromTree) ──────────────────
   handleClass(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
     const name2 = getName(child, "class");
@@ -4440,6 +4463,7 @@ var CodeParser = class _CodeParser {
       return false;
     const isTest = isTestFunction(name2, filePath);
     const qualified = qualify(name2, filePath, enclosingClass);
+    const summary = isTest ? void 0 : this.extractJsDocSummary(child);
     nodes.push({
       kind: isTest ? "Test" : "Function",
       name: name2,
@@ -4450,6 +4474,7 @@ var CodeParser = class _CodeParser {
       parent_name: enclosingClass ?? void 0,
       params: getParams(child) ?? void 0,
       return_type: getReturnType(child) ?? void 0,
+      summary,
       is_test: isTest
     });
     const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
@@ -4474,6 +4499,7 @@ var CodeParser = class _CodeParser {
       const name2 = getNodeText(nameNode);
       const isTest = isTestFunction(name2, filePath);
       const qualified = qualify(name2, filePath, enclosingClass);
+      const summary = isTest ? void 0 : this.extractJsDocSummary(child);
       nodes.push({
         kind: isTest ? "Test" : "Function",
         name: name2,
@@ -4484,6 +4510,7 @@ var CodeParser = class _CodeParser {
         parent_name: enclosingClass ?? void 0,
         params: getParams(valueNode) ?? void 0,
         return_type: getReturnType(valueNode) ?? void 0,
+        summary,
         is_test: isTest
       });
       const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
@@ -4612,6 +4639,7 @@ function rowToNode(row) {
     params: row.params ?? null,
     return_type: row.return_type ?? null,
     modifiers: row.modifiers ?? null,
+    summary: row.summary ?? null,
     is_test: row.is_test === 1,
     file_hash: row.file_hash ?? null,
     extra: JSON.parse(row.extra ?? "{}"),
@@ -4646,6 +4674,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     params TEXT,
     return_type TEXT,
     modifiers TEXT,
+    summary TEXT,
     is_test INTEGER DEFAULT 0,
     file_hash TEXT,
     extra TEXT DEFAULT '{}',
@@ -4756,6 +4785,10 @@ var GraphStore = class {
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA busy_timeout = 30000");
     this.db.exec(SCHEMA_SQL);
+    try {
+      this.db.exec("ALTER TABLE nodes ADD COLUMN summary TEXT");
+    } catch {
+    }
   }
   /** Expose the raw database for audit-store and other modules. */
   getDb() {
@@ -4780,18 +4813,18 @@ var GraphStore = class {
     const now = Date.now() / 1e3;
     const stmt = this.db.prepare(`
       INSERT INTO nodes (kind, name, qualified_name, file_path, line_start, line_end,
-                         language, parent_name, params, return_type, modifiers,
+                         language, parent_name, params, return_type, modifiers, summary,
                          is_test, file_hash, extra, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(qualified_name) DO UPDATE SET
         kind=excluded.kind, name=excluded.name, file_path=excluded.file_path,
         line_start=excluded.line_start, line_end=excluded.line_end,
         language=excluded.language, parent_name=excluded.parent_name,
         params=excluded.params, return_type=excluded.return_type,
-        modifiers=excluded.modifiers, is_test=excluded.is_test,
+        modifiers=excluded.modifiers, summary=excluded.summary, is_test=excluded.is_test,
         file_hash=excluded.file_hash, extra=excluded.extra, updated_at=excluded.updated_at
     `);
-    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
+    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.summary ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
     return Number(info2.lastInsertRowid);
   }
   upsertEdge(edge) {
@@ -4841,10 +4874,10 @@ var GraphStore = class {
     const words = query.trim().split(/\s+/).filter(Boolean);
     if (words.length === 0)
       return [];
-    const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ?)");
+    const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ? OR summary LIKE ?)");
     const params = [];
     for (const w of words) {
-      params.push(`%${w}%`, `%${w}%`);
+      params.push(`%${w}%`, `%${w}%`, `%${w}%`);
     }
     const sql = `SELECT * FROM nodes WHERE ${conditions.join(" AND ")} LIMIT ?`;
     params.push(limit);

@@ -33,6 +33,7 @@ const IMPACTS = {
     MIXED_CONCERNS: 5,
     INLINE_CANDIDATE: 2,
     COLOCATE_CANDIDATE: 2,
+    MISPLACED_APP_CONTENT: 5,
 };
 const CATEGORY_WEIGHTS = {
     "code-quality": 0.3,
@@ -452,6 +453,60 @@ function analyzeCodeQuality(store, runId, repoRoot) {
     }
     return findingCount;
 }
+// ── File Organization Analysis (Next.js app/ directory) ─────────────
+const NEXTJS_CONVENTION_FILES = new Set([
+    "page.tsx", "layout.tsx", "loading.tsx", "error.tsx",
+    "not-found.tsx", "global-error.tsx", "template.tsx", "default.tsx",
+    "opengraph-image.tsx", "twitter-image.tsx", "icon.tsx",
+    "apple-icon.tsx", "sitemap.tsx", "robots.tsx", "manifest.tsx",
+]);
+function analyzeFileOrganization(store, runId, repoRoot) {
+    // Only applies to Next.js projects — detect from no-bandaids.json config
+    const configPath = join(repoRoot, ".claude", "no-bandaids.json");
+    if (!existsSync(configPath))
+        return 0;
+    try {
+        const config = JSON.parse(readFileSync(configPath, "utf-8"));
+        const frameworks = config.frameworks || {};
+        const isNextJs = Object.values(frameworks).some((fw) => fw.frontend === "nextjs");
+        if (!isNextJs)
+            return 0;
+    }
+    catch {
+        return 0;
+    }
+    const db = store.getDb();
+    let findingCount = 0;
+    // Find .tsx files in app/ that aren't Next.js convention files
+    const rows = db
+        .prepare(`SELECT qualified_name, file_path, name
+       FROM nodes
+       WHERE kind = 'File'
+         AND name LIKE '%.tsx'
+         AND file_path LIKE '%/app/%'
+       ORDER BY file_path`)
+        .all();
+    for (const f of rows) {
+        if (NEXTJS_CONVENTION_FILES.has(f.name))
+            continue;
+        insertFinding(store, {
+            audit_run_id: runId,
+            category: "code-quality",
+            finding_type: "misplaced-app-content",
+            severity: "moderate",
+            node_qualified_name: f.qualified_name,
+            file_path: relative(repoRoot, f.file_path),
+            title: `Content component '${f.name}' in app/ — move to components/`,
+            detail: {
+                recommendation: "split",
+                reason: `Route directories should only contain Next.js convention files. Move '${f.name}' to components/pages/ or components/features/ and import from the route's page.tsx.`,
+            },
+            score_impact: IMPACTS.MISPLACED_APP_CONTENT,
+        });
+        findingCount++;
+    }
+    return findingCount;
+}
 // ── Test Coverage Analysis (SQL + TESTED_BY edges) ────────────────
 function analyzeTestCoverage(store, runId, repoRoot) {
     const db = store.getDb();
@@ -596,6 +651,8 @@ export async function runAudit(params) {
         const availableCategories = new Set(["code-quality"]);
         // Phase 1: Code quality (always — pure SQL)
         analyzeCodeQuality(store, runId, root);
+        // Phase 1b: File organization (Next.js — checks app/ directory)
+        analyzeFileOrganization(store, runId, root);
         // Phase 2: Test coverage (always — uses TESTED_BY edges)
         if (params.include_testing !== false) {
             analyzeTestCoverage(store, runId, root);

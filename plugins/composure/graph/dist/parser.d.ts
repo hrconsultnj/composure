@@ -30,6 +30,11 @@ export declare class CodeParser {
     private collectFileScope;
     private static readonly MAX_DEPTH;
     private extractFromTree;
+    /**
+     * Extract the first sentence of a JSDoc comment preceding a node.
+     * Only for exported functions — internal helpers don't need searchable summaries.
+     */
+    private extractJsDocSummary;
     private handleClass;
     private handleType;
     private handleFunction;
