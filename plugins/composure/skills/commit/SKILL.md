@@ -5,7 +5,7 @@ description: Commit changes with automatic task queue hygiene. Use when the user
 
 # Commit with Task Queue Review
 
-Commit changes while enforcing task queue hygiene. This skill replaces manual `/review-tasks clean` and `/review-tasks archive` by running them automatically before every commit.
+Commit changes while enforcing task queue hygiene. Offers pre-commit verification options when companion plugins are installed.
 
 ## Steps
 
@@ -30,7 +30,7 @@ Before anything else, silently handle completed tasks:
 3. Read `tasks-plans/tasks.md` for remaining open items (`- [ ]`)
 4. For each open task, check if the task's file path matches any staged file (partial path matching)
 
-### Step 3: Decision gate
+### Step 3: Task gate
 
 **If open tasks exist on staged files** — show blockers and stop:
 
@@ -51,7 +51,55 @@ git reset HEAD <file>
 
 **If `tasks-plans/tasks.md` doesn't exist or has no open items** — proceed to Step 4.
 
-### Step 4: Create the commit
+### Step 4: Commit mode
+
+Use **AskUserQuestion** to let the user choose their commit mode. Detect which companion plugins are installed to build the options dynamically.
+
+**Detection**: Check which plugins are available:
+- **Sentinel**: `ls "${CLAUDE_PLUGIN_ROOT}/../sentinel" 2>/dev/null` or check if `/sentinel:scan` is in the skill list
+- **Testbench**: check for `/testbench:run`
+- **Shipyard**: check for `/shipyard:ci-validate`
+
+**Always offer these options:**
+
+| Option | What it does |
+|---|---|
+| **Commit** (Recommended) | Task check passed → commit immediately. Fast, no extra checks. |
+| **Commit with checks** | Run typecheck + lint on staged files, then commit if clean. |
+
+**Add these options ONLY if the companion plugin is installed:**
+
+| Option | Requires | What it does |
+|---|---|---|
+| **Commit with security scan** | Sentinel | Run `/sentinel:scan` on staged files before committing. Blocks on critical/high findings. |
+| **Commit with tests** | Testbench | Run `/testbench:run --changed` for staged files before committing. Blocks on failures. |
+| **Full verification commit** | Sentinel + Testbench | Typecheck + lint + security scan + tests. Everything passes → commit. |
+
+**If user says "just commit" or the argument includes `--quick`**: Skip the question, go directly to Step 5 (commit immediately after task check).
+
+### Step 5: Run selected checks (if any)
+
+Based on the user's choice in Step 4:
+
+**Typecheck + lint:**
+1. Detect the project's typecheck command from `package.json` scripts or `.claude/no-bandaids.json`
+2. Run it (e.g., `npx tsc --noEmit`, `pyright`, `go vet`)
+3. Run lint if configured (e.g., `npx eslint --no-warn-ignored`, `ruff check`, `golangci-lint run`)
+4. If errors: show them and ask "Fix these or commit anyway?"
+
+**Security scan (Sentinel):**
+1. Run focused scan on staged files only — not the whole project
+2. Critical/high findings → block with details
+3. Moderate/low → warn but allow commit
+
+**Tests (Testbench):**
+1. Run tests for changed files only — not the full suite
+2. Failures → block with failure details
+3. All pass → proceed
+
+**If any check blocks**: Show the findings and stop. Do NOT commit. The user fixes and re-runs `/commit`.
+
+### Step 6: Create the commit
 
 Follow the standard git commit flow:
 
@@ -62,7 +110,7 @@ Follow the standard git commit flow:
 5. Run `git commit` with the message
 6. Report success
 
-### Step 5: Push (only if requested)
+### Step 7: Push (only if requested)
 
 If the user said "commit and push" or similar:
 1. Run `git push`
@@ -70,20 +118,24 @@ If the user said "commit and push" or similar:
 
 Otherwise, do NOT push unless explicitly asked.
 
-### Step 6: Update the code graph
+### Step 8: Update the code graph
 
 After committing (and pushing if requested), update the graph so it stays current:
 
-1. Check if the `build_or_update_graph` MCP tool is available (composure-graph server running)
-2. If available, call `build_or_update_graph({ full_rebuild: false })` — incremental update, only processes changed files
+1. Check if the `build_or_update_graph` MCP tool is available
+2. If available, call `build_or_update_graph({ full_rebuild: false })` — incremental update
 3. Report briefly: "Graph updated: N files changed"
-4. If the MCP tool isn't available, skip silently — the PostToolUse hook handles per-file updates anyway
+4. If unavailable, skip silently
 
-This keeps the graph fresh without requiring users to remember `/build-graph` manually.
+## Arguments
+
+- `--quick` — Skip the commit mode question, commit immediately after task check
+- `--push` — Commit and push in one step
 
 ## Notes
 
 - Housekeeping runs on EVERY commit, keeping the task queue tidy automatically
 - The task check matches on partial paths — a task for `apps/web/src/components/foo.tsx` matches a staged file with the same relative path
-- This skill replaces the need to manually run `/review-tasks clean` and `/review-tasks archive`
 - Severity gate blocks on ALL severities — Critical, High, AND Moderate
+- Companion plugin checks are additive — they only appear when the plugin is installed
+- `--quick` is for when you just need to save work without ceremony

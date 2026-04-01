@@ -1,0 +1,6 @@
+{
+  "composure-graph": {
+    "command": "node",
+    "args": ["--experimental-sqlite", "${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"]
+  }
+}

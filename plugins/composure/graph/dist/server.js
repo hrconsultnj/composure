@@ -2981,7 +2981,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve6.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3008,7 +3008,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve6(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3583,7 +3583,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve6(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3810,7 +3810,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve6,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -18871,7 +18871,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -18888,7 +18888,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -18966,7 +18966,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve6(parseResult.data);
+            resolve7(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -19227,12 +19227,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve6, interval);
+      const timeoutId = setTimeout(resolve7, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -20332,7 +20332,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -20975,12 +20975,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve6();
+        resolve7();
       } else {
-        this._stdout.once("drain", resolve6);
+        this._stdout.once("drain", resolve7);
       }
     });
   }
@@ -21424,8 +21424,8 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
-import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { dirname as dirname7, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -23007,13 +23007,13 @@ async function Module2(moduleArg = {}) {
       }
       readAsync = /* @__PURE__ */ __name(async (url) => {
         if (isFileURI(url)) {
-          return new Promise((resolve6, reject) => {
+          return new Promise((resolve7, reject) => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
             xhr.responseType = "arraybuffer";
             xhr.onload = () => {
               if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                resolve6(xhr.response);
+                resolve7(xhr.response);
                 return;
               }
               reject(xhr.status);
@@ -23209,9 +23209,9 @@ async function Module2(moduleArg = {}) {
     __name(receiveInstantiationResult, "receiveInstantiationResult");
     var info2 = getWasmImports();
     if (Module["instantiateWasm"]) {
-      return new Promise((resolve6, reject) => {
+      return new Promise((resolve7, reject) => {
         Module["instantiateWasm"](info2, (mod, inst) => {
-          resolve6(receiveInstance(mod, inst));
+          resolve7(receiveInstance(mod, inst));
         });
       });
     }
@@ -24542,8 +24542,8 @@ async function Module2(moduleArg = {}) {
   if (runtimeInitialized) {
     moduleRtn = Module;
   } else {
-    moduleRtn = new Promise((resolve6, reject) => {
-      readyPromiseResolve = resolve6;
+    moduleRtn = new Promise((resolve7, reject) => {
+      readyPromiseResolve = resolve7;
       readyPromiseReject = reject;
     });
   }
@@ -25612,15 +25612,20 @@ function isConfigFile(filePath) {
   return false;
 }
 var MD_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".mdx"]);
+var SH_EXTENSIONS = /* @__PURE__ */ new Set([".sh"]);
 function isParseable(filePath) {
   const ext = extname(filePath).toLowerCase();
   if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext))
+    return true;
+  if (SH_EXTENSIONS.has(ext))
     return true;
   if (PKG_FILENAMES.has(basename(filePath)))
     return true;
   if (isConfigFile(filePath))
     return true;
   if (MD_EXTENSIONS.has(ext))
+    return true;
+  if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/"))
     return true;
   return false;
 }
@@ -27368,8 +27373,329 @@ function sanitizeName(heading) {
   return heading.replace(/[`*_#[\](){}]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
-// dist/entities.js
+// dist/sh-parser.js
 import { readFileSync as readFileSync6 } from "node:fs";
+import { basename as basename6, dirname as dirname6, extname as extname5, resolve as resolve2 } from "node:path";
+function isShParseable(filePath) {
+  const ext = extname5(filePath).toLowerCase();
+  if (ext === ".sh")
+    return true;
+  if (basename6(filePath) === "hooks.json" && filePath.includes("/hooks/"))
+    return true;
+  return false;
+}
+function qualify6(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function parseShFile(filePath) {
+  if (basename6(filePath) === "hooks.json") {
+    return parseHooksJson(filePath);
+  }
+  return parseShellScript(filePath);
+}
+function parseShellScript(filePath) {
+  let content;
+  try {
+    content = readFileSync6(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+  const name2 = basename6(filePath);
+  const purpose = detectPurpose(filePath, content);
+  const isHook = filePath.includes("/hooks/") || purpose === "hook";
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "bash",
+    is_test: false,
+    extra: {
+      scriptType: isHook ? "hook" : "script",
+      purpose,
+      hasSetE: content.includes("set -e") || content.includes("set -euo"),
+      hasPipefail: content.includes("pipefail"),
+      usesJq: content.includes("jq ") || content.includes("jq -"),
+      readsStdin: content.includes("$(cat)") || content.includes("read ")
+    }
+  });
+  let currentFunc = null;
+  let funcStartLine = 0;
+  let braceDepth = 0;
+  let inFunction = false;
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const trimmed = line.trim();
+    const lineNum = i2 + 1;
+    if (trimmed.startsWith("#") || trimmed === "")
+      continue;
+    const funcMatch = trimmed.match(/^(?:function\s+)?(\w+)\s*\(\s*\)\s*\{?\s*$|^function\s+(\w+)\s*\{?\s*$/);
+    if (funcMatch) {
+      const funcName = funcMatch[1] ?? funcMatch[2];
+      if (funcName && !isBuiltinKeyword(funcName)) {
+        const funcEnd = findFunctionEnd(lines, i2);
+        nodes.push({
+          kind: "Function",
+          name: funcName,
+          file_path: filePath,
+          line_start: lineNum,
+          line_end: funcEnd,
+          language: "bash",
+          parent_name: void 0,
+          is_test: false,
+          extra: { shellFunction: true }
+        });
+        edges.push({
+          kind: "CONTAINS",
+          source: filePath,
+          target: qualify6(funcName, filePath, null),
+          file_path: filePath,
+          line: lineNum
+        });
+        currentFunc = funcName;
+        funcStartLine = lineNum;
+        inFunction = true;
+        braceDepth = 1;
+        continue;
+      }
+    }
+    if (inFunction) {
+      for (const ch of trimmed) {
+        if (ch === "{")
+          braceDepth++;
+        if (ch === "}")
+          braceDepth--;
+      }
+      if (braceDepth <= 0) {
+        currentFunc = null;
+        inFunction = false;
+      }
+    }
+    const sourceMatch = trimmed.match(/^(?:source|\.)\s+["']?([^"'\s;#]+)["']?/);
+    if (sourceMatch) {
+      const sourcePath = resolveShellPath(sourceMatch[1], filePath);
+      edges.push({
+        kind: "IMPORTS_FROM",
+        source: filePath,
+        target: sourcePath,
+        file_path: filePath,
+        line: lineNum
+      });
+      continue;
+    }
+    const execMatch = trimmed.match(/\b(bash|sh|node|python3?|ruby|npx|pnpm|npm|yarn|go\s+run|cargo\s+run)\s+["']?([^"'\s;#|&]+)/);
+    if (execMatch) {
+      const command = execMatch[1];
+      const target = execMatch[2];
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      if (target.match(/\.\w+$|^[.$/]/)) {
+        const resolvedTarget = resolveShellPath(target, filePath);
+        edges.push({
+          kind: "CALLS",
+          source: caller,
+          target: resolvedTarget,
+          file_path: filePath,
+          line: lineNum,
+          extra: { via: command }
+        });
+      }
+    }
+    const pathRefs = trimmed.matchAll(/["']([./][\w/.${}-]+\.(?:sh|ts|js|json|py|go|rs|yaml|yml|toml|sql))\b["']?/g);
+    for (const match of pathRefs) {
+      const refPath = match[1];
+      if (refPath.includes("*"))
+        continue;
+      const resolvedRef = resolveShellPath(refPath, filePath);
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      edges.push({
+        kind: "REFERENCES",
+        source: caller,
+        target: resolvedRef,
+        file_path: filePath,
+        line: lineNum,
+        extra: { type: "file-reference" }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function parseHooksJson(filePath) {
+  let content;
+  try {
+    content = readFileSync6(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  let config2;
+  try {
+    config2 = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const name2 = basename6(filePath);
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines.length,
+    language: "json",
+    is_test: false,
+    extra: { configType: "hooks" }
+  });
+  if (!config2.hooks)
+    return { nodes, edges };
+  for (const [eventType, matchers] of Object.entries(config2.hooks)) {
+    if (!Array.isArray(matchers))
+      continue;
+    for (const matcherGroup of matchers) {
+      const matcher = matcherGroup.matcher ?? "*";
+      const hookList = matcherGroup.hooks ?? [];
+      for (const hook of hookList) {
+        if (hook.type !== "command" || !hook.command)
+          continue;
+        const scriptMatch = hook.command.match(/(?:bash|sh|node|python3?)\s+["']?(?:\$\{?\w+\}?\/)?([^"'\s]+\.(?:sh|js|py|ts))["']?/);
+        if (scriptMatch) {
+          const scriptRelPath = scriptMatch[1];
+          const hooksDir = dirname6(filePath);
+          const pluginRoot = dirname6(hooksDir);
+          const scriptAbsPath = resolve2(pluginRoot, scriptRelPath);
+          const hookName = `${eventType}:${matcher}\u2192${basename6(scriptRelPath)}`;
+          nodes.push({
+            kind: "Script",
+            name: hookName,
+            file_path: filePath,
+            line_start: findLineInContent(content, scriptRelPath),
+            line_end: findLineInContent(content, scriptRelPath),
+            language: "json",
+            is_test: false,
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher,
+              scriptPath: scriptRelPath
+            }
+          });
+          edges.push({
+            kind: "CONTAINS",
+            source: filePath,
+            target: qualify6(hookName, filePath, null),
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath)
+          });
+          edges.push({
+            kind: "CALLS",
+            source: qualify6(hookName, filePath, null),
+            target: scriptAbsPath,
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath),
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher
+            }
+          });
+        }
+      }
+    }
+  }
+  return { nodes, edges };
+}
+function findFunctionEnd(lines, startLine) {
+  let depth = 0;
+  let foundOpen = false;
+  for (let i2 = startLine; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    for (const ch of line) {
+      if (ch === "{") {
+        depth++;
+        foundOpen = true;
+      }
+      if (ch === "}")
+        depth--;
+    }
+    if (foundOpen && depth <= 0)
+      return i2 + 1;
+  }
+  return lines.length;
+}
+function resolveShellPath(raw, fromFile) {
+  if (raw.includes("CLAUDE_PLUGIN_ROOT") || raw.includes("PLUGIN_ROOT")) {
+    return raw;
+  }
+  if (raw.startsWith("./") || raw.startsWith("../")) {
+    return resolve2(dirname6(fromFile), raw);
+  }
+  if (raw.startsWith("$"))
+    return raw;
+  if (raw.startsWith("/"))
+    return raw;
+  return resolve2(dirname6(fromFile), raw);
+}
+function detectPurpose(filePath, content) {
+  const name2 = basename6(filePath, ".sh").toLowerCase();
+  const firstLines = content.slice(0, 500).toLowerCase();
+  if (filePath.includes("/hooks/"))
+    return "hook";
+  if (name2.includes("init") || name2.includes("setup"))
+    return "initialization";
+  if (name2.includes("build") || name2.includes("compile"))
+    return "build";
+  if (name2.includes("test") || name2.includes("spec"))
+    return "test";
+  if (name2.includes("deploy") || name2.includes("release"))
+    return "deployment";
+  if (name2.includes("lint") || name2.includes("check") || name2.includes("guard"))
+    return "guard";
+  if (name2.includes("generate") || name2.includes("scaffold"))
+    return "codegen";
+  if (name2.includes("sync") || name2.includes("update"))
+    return "sync";
+  if (firstLines.includes("pretooluse") || firstLines.includes("posttooluse"))
+    return "hook";
+  return "utility";
+}
+function isBuiltinKeyword(name2) {
+  const BUILTINS = /* @__PURE__ */ new Set([
+    "if",
+    "then",
+    "else",
+    "elif",
+    "fi",
+    "for",
+    "while",
+    "do",
+    "done",
+    "case",
+    "esac",
+    "in",
+    "select",
+    "until",
+    "coproc",
+    "time"
+  ]);
+  return BUILTINS.has(name2);
+}
+function findLineInContent(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 1;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+
+// dist/entities.js
+import { readFileSync as readFileSync7 } from "node:fs";
 import { relative } from "node:path";
 var STRIP_PREFIXES = /* @__PURE__ */ new Set(["user_", "admin_", "public_", "auth_"]);
 function normalizeEntityName(raw) {
@@ -27468,7 +27794,7 @@ function detectAndStoreEntities(store, repoRoot) {
     if (!rel.includes("migration") && !filePath.endsWith(".sql"))
       continue;
     try {
-      const content = readFileSync6(filePath, "utf-8");
+      const content = readFileSync7(filePath, "utf-8");
       const tableMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi);
       for (const match of tableMatches) {
         const tableName = match[1];
@@ -27640,11 +27966,11 @@ function shouldIgnore(filePath) {
   return parts2.some((p) => DEFAULT_IGNORES.has(p));
 }
 function findRepoRoot(start2) {
-  let dir = start2 ? resolve2(start2) : process.cwd();
+  let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
     if (existsSync4(join3(dir, ".git")))
       return dir;
-    const parent = dirname6(dir);
+    const parent = dirname7(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -27672,20 +27998,20 @@ function getChangedFiles(repoRoot, base = "HEAD~1") {
   const output = execGit(["diff", "--name-only", base], repoRoot);
   if (!output)
     return [];
-  return output.split("\n").filter(Boolean).map((f) => resolve2(repoRoot, f));
+  return output.split("\n").filter(Boolean).map((f) => resolve3(repoRoot, f));
 }
 function getStagedAndUnstaged(repoRoot) {
   const output = execGit(["status", "--porcelain"], repoRoot);
   if (!output)
     return [];
-  return output.split("\n").filter(Boolean).map((line) => line.slice(3).trim()).filter(Boolean).map((f) => resolve2(repoRoot, f));
+  return output.split("\n").filter(Boolean).map((line) => line.slice(3).trim()).filter(Boolean).map((f) => resolve3(repoRoot, f));
 }
 function collectAllFiles(repoRoot) {
   const output = execGit(["ls-files"], repoRoot);
   if (!output)
     return [];
   const extraIgnores = loadIgnorePatterns(repoRoot);
-  return output.split("\n").filter(Boolean).map((f) => resolve2(repoRoot, f)).filter((f) => {
+  return output.split("\n").filter(Boolean).map((f) => resolve3(repoRoot, f)).filter((f) => {
     const rel = relative2(repoRoot, f);
     if (shouldIgnore(rel))
       return false;
@@ -27705,7 +28031,7 @@ function loadIgnorePatterns(repoRoot) {
   if (!existsSync4(ignorePath))
     return [];
   try {
-    return readFileSync7(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    return readFileSync8(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch {
     return [];
   }
@@ -27729,6 +28055,8 @@ function routeParse(filePath, tsParser) {
     return parseConfigFile(filePath);
   if (isMdParseable(filePath))
     return parseMdFile(filePath);
+  if (isShParseable(filePath))
+    return parseShFile(filePath);
   if (tsParser)
     return tsParser.parseFile(filePath);
   return { nodes: [], edges: [] };
@@ -27869,7 +28197,7 @@ async function buildOrUpdateGraph(params) {
 }
 
 // dist/tools/query-graph.js
-import { resolve as resolve3 } from "node:path";
+import { resolve as resolve4 } from "node:path";
 var BUILTIN_NAMES = /* @__PURE__ */ new Set([
   "map",
   "filter",
@@ -28014,7 +28342,7 @@ function queryGraph(params) {
     let node = store.getNode(target);
     let resolvedTarget = target;
     if (!node) {
-      const absTarget = resolve3(root, target);
+      const absTarget = resolve4(root, target);
       node = store.getNode(absTarget);
       if (node)
         resolvedTarget = absTarget;
@@ -28080,8 +28408,8 @@ function queryGraph(params) {
 }
 
 // dist/tools/get-review-context.js
-import { readFileSync as readFileSync8 } from "node:fs";
-import { relative as relative3, resolve as resolve4 } from "node:path";
+import { readFileSync as readFileSync9 } from "node:fs";
+import { relative as relative3, resolve as resolve5 } from "node:path";
 
 // dist/bfs.js
 function buildAdjacencyList(edges) {
@@ -28195,7 +28523,7 @@ function getReviewContext(params) {
     };
   }
   try {
-    let changedFiles = params.changed_files?.map((f) => resolve4(root, f));
+    let changedFiles = params.changed_files?.map((f) => resolve5(root, f));
     if (!changedFiles || changedFiles.length === 0) {
       changedFiles = [
         .../* @__PURE__ */ new Set([
@@ -28222,7 +28550,7 @@ function getReviewContext(params) {
     if (includeSource) {
       for (const f of changedFiles) {
         try {
-          const content = readFileSync8(f, "utf-8");
+          const content = readFileSync9(f, "utf-8");
           const lines = content.split("\n");
           const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
 ... (${lines.length - maxLines} more lines)` : content;
@@ -28432,7 +28760,7 @@ function listGraphStats(params) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename6, dirname as dirname7, join as join4, relative as relative5, resolve as resolve5 } from "node:path";
+import { basename as basename7, dirname as dirname8, join as join4, relative as relative5, resolve as resolve6 } from "node:path";
 
 // dist/html-template.js
 function generateGraphHtml(data) {
@@ -29142,7 +29470,7 @@ var CATEGORY_RULES = [
   // Fallback handled separately
 ];
 function detectCategory(relPath) {
-  const name2 = basename6(relPath);
+  const name2 = basename7(relPath);
   for (const rule of CATEGORY_RULES) {
     if (rule.match(relPath, name2))
       return rule.key;
@@ -29152,8 +29480,8 @@ function detectCategory(relPath) {
 function resolveImportTarget(specifier, sourceFile, fileSet) {
   if (!specifier.startsWith("."))
     return null;
-  const sourceDir = dirname7(sourceFile);
-  const base = resolve5(sourceDir, specifier);
+  const sourceDir = dirname8(sourceFile);
+  const base = resolve6(sourceDir, specifier);
   if (fileSet.has(base))
     return base;
   const stripped = base.replace(/\.(js|mjs|jsx)$/, "");
@@ -29208,7 +29536,7 @@ function extractVisNodes(store, repoRoot) {
     const isTest = fileNodes.some((n) => n.is_test);
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
-    const name2 = basename6(filePath);
+    const name2 = basename7(filePath);
     const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name2);
     const parts2 = relPath.split("/");
     const label = isGenericName && parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + name2 : name2;
@@ -29263,7 +29591,7 @@ function generateGraphHtmlTool(params) {
         memberIds: memberFileIds
       };
     });
-    const repoName = basename6(root);
+    const repoName = basename7(root);
     const html = generateGraphHtml({
       nodes,
       entities,
@@ -29386,7 +29714,7 @@ function entityScope(params) {
 
 // dist/tools/run-audit.js
 import { execFileSync as execFileSync2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync9 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync10 } from "node:fs";
 import { join as join5, relative as relative6 } from "node:path";
 
 // dist/audit-store.js
@@ -29872,7 +30200,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
   const tasksPath = join5(repoRoot, "tasks-plans", "tasks.md");
   if (existsSync5(tasksPath)) {
     try {
-      const content = readFileSync9(tasksPath, "utf-8");
+      const content = readFileSync10(tasksPath, "utf-8");
       const openCount = (content.match(/^- \[ \]/gm) || []).length;
       if (openCount > 0) {
         const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
@@ -30073,11 +30401,11 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync6, readFileSync as readFileSync10, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
-import { basename as basename7, dirname as dirname8, join as join6 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync11, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename8, dirname as dirname9, join as join6 } from "node:path";
 function findTemplateDir() {
   const candidates = [
-    join6(dirname8(import.meta.dirname ?? __dirname), "..", "..", "skills", "project-audit", "templates"),
+    join6(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "project-audit", "templates"),
     // Fallback: check CLAUDE_PLUGIN_ROOT
     process.env.CLAUDE_PLUGIN_ROOT ? join6(process.env.CLAUDE_PLUGIN_ROOT, "skills", "project-audit", "templates") : ""
   ].filter(Boolean);
@@ -30088,7 +30416,7 @@ function findTemplateDir() {
   return null;
 }
 function readTemplate(dir, name2) {
-  return readFileSync10(join6(dir, name2), "utf-8");
+  return readFileSync11(join6(dir, name2), "utf-8");
 }
 function coverageColor(pct) {
   if (pct >= 80)
@@ -30117,7 +30445,7 @@ function buildReplacementMap(store, runId, repoRoot) {
   const secFindings = findingCounts["security"] ?? {};
   const securityRows = findings.filter((f) => f.category === "security").slice(0, 10).map((f) => `<tr><td><span class="badge badge-${f.severity}">${f.severity}</span></td><td>${escHtml(f.title)}</td><td class="path">${escHtml(f.file_path ?? "dependency")}</td></tr>`).join("\n");
   const untestedRows = gaps.slice(0, 15).map((g) => `<tr><td class="path">${escHtml(g.file_path)}</td><td>${escHtml(g.node_qualified_name.split("::").pop() ?? "")}</td></tr>`).join("\n");
-  const repoName = basename7(repoRoot);
+  const repoName = basename8(repoRoot);
   return {
     "{{PROJECT_NAME}}": escHtml(repoName),
     "{{OVERALL_GRADE}}": overall.grade,

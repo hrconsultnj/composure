@@ -3,7 +3,7 @@ import { createRequire } from 'module'; const require = createRequire(import.met
 
 // dist/update.js
 import { existsSync as existsSync5 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { resolve as resolve4 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -1585,13 +1585,13 @@ async function Module2(moduleArg = {}) {
       }
       readAsync = /* @__PURE__ */ __name(async (url) => {
         if (isFileURI(url)) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve5, reject) => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
             xhr.responseType = "arraybuffer";
             xhr.onload = () => {
               if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                resolve4(xhr.response);
+                resolve5(xhr.response);
                 return;
               }
               reject(xhr.status);
@@ -1787,9 +1787,9 @@ async function Module2(moduleArg = {}) {
     __name(receiveInstantiationResult, "receiveInstantiationResult");
     var info2 = getWasmImports();
     if (Module["instantiateWasm"]) {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         Module["instantiateWasm"](info2, (mod, inst) => {
-          resolve4(receiveInstance(mod, inst));
+          resolve5(receiveInstance(mod, inst));
         });
       });
     }
@@ -3120,8 +3120,8 @@ async function Module2(moduleArg = {}) {
   if (runtimeInitialized) {
     moduleRtn = Module;
   } else {
-    moduleRtn = new Promise((resolve4, reject) => {
-      readyPromiseResolve = resolve4;
+    moduleRtn = new Promise((resolve5, reject) => {
+      readyPromiseResolve = resolve5;
       readyPromiseReject = reject;
     });
   }
@@ -4190,15 +4190,20 @@ function isConfigFile(filePath) {
   return false;
 }
 var MD_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".mdx"]);
+var SH_EXTENSIONS = /* @__PURE__ */ new Set([".sh"]);
 function isParseable(filePath) {
   const ext = extname(filePath).toLowerCase();
   if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext))
+    return true;
+  if (SH_EXTENSIONS.has(ext))
     return true;
   if (PKG_FILENAMES.has(basename(filePath)))
     return true;
   if (isConfigFile(filePath))
     return true;
   if (MD_EXTENSIONS.has(ext))
+    return true;
+  if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/"))
     return true;
   return false;
 }
@@ -4993,8 +4998,8 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
-import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { dirname as dirname7, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/sql-parser.js
 import { readFileSync as readFileSync2 } from "node:fs";
@@ -6362,17 +6367,338 @@ function sanitizeName(heading) {
   return heading.replace(/[`*_#[\](){}]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
-// dist/entities.js
+// dist/sh-parser.js
 import { readFileSync as readFileSync6 } from "node:fs";
+import { basename as basename6, dirname as dirname6, extname as extname5, resolve as resolve2 } from "node:path";
+function isShParseable(filePath) {
+  const ext = extname5(filePath).toLowerCase();
+  if (ext === ".sh")
+    return true;
+  if (basename6(filePath) === "hooks.json" && filePath.includes("/hooks/"))
+    return true;
+  return false;
+}
+function qualify6(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function parseShFile(filePath) {
+  if (basename6(filePath) === "hooks.json") {
+    return parseHooksJson(filePath);
+  }
+  return parseShellScript(filePath);
+}
+function parseShellScript(filePath) {
+  let content;
+  try {
+    content = readFileSync6(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+  const name2 = basename6(filePath);
+  const purpose = detectPurpose(filePath, content);
+  const isHook = filePath.includes("/hooks/") || purpose === "hook";
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "bash",
+    is_test: false,
+    extra: {
+      scriptType: isHook ? "hook" : "script",
+      purpose,
+      hasSetE: content.includes("set -e") || content.includes("set -euo"),
+      hasPipefail: content.includes("pipefail"),
+      usesJq: content.includes("jq ") || content.includes("jq -"),
+      readsStdin: content.includes("$(cat)") || content.includes("read ")
+    }
+  });
+  let currentFunc = null;
+  let funcStartLine = 0;
+  let braceDepth = 0;
+  let inFunction = false;
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const trimmed = line.trim();
+    const lineNum = i2 + 1;
+    if (trimmed.startsWith("#") || trimmed === "")
+      continue;
+    const funcMatch = trimmed.match(/^(?:function\s+)?(\w+)\s*\(\s*\)\s*\{?\s*$|^function\s+(\w+)\s*\{?\s*$/);
+    if (funcMatch) {
+      const funcName = funcMatch[1] ?? funcMatch[2];
+      if (funcName && !isBuiltinKeyword(funcName)) {
+        const funcEnd = findFunctionEnd(lines, i2);
+        nodes.push({
+          kind: "Function",
+          name: funcName,
+          file_path: filePath,
+          line_start: lineNum,
+          line_end: funcEnd,
+          language: "bash",
+          parent_name: void 0,
+          is_test: false,
+          extra: { shellFunction: true }
+        });
+        edges.push({
+          kind: "CONTAINS",
+          source: filePath,
+          target: qualify6(funcName, filePath, null),
+          file_path: filePath,
+          line: lineNum
+        });
+        currentFunc = funcName;
+        funcStartLine = lineNum;
+        inFunction = true;
+        braceDepth = 1;
+        continue;
+      }
+    }
+    if (inFunction) {
+      for (const ch of trimmed) {
+        if (ch === "{")
+          braceDepth++;
+        if (ch === "}")
+          braceDepth--;
+      }
+      if (braceDepth <= 0) {
+        currentFunc = null;
+        inFunction = false;
+      }
+    }
+    const sourceMatch = trimmed.match(/^(?:source|\.)\s+["']?([^"'\s;#]+)["']?/);
+    if (sourceMatch) {
+      const sourcePath = resolveShellPath(sourceMatch[1], filePath);
+      edges.push({
+        kind: "IMPORTS_FROM",
+        source: filePath,
+        target: sourcePath,
+        file_path: filePath,
+        line: lineNum
+      });
+      continue;
+    }
+    const execMatch = trimmed.match(/\b(bash|sh|node|python3?|ruby|npx|pnpm|npm|yarn|go\s+run|cargo\s+run)\s+["']?([^"'\s;#|&]+)/);
+    if (execMatch) {
+      const command = execMatch[1];
+      const target = execMatch[2];
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      if (target.match(/\.\w+$|^[.$/]/)) {
+        const resolvedTarget = resolveShellPath(target, filePath);
+        edges.push({
+          kind: "CALLS",
+          source: caller,
+          target: resolvedTarget,
+          file_path: filePath,
+          line: lineNum,
+          extra: { via: command }
+        });
+      }
+    }
+    const pathRefs = trimmed.matchAll(/["']([./][\w/.${}-]+\.(?:sh|ts|js|json|py|go|rs|yaml|yml|toml|sql))\b["']?/g);
+    for (const match of pathRefs) {
+      const refPath = match[1];
+      if (refPath.includes("*"))
+        continue;
+      const resolvedRef = resolveShellPath(refPath, filePath);
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      edges.push({
+        kind: "REFERENCES",
+        source: caller,
+        target: resolvedRef,
+        file_path: filePath,
+        line: lineNum,
+        extra: { type: "file-reference" }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function parseHooksJson(filePath) {
+  let content;
+  try {
+    content = readFileSync6(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  let config;
+  try {
+    config = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const name2 = basename6(filePath);
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines.length,
+    language: "json",
+    is_test: false,
+    extra: { configType: "hooks" }
+  });
+  if (!config.hooks)
+    return { nodes, edges };
+  for (const [eventType, matchers] of Object.entries(config.hooks)) {
+    if (!Array.isArray(matchers))
+      continue;
+    for (const matcherGroup of matchers) {
+      const matcher = matcherGroup.matcher ?? "*";
+      const hookList = matcherGroup.hooks ?? [];
+      for (const hook of hookList) {
+        if (hook.type !== "command" || !hook.command)
+          continue;
+        const scriptMatch = hook.command.match(/(?:bash|sh|node|python3?)\s+["']?(?:\$\{?\w+\}?\/)?([^"'\s]+\.(?:sh|js|py|ts))["']?/);
+        if (scriptMatch) {
+          const scriptRelPath = scriptMatch[1];
+          const hooksDir = dirname6(filePath);
+          const pluginRoot = dirname6(hooksDir);
+          const scriptAbsPath = resolve2(pluginRoot, scriptRelPath);
+          const hookName = `${eventType}:${matcher}\u2192${basename6(scriptRelPath)}`;
+          nodes.push({
+            kind: "Script",
+            name: hookName,
+            file_path: filePath,
+            line_start: findLineInContent(content, scriptRelPath),
+            line_end: findLineInContent(content, scriptRelPath),
+            language: "json",
+            is_test: false,
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher,
+              scriptPath: scriptRelPath
+            }
+          });
+          edges.push({
+            kind: "CONTAINS",
+            source: filePath,
+            target: qualify6(hookName, filePath, null),
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath)
+          });
+          edges.push({
+            kind: "CALLS",
+            source: qualify6(hookName, filePath, null),
+            target: scriptAbsPath,
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath),
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher
+            }
+          });
+        }
+      }
+    }
+  }
+  return { nodes, edges };
+}
+function findFunctionEnd(lines, startLine) {
+  let depth = 0;
+  let foundOpen = false;
+  for (let i2 = startLine; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    for (const ch of line) {
+      if (ch === "{") {
+        depth++;
+        foundOpen = true;
+      }
+      if (ch === "}")
+        depth--;
+    }
+    if (foundOpen && depth <= 0)
+      return i2 + 1;
+  }
+  return lines.length;
+}
+function resolveShellPath(raw, fromFile) {
+  if (raw.includes("CLAUDE_PLUGIN_ROOT") || raw.includes("PLUGIN_ROOT")) {
+    return raw;
+  }
+  if (raw.startsWith("./") || raw.startsWith("../")) {
+    return resolve2(dirname6(fromFile), raw);
+  }
+  if (raw.startsWith("$"))
+    return raw;
+  if (raw.startsWith("/"))
+    return raw;
+  return resolve2(dirname6(fromFile), raw);
+}
+function detectPurpose(filePath, content) {
+  const name2 = basename6(filePath, ".sh").toLowerCase();
+  const firstLines = content.slice(0, 500).toLowerCase();
+  if (filePath.includes("/hooks/"))
+    return "hook";
+  if (name2.includes("init") || name2.includes("setup"))
+    return "initialization";
+  if (name2.includes("build") || name2.includes("compile"))
+    return "build";
+  if (name2.includes("test") || name2.includes("spec"))
+    return "test";
+  if (name2.includes("deploy") || name2.includes("release"))
+    return "deployment";
+  if (name2.includes("lint") || name2.includes("check") || name2.includes("guard"))
+    return "guard";
+  if (name2.includes("generate") || name2.includes("scaffold"))
+    return "codegen";
+  if (name2.includes("sync") || name2.includes("update"))
+    return "sync";
+  if (firstLines.includes("pretooluse") || firstLines.includes("posttooluse"))
+    return "hook";
+  return "utility";
+}
+function isBuiltinKeyword(name2) {
+  const BUILTINS = /* @__PURE__ */ new Set([
+    "if",
+    "then",
+    "else",
+    "elif",
+    "fi",
+    "for",
+    "while",
+    "do",
+    "done",
+    "case",
+    "esac",
+    "in",
+    "select",
+    "until",
+    "coproc",
+    "time"
+  ]);
+  return BUILTINS.has(name2);
+}
+function findLineInContent(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 1;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+
+// dist/entities.js
+import { readFileSync as readFileSync7 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
-  let dir = start2 ? resolve2(start2) : process.cwd();
+  let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
     if (existsSync4(join3(dir, ".git")))
       return dir;
-    const parent = dirname6(dir);
+    const parent = dirname7(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -6403,12 +6729,14 @@ function routeParse(filePath, tsParser) {
     return parseConfigFile(filePath);
   if (isMdParseable(filePath))
     return parseMdFile(filePath);
+  if (isShParseable(filePath))
+    return parseShFile(filePath);
   if (tsParser)
     return tsParser.parseFile(filePath);
   return { nodes: [], edges: [] };
 }
 async function singleFileUpdate(repoRoot, store, filePath) {
-  const absPath = resolve2(repoRoot, filePath);
+  const absPath = resolve3(repoRoot, filePath);
   if (!existsSync4(absPath)) {
     store.removeFileData(absPath);
     return;
@@ -6416,7 +6744,7 @@ async function singleFileUpdate(repoRoot, store, filePath) {
   if (!isParseable(absPath))
     return;
   let tsParser = null;
-  if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath)) {
+  if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath) && !isShParseable(absPath)) {
     tsParser = new CodeParser();
     await tsParser.init();
   }
@@ -6434,7 +6762,7 @@ async function singleFileUpdate(repoRoot, store, filePath) {
           const depHash = fileHash(dep);
           const existing = store.getNode(dep);
           if (existing?.file_hash !== depHash) {
-            if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep)) {
+            if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep) && !isShParseable(dep)) {
               depTsParser = new CodeParser();
               await depTsParser.init();
             }
@@ -6464,7 +6792,7 @@ async function main() {
   if (!filePath) {
     process.exit(0);
   }
-  filePath = resolve3(filePath);
+  filePath = resolve4(filePath);
   if (!isParseable(filePath)) {
     process.exit(0);
   }

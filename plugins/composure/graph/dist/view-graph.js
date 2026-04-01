@@ -6,8 +6,8 @@ import { existsSync as existsSync5 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
-import { dirname as dirname5, join as join3, relative as relative2, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
@@ -1589,13 +1589,13 @@ async function Module2(moduleArg = {}) {
       }
       readAsync = /* @__PURE__ */ __name(async (url) => {
         if (isFileURI(url)) {
-          return new Promise((resolve4, reject) => {
+          return new Promise((resolve5, reject) => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
             xhr.responseType = "arraybuffer";
             xhr.onload = () => {
               if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                resolve4(xhr.response);
+                resolve5(xhr.response);
                 return;
               }
               reject(xhr.status);
@@ -1791,9 +1791,9 @@ async function Module2(moduleArg = {}) {
     __name(receiveInstantiationResult, "receiveInstantiationResult");
     var info2 = getWasmImports();
     if (Module["instantiateWasm"]) {
-      return new Promise((resolve4, reject) => {
+      return new Promise((resolve5, reject) => {
         Module["instantiateWasm"](info2, (mod, inst) => {
-          resolve4(receiveInstance(mod, inst));
+          resolve5(receiveInstance(mod, inst));
         });
       });
     }
@@ -3124,8 +3124,8 @@ async function Module2(moduleArg = {}) {
   if (runtimeInitialized) {
     moduleRtn = Module;
   } else {
-    moduleRtn = new Promise((resolve4, reject) => {
-      readyPromiseResolve = resolve4;
+    moduleRtn = new Promise((resolve5, reject) => {
+      readyPromiseResolve = resolve5;
       readyPromiseReject = reject;
     });
   }
@@ -4022,17 +4022,21 @@ import { basename as basename4, extname as extname3 } from "node:path";
 import { readFileSync as readFileSync5 } from "node:fs";
 import { basename as basename5, dirname as dirname4, extname as extname4 } from "node:path";
 
-// dist/entities.js
+// dist/sh-parser.js
 import { readFileSync as readFileSync6 } from "node:fs";
+import { basename as basename6, dirname as dirname5, extname as extname5, resolve as resolve2 } from "node:path";
+
+// dist/entities.js
+import { readFileSync as readFileSync7 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
-  let dir = start2 ? resolve2(start2) : process.cwd();
+  let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
     if (existsSync3(join3(dir, ".git")))
       return dir;
-    const parent = dirname5(dir);
+    const parent = dirname6(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -4047,12 +4051,12 @@ function getDbPath(repoRoot) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename6, dirname as dirname7, join as join4, relative as relative3, resolve as resolve3 } from "node:path";
+import { basename as basename7, dirname as dirname8, join as join4, relative as relative3, resolve as resolve4 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
 import { existsSync as existsSync4, mkdirSync, writeFileSync } from "node:fs";
-import { dirname as dirname6 } from "node:path";
+import { dirname as dirname7 } from "node:path";
 
 // dist/serialization.js
 function makeQualifiedName(node) {
@@ -4208,7 +4212,7 @@ CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
 var GraphStore = class {
   db;
   constructor(dbPath) {
-    const dir = dirname6(dbPath);
+    const dir = dirname7(dbPath);
     if (!existsSync4(dir)) {
       mkdirSync(dir, { recursive: true });
       const gitignorePath = `${dir}/.gitignore`;
@@ -5168,7 +5172,7 @@ var CATEGORY_RULES = [
   // Fallback handled separately
 ];
 function detectCategory(relPath) {
-  const name2 = basename6(relPath);
+  const name2 = basename7(relPath);
   for (const rule of CATEGORY_RULES) {
     if (rule.match(relPath, name2))
       return rule.key;
@@ -5178,8 +5182,8 @@ function detectCategory(relPath) {
 function resolveImportTarget(specifier, sourceFile, fileSet) {
   if (!specifier.startsWith("."))
     return null;
-  const sourceDir = dirname7(sourceFile);
-  const base = resolve3(sourceDir, specifier);
+  const sourceDir = dirname8(sourceFile);
+  const base = resolve4(sourceDir, specifier);
   if (fileSet.has(base))
     return base;
   const stripped = base.replace(/\.(js|mjs|jsx)$/, "");
@@ -5234,7 +5238,7 @@ function extractVisNodes(store, repoRoot) {
     const isTest = fileNodes.some((n) => n.is_test);
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
-    const name2 = basename6(filePath);
+    const name2 = basename7(filePath);
     const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name2);
     const parts2 = relPath.split("/");
     const label = isGenericName && parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + name2 : name2;
@@ -5289,7 +5293,7 @@ function generateGraphHtmlTool(params) {
         memberIds: memberFileIds
       };
     });
-    const repoName = basename6(root);
+    const repoName = basename7(root);
     const html = generateGraphHtml({
       nodes,
       entities,

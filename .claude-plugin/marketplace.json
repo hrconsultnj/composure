@@ -29,7 +29,7 @@
       "name": "design-forge",
       "source": "./plugins/design-forge",
       "description": "Premium web design patterns — 33 production components, 10 reference guides, canvas presets, animation recipes, 3D integration, accessibility, AI design research",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "category": "design",
       "keywords": [
         "design",
@@ -49,7 +49,7 @@
       "name": "sentinel",
       "source": "./plugins/sentinel",
       "description": "Security scanning plugin — secret detection hooks, insecure pattern blocking, dependency CVE auditing, Semgrep integration, HTTP header analysis",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "security",
       "keywords": [
         "security",
@@ -69,7 +69,7 @@
       "name": "testbench",
       "source": "./plugins/testbench",
       "description": "Test generation and quality plugin — framework-aware templates, coverage nudging, testing principles reference docs for Vitest, Jest, Playwright, pytest",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "testing",
       "keywords": [
         "testing",
@@ -88,7 +88,7 @@
       "name": "shipyard",
       "source": "./plugins/shipyard",
       "description": "CI/CD pipeline plugin — GitHub Actions workflows, Docker best practices, deployment principles, multi-stage Dockerfile templates, zero-downtime strategies",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "devops",
       "keywords": [
         "ci-cd",
