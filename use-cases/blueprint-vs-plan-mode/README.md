@@ -6,6 +6,8 @@
 
 ---
 
+![Blueprint vs Plan Mode comparison](comparison.png)
+
 ## Why This Matters Right Now
 
 Claude Code users are hitting rate limits faster than ever. In the last week of March 2026 alone:
@@ -121,7 +123,18 @@ The graph eliminates this entirely. All 11 queries happen in the main context â€
 
 ## Plan Quality Comparison
 
-Both plans were evaluated across 8 dimensions using Sequential Thinking MCP for structured analysis:
+Both plans were evaluated across 8 dimensions using Sequential Thinking MCP for structured analysis. Each dimension is scored 1-5 (max 40 points):
+
+| Dimension | What it measures | 1 (poor) | 5 (excellent) |
+|-----------|-----------------|----------|---------------|
+| Core design simplicity | Is the technical approach clean and minimal? | Self-inflicted complexity, extra state to manage | Deterministic, no new user input, minimal moving parts |
+| File scope clarity | Is it clear exactly which files change and why? | Vague file list, missing counts | Grouped by area, counted, create/edit split |
+| Risk analysis depth | Are risks real and mitigations concrete? | Generic worries, no mitigations | Specific scenarios with actionable mitigations |
+| Implementation executability | Can a developer implement from the spec alone? | Vague paragraphs, "update this file" | Exact conditions, function signatures, prop types |
+| Architectural preservation | Does the plan protect unchanged systems? | No mention of what stays unchanged | Explicit "do not touch" list with reasons |
+| UX impact assessment | How does the plan affect user experience? | Adds friction (new forms, steps) | Zero new friction, existing UX preserved |
+| Recovery resilience | What happens when users drop off mid-flow? | Opaque state, no recovery path | Human-memorable anchors, retry-friendly |
+| Test coverage planning | Are verification steps concrete and complete? | "Run tests" | Specific scenarios: happy path, existing flow, edge cases |
 
 | Dimension | Blueprint | Plan Mode | Winner |
 |-----------|:-:|:-:|---------|

@@ -6,6 +6,8 @@
 
 ---
 
+![Code Graph vs Explore Agents comparison](comparison.png)
+
 ## The Problem
 
 When Claude Code needs to understand a large codebase before building a feature, it defaults to spawning Explore agents — sub-agents that read files broadly across the repo to map out what exists.
