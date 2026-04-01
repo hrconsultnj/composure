@@ -23,7 +23,7 @@ Each finding is written as a task entry with priority, exposure zone, and action
 ## 7b. Format Rules
 
 - **Priority tag:** `[P0:Public]`, `[P1:Auth]`, `[P2:Internal]`, `[P3:Dead]` — priority level + exposure zone abbreviation
-- **Finding type:** `[SECURITY]` for Semgrep findings, `[CVE-XXXX]` for dependency vulnerabilities, `[BANNED]` for banned packages, `[KNOWN-CVE]` for framework-specific CVEs from Step 6
+- **Finding type:** `[SECURITY]` for Semgrep findings, `[REVIEW]` for manual code review findings (Step 2e), `[SECRET]` for secrets scan findings (Step 2d), `[CVE-XXXX]` for dependency vulnerabilities, `[BANNED]` for banned packages, `[KNOWN-CVE]` for framework-specific CVEs from Step 6
 - **File location:** Include file path and line number for code findings
 - **CWE and OWASP references:** Include when available
 - **Exposure context:** Include caller count and zone (e.g., "Exposed via 3 public API routes")

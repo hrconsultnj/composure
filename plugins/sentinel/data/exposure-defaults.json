@@ -9,7 +9,12 @@
       "routes/public/**",
       "src/app/api/webhooks/**",
       "app/api/webhooks/**",
-      "public/**"
+      "public/**",
+      "**/views/public/**",
+      "**/api/public/**",
+      "**/webhooks/**",
+      "**/handlers/public/**",
+      "**/routers/public/**"
     ],
     "authenticated": [
       "src/app/api/**",
@@ -20,7 +25,15 @@
       "pages/api/**",
       "routes/**",
       "src/routes/**",
-      "src/pages/**"
+      "src/pages/**",
+      "**/views/**",
+      "**/api/**",
+      "**/endpoints/**",
+      "**/routers/**",
+      "**/handlers/**",
+      "**/controllers/**",
+      "**/cmd/server/**",
+      "**/cmd/api/**"
     ],
     "internal": [
       "scripts/**",
@@ -32,7 +45,15 @@
       "src/utils/**",
       "src/helpers/**",
       "internal/**",
-      "cli/**"
+      "cli/**",
+      "**/management/**",
+      "**/management/commands/**",
+      "**/tests/**",
+      "**/test/**",
+      "**/fixtures/**",
+      "**/cmd/migrate/**",
+      "**/cmd/seed/**",
+      "**/pkg/internal/**"
     ]
   },
   "resolutionOrder": ["public", "authenticated", "internal"],

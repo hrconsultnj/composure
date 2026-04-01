@@ -2,7 +2,20 @@
 
 This is the core graph integration step. For every finding from Steps 2 and 3, determine how exposed it is by tracing callers through the Composure code graph.
 
-## 4a. Code Findings (Semgrep)
+## 4-pre. Graph Unavailable (Degraded Mode)
+
+If `graph_available = false` (set in Step 1a), skip sections 4a-4e entirely. Instead:
+
+1. **For all findings:** Set exposure to `"Authenticated"` (conservative middle ground - not the most alarming, but ensures nothing is silently deprioritized).
+2. **For findings in files matching `exposureBoundaries.public` patterns:** Override to `"Public"` using path-based heuristics only.
+3. **For findings in files matching `exposureBoundaries.internal` patterns:** Override to `"Internal"`.
+4. Set `exposure_source = "path-heuristic"` (vs `"graph"` when the graph is available).
+
+Proceed directly to Step 5 with these heuristic exposure classifications.
+
+---
+
+## 4a. Code Findings (Semgrep and Manual Review)
 
 For each Semgrep finding:
 

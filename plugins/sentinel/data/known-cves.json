@@ -47,5 +47,68 @@
       "detection": "grep -rn '\"use server\"' --include='*.ts' --include='*.tsx' src/ app/ | head -20",
       "fix": "Add authentication checks at the TOP of every Server Action. Never assume the caller is authenticated just because the UI is behind auth."
     }
+  ],
+  "django": [
+    {
+      "cve": "CVE-2024-53907",
+      "cvss": 7.5,
+      "severity": "high",
+      "description": "DoS via HashedFilesMixin. Crafted file names cause catastrophic backtracking in regex used by staticfiles storage backend.",
+      "affectedVersions": ">=4.2.0 <4.2.17, >=5.0.0 <5.0.10, >=5.1.0 <5.1.4",
+      "fixedIn": ["4.2.17", "5.0.10", "5.1.4"],
+      "detection": "grep -rE '\"django\"' requirements.txt pyproject.toml Pipfile setup.cfg | head -5",
+      "exploitedInWild": false
+    },
+    {
+      "pattern": "debug_true_in_prod",
+      "severity": "critical",
+      "description": "Django DEBUG=True exposes full stack traces, settings (including SECRET_KEY), SQL queries, and template paths to any user triggering an error.",
+      "detection": "grep -rn 'DEBUG\\s*=\\s*True' --include='*.py' | grep -v test | grep -v '.env'",
+      "fix": "Set DEBUG=False in production. Use environment variable: DEBUG=os.environ.get('DJANGO_DEBUG', 'False') == 'True'"
+    },
+    {
+      "pattern": "secret_key_hardcoded",
+      "severity": "critical",
+      "description": "Django SECRET_KEY hardcoded in settings. Used for session signing, CSRF tokens, and password reset tokens. If leaked, allows session forgery and CSRF bypass.",
+      "detection": "grep -rn 'SECRET_KEY\\s*=\\s*[\"'\\''\"'\\''']' --include='*.py' | grep -v environ | grep -v getenv",
+      "fix": "Load from environment: SECRET_KEY = os.environ['DJANGO_SECRET_KEY']"
+    }
+  ],
+  "flask": [
+    {
+      "pattern": "debug_mode",
+      "severity": "critical",
+      "description": "Flask debug mode enables the Werkzeug debugger, which provides an interactive Python console in the browser. Any user who can trigger an exception gets arbitrary code execution on the server.",
+      "detection": "grep -rn 'debug\\s*=\\s*True\\|app\\.run(.*debug' --include='*.py' | grep -v test",
+      "fix": "Never use debug=True in production. Use environment variable: app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true')"
+    },
+    {
+      "pattern": "hardcoded_secret_key",
+      "severity": "high",
+      "description": "Flask secret_key hardcoded in source. Used for session cookie signing. If leaked, allows session forgery.",
+      "detection": "grep -rn 'secret_key\\s*=\\s*[\"'\\''\"'\\''']' --include='*.py' | grep -v environ | grep -v getenv | grep -v test",
+      "fix": "Load from environment: app.secret_key = os.environ['FLASK_SECRET_KEY']"
+    }
+  ],
+  "fastapi": [
+    {
+      "pattern": "no_cors_origin_validation",
+      "severity": "high",
+      "description": "FastAPI CORSMiddleware with allow_origins=['*'] permits any origin to make authenticated requests, bypassing browser same-origin protections.",
+      "detection": "grep -rn 'allow_origins.*\\*\\|allow_origins.*\\[.*\"\\*\"' --include='*.py'",
+      "fix": "Specify exact allowed origins: allow_origins=['https://yourdomain.com']"
+    }
+  ],
+  "aiohttp": [
+    {
+      "cve": "CVE-2024-23829",
+      "cvss": 7.5,
+      "severity": "high",
+      "description": "HTTP request smuggling via incorrect parsing of transfer-encoding headers. Allows bypassing security controls in proxy/server chains.",
+      "affectedVersions": "<3.9.4",
+      "fixedIn": ["3.9.4"],
+      "detection": "grep -rE 'aiohttp[~=<>!]*[0-3]\\.(([0-8]\\.)|(9\\.[0-3]))' requirements.txt pyproject.toml Pipfile setup.cfg",
+      "exploitedInWild": false
+    }
   ]
 }

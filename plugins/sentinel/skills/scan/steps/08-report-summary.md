@@ -7,11 +7,14 @@ Print a comprehensive summary to the conversation with exposure breakdown and to
 ```
 Sentinel Security Scan Complete
 
-Static Analysis (Semgrep):
+Static Analysis (Semgrep):             [or "Manual Code Review" if Semgrep unavailable]
   Critical: 2 findings
   High:     5 findings
   Moderate: 8 findings
-  Rules:    p/owasp-top-ten, p/typescript, p/nextjs
+  Source:   Semgrep (p/owasp-top-ten, p/typescript) | Manual review | Both
+
+Secrets Scan:                          [always runs, independent of Semgrep]
+  Findings: 1 hardcoded credential
 
 Dependency Audit (pnpm):
   Critical: 1 CVE (+ 2 banned packages)
@@ -19,33 +22,35 @@ Dependency Audit (pnpm):
   Moderate: 7 CVEs
   Packages: 342 scanned, 11 vulnerable
 
-Exposure Analysis (Composure graph):
+Exposure Analysis:                     [show source: "Composure graph" or "path heuristics"]
   Public:        3 findings (fix immediately)
   Authenticated: 8 findings (fix this sprint)
   Internal:      12 findings (schedule)
   Dead Code:     4 findings (consider removing)
 
 Priority Summary:
-  P0 (Critical + Public):  2 — fix NOW
-  P1 (High + Public, Critical + Auth): 5 — fix this sprint
-  P2 (Moderate + Public, High + Auth): 8 — schedule
-  P3 (Internal/Dead): 12 — backlog
+  P0 (Critical + Public):  2 - fix NOW
+  P1 (High + Public, Critical + Auth): 5 - fix this sprint
+  P2 (Moderate + Public, High + Auth): 8 - schedule
+  P3 (Internal/Dead): 12 - backlog
 
 Top priorities:
-  1. [P0] SQL Injection in src/api/users.ts:45 — publicly exposed, 3 routes
-  2. [P0] CVE-2024-XXXXX in lodash — publicly exposed via src/app/api/public/search
-  3. [P1] Hardcoded JWT secret in src/auth/config.ts — authenticated routes only
+  1. [P0] SQL Injection in src/api/users.ts:45 - publicly exposed, 3 routes
+  2. [P0] CVE-2024-XXXXX in lodash - publicly exposed via src/app/api/public/search
+  3. [P1] Hardcoded JWT secret in src/auth/config.ts - authenticated routes only
 ```
 
 ## 8b. Adapting the Summary
 
 The example above is illustrative. Adapt it to actual results:
 
-- **Semgrep section:** Only show if Semgrep was run. List the actual rulesets used.
+- **Static analysis section:** Show "Semgrep" with rulesets if available, "Manual Code Review" if Semgrep was unavailable, or "Semgrep + Manual Review" if both ran. If Semgrep was skipped, note it.
+- **Secrets scan section:** Always show. Report count of hardcoded credentials found, or "Clean - no secrets detected" if none.
 - **Dependency section:** Show the actual package manager name. Include banned package counts separately from CVE counts.
-- **Exposure section:** Show actual counts per exposure zone.
+- **Exposure section:** Show actual counts per exposure zone. Note the source: "via Composure graph" or "via path heuristics (graph unavailable)".
 - **Priority section:** Show actual counts per priority level. Only show priority levels that have findings.
 - **Top priorities:** List up to 5 top-priority findings, starting from P0. Include the exposure context (which routes, how many callers).
+- **Degraded mode note:** If the scan ran without graph or Semgrep, append a note listing what was unavailable and how to get fuller coverage.
 
 ## 8c. Edge Cases
 

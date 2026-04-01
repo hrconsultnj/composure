@@ -10,25 +10,38 @@ Attempt a probe query to confirm the graph MCP tools are reachable:
 semantic_search_nodes({ query: "test", limit: 1 })
 ```
 
-- **If the call succeeds:** Graph is available. Continue.
-- **If the call fails or the tool is not found:** STOP immediately with this message:
+- **If the call succeeds:** Set `graph_available = true`. Continue.
+- **If the call fails or the tool is not found:** Set `graph_available = false`. Print this warning and continue:
 
 ```
-Sentinel scan requires the Composure code graph for exposure-aware prioritization.
-Run `/composure:build-graph` first, then retry `/sentinel:scan`.
+Composure code graph not available - exposure analysis will be skipped.
+All findings will default to "Authenticated" exposure (conservative middle ground).
+For full exposure-aware prioritization, run `/composure:build-graph` then re-scan.
 ```
 
-Do NOT proceed without a working graph. Exposure analysis (Step 4) depends on it.
+The scan proceeds in degraded mode. Step 4 (Exposure Analysis) will be skipped, and Step 5 (Severity Mapping) will treat all findings as "Authenticated" exposure.
 
 ## 1b. Load Sentinel Configuration
 
 Read `.claude/sentinel.json` to determine:
 
-- **Package manager** — which audit command to use (Step 3)
-- **Framework detection** — which rulesets and known CVEs apply
-- **Custom `exposureBoundaries`** — project-specific path patterns for exposure zones
+- **Package manager** - which audit command to use (Step 3)
+- **Framework detection** - which rulesets and known CVEs apply
+- **Custom `exposureBoundaries`** - project-specific path patterns for exposure zones
 
-If `.claude/sentinel.json` does not exist, run `/sentinel:initialize` first and STOP.
+If `.claude/sentinel.json` does not exist, perform **inline auto-detection** instead of stopping:
+
+1. **Detect language** from files in `--path` (or project root): `.py` = Python, `.ts`/`.tsx` = TypeScript, `.go` = Go, `.rs` = Rust
+2. **Detect package manager** from manifest files: `requirements.txt`/`pyproject.toml`/`Pipfile` = pip, `package.json` = npm/pnpm/yarn, `go.mod` = go, `Cargo.toml` = cargo
+3. **Detect framework** from imports/config: Django (`settings.py`, `django` imports), Flask (`flask` imports), FastAPI (`fastapi` imports), Next.js (`next.config`), React (`react` in package.json)
+4. Set `config_source = "auto-detected"` and print:
+
+```
+No sentinel.json found - auto-detected: [language], [package_manager], [framework]
+Run `/sentinel:initialize` for a persistent config with custom exposure boundaries.
+```
+
+Continue with the auto-detected values. The scan must not stop for missing config.
 
 ## 1c. Load Exposure Boundaries
 
