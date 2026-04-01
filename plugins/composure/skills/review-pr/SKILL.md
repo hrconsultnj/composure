@@ -37,13 +37,30 @@ Tell user to restart Claude Code (Ctrl+C then `claude`) after registering. **STO
    - Use `query_graph({ pattern: "tests_for", target: <func> })` to verify test coverage
    - Use `find_large_functions({ file_pattern: <changed_dir> })` to catch new violations
 
-6. **Generate structured review output**:
+6. **Security crossover** (Sentinel integration):
+   - If `tasks-plans/tasks.md` exists, read it and extract entries tagged with `[SECURITY]`, `[CVE-*]`, `[BANNED]`, or `[KNOWN-CVE]`
+   - Match file paths from those entries against the PR's changed files
+   - If the PR changes `package.json`, diff it to detect newly added dependencies. Flag new deps for `/sentinel:audit-deps`
+   - If no `tasks-plans/tasks.md` exists or no matches found, skip this section silently
+
+7. **Generate structured review output**:
 
    ```
    ## PR Review: <title>
 
    ### Summary
    <1-3 sentence overview>
+
+   ### Security Context
+   Open Sentinel findings affecting files in this PR:
+   - **[P0:Public] [CVE-2024-XXXXX]** `lodash@4.17.20` in `src/api/users.ts` — Prototype Pollution
+   - **[P1:Auth] [SECURITY]** SQL injection in `src/api/orders.ts:45` — CWE-89
+
+   New dependencies detected in package.json changes:
+   - `new-package@1.0.0` — Run `/sentinel:audit-deps` to check for CVEs
+   - `another-dep@2.3.0` — Run `/sentinel:package-risk another-dep` to inspect behavior
+
+   (Omit this section entirely if no security findings match and no new deps detected)
 
    ### Risk Assessment
    - **Overall risk**: Low / Medium / High
