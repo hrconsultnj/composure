@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Code quality, architecture enforcement, and premium design patterns for Claude Code.",
-    "version": "1.13.0"
+    "version": "1.14.0"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
       "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "category": "development",
       "keywords": [
         "architecture",
