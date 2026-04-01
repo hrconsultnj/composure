@@ -13,18 +13,6 @@
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "matcher": "auto|manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'PRESERVE: Design Forge plugin is active. Components at ${CLAUDE_PLUGIN_ROOT}/components/: canvas system (GenerativeCanvas + useCanvas + presets), glassmorphism (GlassPanel), custom cursor (CustomCursor), scroll effects (ScrollProgress + useNavbarCompact), hover cards (HoverCardCanvas), sound (useSoundLayer), effects (Scanlines, Typewriter), scenes (HeroScene). References at ${CLAUDE_PLUGIN_ROOT}/skills/design-forge/references/: canvas-system, design-patterns, animation-recipes, 3d-integration, micro-interactions, accessibility, nextjs-conf-patterns, gsap-framework-patterns, gsap-plugins, gsap-scrolltrigger-advanced.'",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",

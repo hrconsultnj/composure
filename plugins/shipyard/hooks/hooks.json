@@ -31,18 +31,6 @@
           }
         ]
       }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "auto|manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'PRESERVE: Shipyard plugin is active. Skills: /shipyard:ci-generate, /shipyard:ci-validate, /shipyard:deps-check, /shipyard:dockerfile, /shipyard:preflight. Config at .claude/shipyard.json.'",
-            "timeout": 3
-          }
-        ]
-      }
     ]
   }
 }

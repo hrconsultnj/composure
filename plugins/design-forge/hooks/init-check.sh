@@ -5,6 +5,9 @@
 # Only announces Design Forge if the project uses design/canvas deps.
 # Non-blocking (exit 0 always). Runs on startup only.
 
+# If Composure is installed, it handles the unified init message — skip verbose output
+[ -f ".claude/no-bandaids.json" ] && exit 0
+
 # Check for design-related dependencies in package.json
 if [ -f "package.json" ]; then
   if grep -qE '"(framer-motion|gsap|three|@react-three/fiber|@react-three/drei|lottie-react|motion|animejs|p5)"' package.json 2>/dev/null; then

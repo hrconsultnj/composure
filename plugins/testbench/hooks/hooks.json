@@ -21,16 +21,6 @@
           "statusMessage": "Checking test coverage..."
         }]
       }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "auto|manual",
-        "hooks": [{
-          "type": "command",
-          "command": "echo 'PRESERVE: Testbench plugin is active. Skills: /testbench:generate, /testbench:run. Config at .claude/testbench.json.'",
-          "timeout": 3
-        }]
-      }
     ]
   }
 }
