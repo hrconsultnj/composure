@@ -4,11 +4,22 @@
 
 ## 2a. Graph Pre-Scan
 
-Use the code graph to find related code BEFORE asking the user anything:
+Use the code graph to find related code BEFORE asking the user anything.
+
+`semantic_search_nodes` matches against **code entity names** (function names, class names, type names, file names) — NOT natural language. Extract code-relevant keywords from the user's description and run multiple targeted searches:
 
 ```
-semantic_search_nodes({ query: "<user's description>" })
+// DON'T: natural language sentences
+semantic_search_nodes({ query: "auth signup stripe billing checkout" })  // returns nothing
+
+// DO: individual code-relevant keywords, one search per concept
+semantic_search_nodes({ query: "signup" })
+semantic_search_nodes({ query: "checkout" })
+semantic_search_nodes({ query: "stripe" })
+semantic_search_nodes({ query: "auth callback" })
 ```
+
+Run 3-6 searches using short, specific keywords derived from the user's description. Each search should target one concept (a feature name, a domain term, a framework name). Combine the results.
 
 This eliminates questions the graph can answer:
 
