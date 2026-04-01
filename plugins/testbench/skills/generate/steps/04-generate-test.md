@@ -25,7 +25,15 @@ Use the detected `testPattern` for the file extension (`.test.ts`, `.spec.ts`, `
 
 **If a test file already exists at the target path**: READ it, then EXTEND it with new tests for untested exports. Do NOT overwrite existing tests.
 
-## 4c. Structure the test file
+## 4c. Python: Check for conftest.py
+
+**Skip this step for non-Python projects.**
+
+If the test directory does not have a `conftest.py` and the source package uses relative imports (`from .module import ...`), generate a `conftest.py` that bootstraps the import path. This prevents every test file from reinventing the same import hack. See `references/pytest/patterns.md` for the fake package approach.
+
+If a `conftest.py` already exists, read it to understand the existing import setup and reuse it.
+
+## 4d. Structure the test file
 
 Follow the project's conventions for:
 
@@ -84,12 +92,20 @@ For each exported function/component, generate tests in this order:
 
 ## 4f. Size limits
 
-Follow Composure decomposition limits: **max 150 lines per test file**. If the source file has many exports that would produce a test file exceeding 150 lines:
+Follow Composure decomposition limits, adjusted by language and test type:
+
+| Context | Soft limit |
+|---------|-----------|
+| JS/TS component tests | 150 lines |
+| Python module tests (multiple methods/helpers) | 250 lines |
+| Integration / E2E tests | No hard limit -- use judgment |
+
+If the source file has many exports that would exceed the limit:
 
 - Split into focused test files: `format.test.ts`, `format.edge-cases.test.ts`
 - Or group by export: `format-dates.test.ts`, `format-currency.test.ts`
 
-Report the split: `"Generated 2 test files (source has 8 exports, split to stay under 150 lines)"`
+Report the split: `"Generated 2 test files (source has 8 exports, split to stay under limit)"`
 
 ---
 
