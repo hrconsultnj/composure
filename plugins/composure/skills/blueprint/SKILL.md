@@ -19,6 +19,8 @@ Structured "think before building" step. Uses the code graph to find related cod
 
 **Read each step file in order. Do NOT skip steps. Each step ends with "Next: read step X."**
 
+**BLOCKING RULE:** Steps that include AskUserQuestion are **BLOCKING** — do NOT read the next step until the user has responded. Present your findings, call AskUserQuestion, and STOP. Only after the user answers do you read the next step file.
+
 | Step | File | What it does |
 |------|------|-------------|
 | 1 | `steps/01-classify.md` | Classify work type, checkpoint if ambiguous |
