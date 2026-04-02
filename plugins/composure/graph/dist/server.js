@@ -21110,6 +21110,9 @@ CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
 CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
 CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
+CREATE INDEX IF NOT EXISTS idx_edges_kind_target ON edges(kind, target_qualified);
+CREATE INDEX IF NOT EXISTS idx_edges_kind_source ON edges(kind, source_qualified);
+CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
 
 CREATE TABLE IF NOT EXISTS entities (
     name TEXT PRIMARY KEY,
