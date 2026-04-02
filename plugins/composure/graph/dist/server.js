@@ -21437,7 +21437,7 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync11, statSync as statSync2 } from "node:fs";
 import { dirname as dirname7, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
@@ -25626,6 +25626,12 @@ function isConfigFile(filePath) {
 }
 var MD_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".mdx"]);
 var SH_EXTENSIONS = /* @__PURE__ */ new Set([".sh"]);
+var YAML_EXTENSIONS = /* @__PURE__ */ new Set([".yaml", ".yml"]);
+var TF_EXTENSIONS = /* @__PURE__ */ new Set([".tf"]);
+function isDockerfileName(filePath) {
+  const name2 = basename(filePath);
+  return name2 === "Dockerfile" || name2.startsWith("Dockerfile.") || name2.toLowerCase() === "dockerfile";
+}
 function isParseable(filePath) {
   const ext = extname(filePath).toLowerCase();
   if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext))
@@ -25639,6 +25645,12 @@ function isParseable(filePath) {
   if (MD_EXTENSIONS.has(ext))
     return true;
   if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/"))
+    return true;
+  if (YAML_EXTENSIONS.has(ext))
+    return true;
+  if (TF_EXTENSIONS.has(ext))
+    return true;
+  if (isDockerfileName(filePath))
     return true;
   return false;
 }
@@ -25709,13 +25721,13 @@ var CodeParser = class _CodeParser {
     const nodes = [];
     const edges = [];
     const testFile = isTestFile(filePath);
-    const lineCount4 = source.toString().split("\n").length;
+    const lineCount7 = source.toString().split("\n").length;
     nodes.push({
       kind: "File",
       name: basename(filePath),
       file_path: filePath,
       line_start: 1,
-      line_end: lineCount4,
+      line_end: lineCount7,
       language,
       is_test: testFile
     });
@@ -27756,8 +27768,519 @@ function findLineInContent(content, needle) {
   return line;
 }
 
-// dist/entities.js
+// dist/yaml-parser.js
 import { readFileSync as readFileSync7 } from "node:fs";
+import { basename as basename7, extname as extname6 } from "node:path";
+function isYamlParseable(filePath) {
+  const ext = extname6(filePath).toLowerCase();
+  return ext === ".yaml" || ext === ".yml";
+}
+function qualify7(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function findLineNumber(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx === -1)
+    return 1;
+  return content.substring(0, idx).split("\n").length;
+}
+function lineCount4(content) {
+  return content.split("\n").length;
+}
+var API_VERSION_RE = /^apiVersion:\s*(\S+)/m;
+var KIND_RE = /^kind:\s*(\S+)/m;
+var NAME_RE = /^\s+name:\s*(\S+)/m;
+var NAMESPACE_RE = /^\s+namespace:\s*(\S+)/m;
+var CONFIGMAP_NAME_RE = /configMapRef:\s*\n\s+name:\s*(\S+)/g;
+var CONFIGMAP_VOL_RE = /configMap:\s*\n\s+name:\s*(\S+)/g;
+var SECRET_REF_RE = /secretRef:\s*\n\s+name:\s*(\S+)/g;
+var SECRET_NAME_RE = /secretName:\s*(\S+)/g;
+var SERVICE_ACCOUNT_RE = /serviceAccountName:\s*(\S+)/g;
+var CLAIM_NAME_RE = /claimName:\s*(\S+)/g;
+function parseYamlFile(filePath) {
+  let content;
+  try {
+    content = readFileSync7(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  if (!API_VERSION_RE.test(content) || !KIND_RE.test(content)) {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename7(filePath);
+  const totalLines = lineCount4(content);
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "yaml",
+    is_test: false
+  });
+  const documents = content.split(/^---\s*$/m);
+  let lineOffset = 0;
+  for (const doc of documents) {
+    if (!doc.trim()) {
+      lineOffset += lineCount4(doc);
+      continue;
+    }
+    const apiVersionMatch = API_VERSION_RE.exec(doc);
+    const kindMatch = KIND_RE.exec(doc);
+    if (!apiVersionMatch || !kindMatch) {
+      lineOffset += lineCount4(doc);
+      continue;
+    }
+    const apiVersion = apiVersionMatch[1];
+    const kind = kindMatch[1];
+    const nameMatch = NAME_RE.exec(doc);
+    const name2 = nameMatch ? nameMatch[1] : "unnamed";
+    const nsMatch = NAMESPACE_RE.exec(doc);
+    const namespace = nsMatch ? nsMatch[1] : "default";
+    const resourceName = `${kind}/${name2}`;
+    const docLines = lineCount4(doc);
+    const lineStart = lineOffset + 1;
+    const lineEnd = lineOffset + docLines;
+    const resourceQN = qualify7(resourceName, filePath, fileName);
+    nodes.push({
+      kind: "Resource",
+      name: resourceName,
+      file_path: filePath,
+      line_start: lineStart,
+      line_end: lineEnd,
+      language: "yaml",
+      parent_name: fileName,
+      summary: `${kind} in namespace ${namespace}`,
+      is_test: false,
+      extra: { apiVersion, kind, namespace, resourceName: name2 }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: resourceQN,
+      file_path: filePath,
+      line: lineStart
+    });
+    const refs = extractReferences(doc);
+    for (const ref of refs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: resourceQN,
+        target: ref.target,
+        file_path: filePath,
+        line: lineOffset + findLineNumber(doc, ref.match),
+        extra: { refType: ref.type }
+      });
+    }
+    lineOffset += docLines;
+  }
+  return { nodes, edges };
+}
+function extractReferences(doc) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  function addRef(type, name2, match) {
+    const key = `${type}:${name2}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push({ type, target: `ConfigMap/${name2}`, match });
+      if (type === "configMap")
+        refs[refs.length - 1].target = `ConfigMap/${name2}`;
+      else if (type === "secret")
+        refs[refs.length - 1].target = `Secret/${name2}`;
+      else if (type === "serviceAccount")
+        refs[refs.length - 1].target = `ServiceAccount/${name2}`;
+      else if (type === "pvc")
+        refs[refs.length - 1].target = `PersistentVolumeClaim/${name2}`;
+    }
+  }
+  for (const re of [CONFIGMAP_NAME_RE, CONFIGMAP_VOL_RE]) {
+    re.lastIndex = 0;
+    let m2;
+    while ((m2 = re.exec(doc)) !== null) {
+      addRef("configMap", m2[1], m2[0]);
+    }
+  }
+  for (const re of [SECRET_REF_RE, SECRET_NAME_RE]) {
+    re.lastIndex = 0;
+    let m2;
+    while ((m2 = re.exec(doc)) !== null) {
+      addRef("secret", m2[1], m2[0]);
+    }
+  }
+  SERVICE_ACCOUNT_RE.lastIndex = 0;
+  let m;
+  while ((m = SERVICE_ACCOUNT_RE.exec(doc)) !== null) {
+    addRef("serviceAccount", m[1], m[0]);
+  }
+  CLAIM_NAME_RE.lastIndex = 0;
+  while ((m = CLAIM_NAME_RE.exec(doc)) !== null) {
+    addRef("pvc", m[1], m[0]);
+  }
+  return refs;
+}
+
+// dist/hcl-parser.js
+import { readFileSync as readFileSync8 } from "node:fs";
+import { basename as basename8, extname as extname7 } from "node:path";
+function isHclParseable(filePath) {
+  return extname7(filePath).toLowerCase() === ".tf";
+}
+function qualify8(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount5(content) {
+  return content.split("\n").length;
+}
+var BLOCK_RE = /^(resource|data|module|variable|output|provider)\s+"([^"]+)"(?:\s+"([^"]+)")?\s*\{/gm;
+var LOCALS_RE = /^(locals)\s*\{/gm;
+var VAR_REF_RE = /var\.(\w+)/g;
+var MODULE_REF_RE = /module\.(\w+)/g;
+var LOCAL_REF_RE = /local\.(\w+)/g;
+var DATA_REF_RE = /data\.(\w+)\.(\w+)/g;
+var SOURCE_RE = /source\s*=\s*"([^"]+)"/;
+function parseHclFile(filePath) {
+  let content;
+  try {
+    content = readFileSync8(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename8(filePath);
+  const totalLines = lineCount5(content);
+  const lines = content.split("\n");
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "hcl",
+    is_test: false
+  });
+  const blocks = extractBlocks(content, lines);
+  for (const block of blocks) {
+    const nodeKind = getNodeKind(block.blockType);
+    const nodeName = getBlockName(block);
+    const nodeQN = qualify8(nodeName, filePath, fileName);
+    nodes.push({
+      kind: nodeKind,
+      name: nodeName,
+      file_path: filePath,
+      line_start: block.lineStart,
+      line_end: block.lineEnd,
+      language: "hcl",
+      parent_name: fileName,
+      summary: `Terraform ${block.blockType}: ${block.firstLabel || ""}`,
+      is_test: false,
+      extra: {
+        blockType: block.blockType,
+        resourceType: block.firstLabel,
+        resourceName: block.secondLabel
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: nodeQN,
+      file_path: filePath,
+      line: block.lineStart
+    });
+    const bodyRefs = extractBlockReferences(block.body, filePath, block.lineStart);
+    for (const ref of bodyRefs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: nodeQN,
+        target: qualify8(ref.target, filePath, fileName),
+        file_path: filePath,
+        line: ref.line,
+        extra: { refType: ref.type }
+      });
+    }
+    if (block.blockType === "module") {
+      const sourceMatch = SOURCE_RE.exec(block.body);
+      if (sourceMatch && sourceMatch[1].startsWith("./")) {
+        edges.push({
+          kind: "IMPORTS_FROM",
+          source: nodeQN,
+          target: sourceMatch[1],
+          file_path: filePath,
+          line: block.lineStart,
+          extra: { moduleSource: sourceMatch[1] }
+        });
+      }
+    }
+  }
+  return { nodes, edges };
+}
+function extractBlocks(content, lines) {
+  const blocks = [];
+  BLOCK_RE.lastIndex = 0;
+  let m;
+  while ((m = BLOCK_RE.exec(content)) !== null) {
+    const lineStart = content.substring(0, m.index).split("\n").length;
+    const blockEnd = findBlockEnd(lines, lineStart - 1);
+    const body2 = lines.slice(lineStart - 1, blockEnd).join("\n");
+    blocks.push({
+      blockType: m[1],
+      firstLabel: m[2],
+      secondLabel: m[3] || null,
+      lineStart,
+      lineEnd: blockEnd,
+      body: body2
+    });
+  }
+  LOCALS_RE.lastIndex = 0;
+  while ((m = LOCALS_RE.exec(content)) !== null) {
+    const lineStart = content.substring(0, m.index).split("\n").length;
+    const blockEnd = findBlockEnd(lines, lineStart - 1);
+    const body2 = lines.slice(lineStart - 1, blockEnd).join("\n");
+    blocks.push({
+      blockType: "locals",
+      firstLabel: null,
+      secondLabel: null,
+      lineStart,
+      lineEnd: blockEnd,
+      body: body2
+    });
+  }
+  return blocks;
+}
+function findBlockEnd(lines, lineIdx) {
+  let depth = 0;
+  for (let i2 = lineIdx; i2 < lines.length; i2++) {
+    for (const ch of lines[i2]) {
+      if (ch === "{")
+        depth++;
+      else if (ch === "}")
+        depth--;
+    }
+    if (depth === 0 && i2 > lineIdx)
+      return i2 + 1;
+  }
+  return lines.length;
+}
+function getNodeKind(blockType) {
+  if (blockType === "resource" || blockType === "data" || blockType === "module") {
+    return "Module";
+  }
+  return "Type";
+}
+function getBlockName(block) {
+  switch (block.blockType) {
+    case "resource":
+      return `${block.firstLabel}.${block.secondLabel}`;
+    case "data":
+      return `data.${block.firstLabel}.${block.secondLabel}`;
+    case "module":
+      return `module.${block.firstLabel}`;
+    case "variable":
+      return `var.${block.firstLabel}`;
+    case "output":
+      return `output.${block.firstLabel}`;
+    case "provider":
+      return `provider.${block.firstLabel}`;
+    case "locals":
+      return "locals";
+    default:
+      return block.firstLabel || block.blockType;
+  }
+}
+function extractBlockReferences(body2, _filePath, blockStart) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  const bodyLines = body2.split("\n");
+  for (let i2 = 0; i2 < bodyLines.length; i2++) {
+    const line = bodyLines[i2];
+    const lineNum = blockStart + i2;
+    VAR_REF_RE.lastIndex = 0;
+    let m;
+    while ((m = VAR_REF_RE.exec(line)) !== null) {
+      const key = `var.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "variable", target: key, line: lineNum });
+      }
+    }
+    MODULE_REF_RE.lastIndex = 0;
+    while ((m = MODULE_REF_RE.exec(line)) !== null) {
+      const key = `module.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "module", target: key, line: lineNum });
+      }
+    }
+    LOCAL_REF_RE.lastIndex = 0;
+    while ((m = LOCAL_REF_RE.exec(line)) !== null) {
+      const key = `local.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "local", target: key, line: lineNum });
+      }
+    }
+    DATA_REF_RE.lastIndex = 0;
+    while ((m = DATA_REF_RE.exec(line)) !== null) {
+      const key = `data.${m[1]}.${m[2]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "data", target: key, line: lineNum });
+      }
+    }
+  }
+  return refs;
+}
+
+// dist/dockerfile-parser.js
+import { readFileSync as readFileSync9 } from "node:fs";
+import { basename as basename9 } from "node:path";
+var DOCKERFILE_NAMES = /* @__PURE__ */ new Set([
+  "Dockerfile",
+  "Dockerfile.dev",
+  "Dockerfile.prod",
+  "Dockerfile.test",
+  "Dockerfile.ci"
+]);
+function isDockerfileParseable(filePath) {
+  const name2 = basename9(filePath);
+  if (DOCKERFILE_NAMES.has(name2))
+    return true;
+  if (name2.startsWith("Dockerfile."))
+    return true;
+  if (name2.toLowerCase() === "dockerfile")
+    return true;
+  return false;
+}
+function qualify9(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount6(content) {
+  return content.split("\n").length;
+}
+function parseDockerfile(filePath) {
+  let content;
+  try {
+    content = readFileSync9(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename9(filePath);
+  const totalLines = lineCount6(content);
+  const lines = content.split("\n");
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "dockerfile",
+    is_test: false
+  });
+  const stages = extractStages(content, lines);
+  const stageNames = new Set(stages.map((s) => s.alias).filter(Boolean));
+  for (const stage of stages) {
+    const stageName = stage.alias || stage.baseImage;
+    const stageQN = qualify9(stageName, filePath, fileName);
+    nodes.push({
+      kind: "Stage",
+      name: stageName,
+      file_path: filePath,
+      line_start: stage.lineStart,
+      line_end: stage.lineEnd,
+      language: "dockerfile",
+      parent_name: fileName,
+      summary: `FROM ${stage.baseImage}`,
+      is_test: false,
+      extra: {
+        baseImage: stage.baseImage,
+        alias: stage.alias,
+        exposedPorts: stage.exposedPorts
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: stageQN,
+      file_path: filePath,
+      line: stage.lineStart
+    });
+    if (stageNames.has(stage.baseImage)) {
+      edges.push({
+        kind: "REFERENCES",
+        source: stageQN,
+        target: qualify9(stage.baseImage, filePath, fileName),
+        file_path: filePath,
+        line: stage.lineStart,
+        extra: { refType: "FROM" }
+      });
+    }
+    for (const copyFrom of stage.copyFromRefs) {
+      const targetName = stageNames.has(copyFrom.name) ? copyFrom.name : copyFrom.name;
+      edges.push({
+        kind: "REFERENCES",
+        source: stageQN,
+        target: qualify9(targetName, filePath, fileName),
+        file_path: filePath,
+        line: copyFrom.line,
+        extra: { refType: "COPY --from" }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function extractStages(content, lines) {
+  const stages = [];
+  const fromPositions = [];
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2].trim();
+    const match = /^FROM\s+(\S+)(?:\s+AS\s+(\S+))?$/i.exec(line);
+    if (match) {
+      fromPositions.push({
+        baseImage: match[1],
+        alias: match[2] || null,
+        lineNum: i2 + 1
+      });
+    }
+  }
+  for (let i2 = 0; i2 < fromPositions.length; i2++) {
+    const start2 = fromPositions[i2].lineNum;
+    const end = i2 + 1 < fromPositions.length ? fromPositions[i2 + 1].lineNum - 1 : lines.length;
+    const stageLines = lines.slice(start2 - 1, end);
+    const exposedPorts = [];
+    const copyFromRefs = [];
+    for (let j = 0; j < stageLines.length; j++) {
+      const sl = stageLines[j].trim();
+      const exposeMatch = /^EXPOSE\s+(.+)/i.exec(sl);
+      if (exposeMatch) {
+        exposedPorts.push(...exposeMatch[1].trim().split(/\s+/));
+      }
+      const copyMatch = /^COPY\s+--from=(\S+)/i.exec(sl);
+      if (copyMatch) {
+        copyFromRefs.push({ name: copyMatch[1], line: start2 + j });
+      }
+    }
+    stages.push({
+      baseImage: fromPositions[i2].baseImage,
+      alias: fromPositions[i2].alias,
+      lineStart: start2,
+      lineEnd: end,
+      exposedPorts,
+      copyFromRefs
+    });
+  }
+  return stages;
+}
+
+// dist/entities.js
+import { readFileSync as readFileSync10 } from "node:fs";
 import { relative } from "node:path";
 var STRIP_PREFIXES = /* @__PURE__ */ new Set(["user_", "admin_", "public_", "auth_"]);
 function normalizeEntityName(raw) {
@@ -27856,7 +28379,7 @@ function detectAndStoreEntities(store, repoRoot) {
     if (!rel.includes("migration") && !filePath.endsWith(".sql"))
       continue;
     try {
-      const content = readFileSync7(filePath, "utf-8");
+      const content = readFileSync10(filePath, "utf-8");
       const tableMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi);
       for (const match of tableMatches) {
         const tableName = match[1];
@@ -28093,7 +28616,7 @@ function loadIgnorePatterns(repoRoot) {
   if (!existsSync4(ignorePath))
     return [];
   try {
-    return readFileSync8(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    return readFileSync11(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch {
     return [];
   }
@@ -28119,6 +28642,12 @@ function routeParse(filePath, tsParser) {
     return parseMdFile(filePath);
   if (isShParseable(filePath))
     return parseShFile(filePath);
+  if (isYamlParseable(filePath))
+    return parseYamlFile(filePath);
+  if (isHclParseable(filePath))
+    return parseHclFile(filePath);
+  if (isDockerfileParseable(filePath))
+    return parseDockerfile(filePath);
   if (tsParser)
     return tsParser.parseFile(filePath);
   return { nodes: [], edges: [] };
@@ -28950,7 +29479,7 @@ function queryGraph(params) {
 }
 
 // dist/tools/get-review-context.js
-import { readFileSync as readFileSync9 } from "node:fs";
+import { readFileSync as readFileSync12 } from "node:fs";
 import { relative as relative4, resolve as resolve6 } from "node:path";
 function getReviewContext(params) {
   const root = findProjectRoot(params.repo_root);
@@ -28995,7 +29524,7 @@ function getReviewContext(params) {
     if (includeSource) {
       for (const f of changedFiles) {
         try {
-          const content = readFileSync9(f, "utf-8");
+          const content = readFileSync12(f, "utf-8");
           const lines = content.split("\n");
           const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
 ... (${lines.length - maxLines} more lines)` : content;
@@ -29205,7 +29734,7 @@ function listGraphStats(params) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename7, dirname as dirname8, join as join4, relative as relative6, resolve as resolve7 } from "node:path";
+import { basename as basename10, dirname as dirname8, join as join4, relative as relative6, resolve as resolve7 } from "node:path";
 
 // dist/html-template.js
 function generateGraphHtml(data) {
@@ -29915,7 +30444,7 @@ var CATEGORY_RULES = [
   // Fallback handled separately
 ];
 function detectCategory(relPath) {
-  const name2 = basename7(relPath);
+  const name2 = basename10(relPath);
   for (const rule of CATEGORY_RULES) {
     if (rule.match(relPath, name2))
       return rule.key;
@@ -29981,7 +30510,7 @@ function extractVisNodes(store, repoRoot) {
     const isTest = fileNodes.some((n) => n.is_test);
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
-    const name2 = basename7(filePath);
+    const name2 = basename10(filePath);
     const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name2);
     const parts2 = relPath.split("/");
     const label = isGenericName && parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + name2 : name2;
@@ -30036,7 +30565,7 @@ function generateGraphHtmlTool(params) {
         memberIds: memberFileIds
       };
     });
-    const repoName = basename7(root);
+    const repoName = basename10(root);
     const html = generateGraphHtml({
       nodes,
       entities,
@@ -30158,7 +30687,7 @@ function entityScope(params) {
 }
 
 // dist/tools/run-audit.js
-import { existsSync as existsSync6, readFileSync as readFileSync11 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync14 } from "node:fs";
 import { join as join6, relative as relative9 } from "node:path";
 
 // dist/audit-store.js
@@ -30284,7 +30813,7 @@ function rowToScore(row) {
 
 // dist/tools/audit-analyzers.js
 import { execFileSync as execFileSync2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync10 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync13 } from "node:fs";
 import { join as join5, relative as relative7 } from "node:path";
 var IMPACTS = {
   FILE_400: 5,
@@ -30379,7 +30908,7 @@ function analyzeFileOrganization(store, runId, repoRoot) {
   if (!existsSync5(configPath))
     return 0;
   try {
-    const config2 = JSON.parse(readFileSync10(configPath, "utf-8"));
+    const config2 = JSON.parse(readFileSync13(configPath, "utf-8"));
     const frameworks = config2.frameworks || {};
     const isNextJs = Object.values(frameworks).some((fw) => fw.frontend === "nextjs");
     if (!isNextJs)
@@ -30815,7 +31344,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
   const tasksPath = join6(repoRoot, "tasks-plans", "tasks.md");
   if (existsSync6(tasksPath)) {
     try {
-      const content = readFileSync11(tasksPath, "utf-8");
+      const content = readFileSync14(tasksPath, "utf-8");
       const openCount = (content.match(/^- \[ \]/gm) || []).length;
       if (openCount > 0) {
         const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
@@ -30916,8 +31445,8 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync7, readFileSync as readFileSync12, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
-import { basename as basename8, dirname as dirname9, join as join7 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync15, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename11, dirname as dirname9, join as join7 } from "node:path";
 function findTemplateDir() {
   const candidates = [
     join7(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
@@ -30931,7 +31460,7 @@ function findTemplateDir() {
   return null;
 }
 function readTemplate(dir, name2) {
-  return readFileSync12(join7(dir, name2), "utf-8");
+  return readFileSync15(join7(dir, name2), "utf-8");
 }
 function coverageColor(pct) {
   if (pct >= 80)
@@ -30960,7 +31489,7 @@ function buildReplacementMap(store, runId, repoRoot) {
   const secFindings = findingCounts["security"] ?? {};
   const securityRows = findings.filter((f) => f.category === "security").slice(0, 10).map((f) => `<tr><td><span class="badge badge-${f.severity}">${f.severity}</span></td><td>${escHtml(f.title)}</td><td class="path">${escHtml(f.file_path ?? "dependency")}</td></tr>`).join("\n");
   const untestedRows = gaps.slice(0, 15).map((g) => `<tr><td class="path">${escHtml(g.file_path)}</td><td>${escHtml(g.node_qualified_name.split("::").pop() ?? "")}</td></tr>`).join("\n");
-  const repoName = basename8(repoRoot);
+  const repoName = basename11(repoRoot);
   return {
     "{{PROJECT_NAME}}": escHtml(repoName),
     "{{OVERALL_GRADE}}": overall.grade,
@@ -31162,7 +31691,10 @@ server.tool("semantic_search_nodes", "Search for code entities by name using key
     "Migration",
     "Package",
     "Script",
-    "Workspace"
+    "Workspace",
+    "Resource",
+    "Module",
+    "Stage"
   ]).optional().describe("Optional filter by node kind."),
   limit: external_exports.number().int().default(20).describe("Maximum results to return."),
   repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
