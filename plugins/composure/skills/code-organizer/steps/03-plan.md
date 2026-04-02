@@ -40,7 +40,22 @@ Compile all findings into a structured plan. Present it to the user:
 - {Q} root clutter items (assets to move, artifacts to gitignore)
 ```
 
-**STOP HERE.** Present the plan and wait for user approval.
+## Auto-Blueprint for Large Restructures
+
+If the plan is complex enough to need a persistent plan, automatically generate a blueprint BEFORE executing.
+
+**Threshold** — based on operations AND blast radius:
+- **<10 file operations, no high-importer files**: present the plan directly and execute (current behavior).
+- **10-15 operations OR any file with 10+ importers being moved**: offer to blueprint. "This restructure affects N files with M import updates. Want me to blueprint it first?"
+- **15+ operations**: auto-blueprint. Write to `tasks-plans/blueprints/file-reorg-{date}.md` with Implementation Spec, Preservation Boundaries, Verification phases, and per-file checklist. The blueprint persists across sessions — if execution is interrupted, another session picks it up.
+
+When blueprinting:
+1. Write the plan using the blueprint template (`templates/04b-blueprint-document.md`)
+2. Include phases (create dirs → move files → update imports → verify)
+3. Include the import mapping table (old path → new path → importers to update)
+4. Present the blueprint for approval, then proceed to Step 4
+
+**STOP HERE.** Present the plan (or blueprint) and wait for user approval.
 
 The user can respond:
 - **"go"** — Execute the full plan

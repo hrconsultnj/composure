@@ -138,13 +138,28 @@ After the report, rank remediation items by:
 3. **Coupling** — fix circular deps before decomposing individual files
 4. **Quick wins** — dead exports and suppressions are fast to clean up
 
-## 7f. Handoff — Suggest next steps
+## 7f. Auto-Blueprint for Complex Remediation
 
-Based on what the audit found, guide the user to the right next skill:
+If the audit produced remediation items complex enough to warrant a persistent plan, automatically generate a blueprint instead of just listing suggestions.
 
-```
-What to do next:
-```
+**Threshold** — use the graph to assess complexity, not just file count:
+- **<10 files, no cross-module dependencies**: just list the remediation items. Routine work.
+- **10-15 files OR imports cascade across 3+ directories**: offer to blueprint. "This touches N files across M directories. Want me to blueprint it?"
+- **15+ files OR 10+ import path changes**: auto-blueprint. Too many operations to hold in your head — the plan needs to persist.
+- **Always check blast radius**: if `get_impact_radius` shows a high-importer file is affected (10+ importers), that alone justifies a blueprint regardless of file count.
+
+**What to pass to blueprint**: The remediation items, affected files, and execution order from 7e. The blueprint's graph scan (Step 2) will enrich this with blast radius and dependency context.
+
+**If below threshold** (<5 files): just list the remediation items and let the user decide. Don't force a blueprint for quick fixes.
+
+## 7g. Handoff — Suggest next steps
+
+If auto-blueprint was triggered, say:
+> "Audit found structural issues affecting N files. Generating a blueprint for the remediation..."
+
+Then proceed with the blueprint skill.
+
+If auto-blueprint was NOT triggered, guide the user:
 
 | If the audit found... | Suggest |
 |---|---|
