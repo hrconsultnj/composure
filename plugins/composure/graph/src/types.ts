@@ -10,7 +10,8 @@
 export type NodeKind =
   | "File" | "Class" | "Function" | "Type" | "Test"
   | "Table" | "Column" | "RLSPolicy" | "Index" | "DbFunction" | "Migration"
-  | "Package" | "Workspace" | "Script";
+  | "Package" | "Workspace" | "Script"
+  | "Resource" | "Module" | "Stage";
 
 export type EdgeKind =
   | "CALLS"

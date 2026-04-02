@@ -6,7 +6,7 @@ import { existsSync as existsSync5 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync11, statSync as statSync2 } from "node:fs";
 import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
@@ -4026,8 +4026,20 @@ import { basename as basename5, dirname as dirname4, extname as extname4 } from 
 import { readFileSync as readFileSync6 } from "node:fs";
 import { basename as basename6, dirname as dirname5, extname as extname5, resolve as resolve2 } from "node:path";
 
-// dist/entities.js
+// dist/yaml-parser.js
 import { readFileSync as readFileSync7 } from "node:fs";
+import { basename as basename7, extname as extname6 } from "node:path";
+
+// dist/hcl-parser.js
+import { readFileSync as readFileSync8 } from "node:fs";
+import { basename as basename8, extname as extname7 } from "node:path";
+
+// dist/dockerfile-parser.js
+import { readFileSync as readFileSync9 } from "node:fs";
+import { basename as basename9 } from "node:path";
+
+// dist/entities.js
+import { readFileSync as readFileSync10 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
@@ -4051,7 +4063,7 @@ function getDbPath(repoRoot) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename7, dirname as dirname8, join as join4, relative as relative3, resolve as resolve4 } from "node:path";
+import { basename as basename10, dirname as dirname8, join as join4, relative as relative3, resolve as resolve4 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
@@ -5178,7 +5190,7 @@ var CATEGORY_RULES = [
   // Fallback handled separately
 ];
 function detectCategory(relPath) {
-  const name2 = basename7(relPath);
+  const name2 = basename10(relPath);
   for (const rule of CATEGORY_RULES) {
     if (rule.match(relPath, name2))
       return rule.key;
@@ -5244,7 +5256,7 @@ function extractVisNodes(store, repoRoot) {
     const isTest = fileNodes.some((n) => n.is_test);
     const imports = Array.from(importMap.get(filePath) ?? []);
     totalEdgeCount += imports.length;
-    const name2 = basename7(filePath);
+    const name2 = basename10(filePath);
     const isGenericName = /^(page|route|index|layout|loading|error|not-found)\.(ts|tsx|js|jsx)$/.test(name2);
     const parts2 = relPath.split("/");
     const label = isGenericName && parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + name2 : name2;
@@ -5299,7 +5311,7 @@ function generateGraphHtmlTool(params) {
         memberIds: memberFileIds
       };
     });
-    const repoName = basename7(root);
+    const repoName = basename10(root);
     const html = generateGraphHtml({
       nodes,
       entities,

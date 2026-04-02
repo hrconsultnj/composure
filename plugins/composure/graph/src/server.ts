@@ -244,6 +244,7 @@ server.tool(
         "File", "Class", "Function", "Type", "Test",
         "Table", "Column", "RLSPolicy", "Index", "DbFunction", "Migration",
         "Package", "Script", "Workspace",
+        "Resource", "Module", "Stage",
       ])
       .optional()
       .describe("Optional filter by node kind."),

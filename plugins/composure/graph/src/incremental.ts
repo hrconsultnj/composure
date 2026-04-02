@@ -14,6 +14,9 @@ import { isPkgParseable, parsePkgFile } from "./pkg-parser.js";
 import { isConfigParseable, parseConfigFile } from "./config-parser.js";
 import { isMdParseable, parseMdFile } from "./md-parser.js";
 import { isShParseable, parseShFile } from "./sh-parser.js";
+import { isYamlParseable, parseYamlFile } from "./yaml-parser.js";
+import { isHclParseable, parseHclFile } from "./hcl-parser.js";
+import { isDockerfileParseable, parseDockerfile } from "./dockerfile-parser.js";
 import { detectAndStoreEntities } from "./entities.js";
 import { GraphStore } from "./store.js";
 import type { BuildResult, NodeInfo, EdgeInfo } from "./types.js";
@@ -158,6 +161,9 @@ function routeParse(
   if (isConfigParseable(filePath)) return parseConfigFile(filePath);
   if (isMdParseable(filePath)) return parseMdFile(filePath);
   if (isShParseable(filePath)) return parseShFile(filePath);
+  if (isYamlParseable(filePath)) return parseYamlFile(filePath);
+  if (isHclParseable(filePath)) return parseHclFile(filePath);
+  if (isDockerfileParseable(filePath)) return parseDockerfile(filePath);
   if (tsParser) return tsParser.parseFile(filePath);
   return { nodes: [], edges: [] };
 }
@@ -309,7 +315,7 @@ export async function singleFileUpdate(
 
   // Lazy-init tree-sitter only if needed
   let tsParser: CodeParser | null = null;
-  if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath) && !isShParseable(absPath)) {
+  if (!isSqlParseable(absPath) && !isPkgParseable(absPath) && !isConfigParseable(absPath) && !isMdParseable(absPath) && !isShParseable(absPath) && !isYamlParseable(absPath) && !isHclParseable(absPath) && !isDockerfileParseable(absPath)) {
     tsParser = new CodeParser();
     await tsParser.init();
   }
@@ -331,7 +337,7 @@ export async function singleFileUpdate(
           const depHash = fileHash(dep);
           const existing = store.getNode(dep);
           if (existing?.file_hash !== depHash) {
-            if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep) && !isShParseable(dep)) {
+            if (!depTsParser && !isSqlParseable(dep) && !isPkgParseable(dep) && !isConfigParseable(dep) && !isMdParseable(dep) && !isShParseable(dep) && !isYamlParseable(dep) && !isHclParseable(dep) && !isDockerfileParseable(dep)) {
               depTsParser = new CodeParser();
               await depTsParser.init();
             }

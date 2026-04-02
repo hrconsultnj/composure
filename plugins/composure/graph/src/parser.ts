@@ -76,6 +76,18 @@ const MD_EXTENSIONS = new Set([".md", ".mdx"]);
 /** Extensions handled by the shell parser (not tree-sitter). */
 const SH_EXTENSIONS = new Set([".sh"]);
 
+/** Extensions handled by the YAML parser (K8s manifests — filtered by content). */
+const YAML_EXTENSIONS = new Set([".yaml", ".yml"]);
+
+/** Extensions handled by the HCL parser (Terraform). */
+const TF_EXTENSIONS = new Set([".tf"]);
+
+/** Dockerfile detection — by filename, not extension. */
+function isDockerfileName(filePath: string): boolean {
+  const name = basename(filePath);
+  return name === "Dockerfile" || name.startsWith("Dockerfile.") || name.toLowerCase() === "dockerfile";
+}
+
 export function isParseable(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
   if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext)) return true;
@@ -85,6 +97,10 @@ export function isParseable(filePath: string): boolean {
   if (MD_EXTENSIONS.has(ext)) return true; // md-parser does its own filtering
   // hooks.json files in hooks/ directories
   if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/")) return true;
+  // Infra parsers: K8s YAML, Terraform HCL, Dockerfiles
+  if (YAML_EXTENSIONS.has(ext)) return true; // yaml-parser filters by content
+  if (TF_EXTENSIONS.has(ext)) return true;
+  if (isDockerfileName(filePath)) return true;
   return false;
 }
 
