@@ -62,8 +62,7 @@ build_or_update_graph({ base: "<base_branch>" })
 
 Where `<base_branch>` is the PR's base branch (usually `main`).
 
-If the graph MCP is unavailable, STOP with the standard Composure graph error:
-"Run `/composure:initialize` Step 0a to register the graph MCP server."
+If the graph MCP is unavailable, STOP: "The composure-graph MCP server is disconnected. Restart Claude Code to reconnect, then re-run this command."
 
 ## Output
 

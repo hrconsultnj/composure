@@ -10,13 +10,13 @@ Build or incrementally update the persistent code knowledge graph, generate a st
 
 ## Prerequisites
 
-The `composure-graph` MCP server is **bundled with the Composure plugin** — it is NOT an npm package. Do NOT try to `npm install` it. It is declared in the plugin's `plugin.json` and auto-registered when the plugin is installed.
+The `composure-graph` MCP server is **bundled with the Composure plugin** — it auto-registers via `.mcp.json` and starts automatically at session startup. The dist is self-contained (esbuild-bundled, no `node_modules` needed). Do NOT try to `npm install` it or run `claude mcp add` manually.
 
-If the MCP tools are unavailable when you call `list_graph_stats`, run the auto-fix from `/composure:initialize` Step 0a:
+If the MCP tools are unavailable when you call `list_graph_stats`, run the diagnostic chain from `/composure:initialize` Step 2:
 1. **A.** Check `node --version` — must be >= 22.5.0. If too old → tell user to update Node + restart.
-2. **B.** Find the plugin install path via `claude plugin list --json`, verify `graph/dist/server.js` exists, then register it: `claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"`. Tell user to restart Claude Code (Ctrl+C then `claude`).
+2. **B.** Verify `${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js` exists. If it exists but MCP is disconnected → tell user to restart Claude Code. If it doesn't exist → run `cd "${CLAUDE_PLUGIN_ROOT}/graph" && pnpm install && pnpm build`, then restart.
 3. **C.** If plugin not installed → tell user to install it.
-**STOP** after registering. Do NOT offer alternatives — the server must be running.
+**STOP** after diagnosing. The only fix for a disconnected MCP server is restarting Claude Code.
 
 ## Steps
 

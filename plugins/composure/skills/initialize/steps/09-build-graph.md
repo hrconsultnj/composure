@@ -1,6 +1,6 @@
 # Step 9: Build Code Graph
 
-The composure-graph MCP server was already verified in Step 0a.
+The composure-graph MCP server was already verified in Step 2.
 
 1. Call `list_graph_stats` to check if a graph already exists
 2. If no graph exists (`last_updated` is null), or if `--force` was passed: call `build_or_update_graph({ full_rebuild: true })`

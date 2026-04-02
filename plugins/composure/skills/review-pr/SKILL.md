@@ -10,11 +10,7 @@ Perform a comprehensive, graph-powered code review of a pull request. Uses verif
 
 ## Prerequisites
 
-The `composure-graph` MCP server must be running. It is **bundled with the Composure plugin** — do NOT try to `npm install` it. If MCP tools are unavailable when you call `build_or_update_graph`, run the auto-fix from `/composure:initialize` Step 0a:
-1. **A.** `node --version` — must be >= 22.5.0
-2. **B.** Find plugin path via `claude plugin list --json`, register server: `claude mcp add composure-graph -- node --experimental-sqlite "$COMPOSURE_PATH/graph/dist/server.js"`
-3. **C.** If plugin not installed → tell user to install it
-Tell user to restart Claude Code (Ctrl+C then `claude`) after registering. **STOP.** Do not proceed without the graph.
+The `composure-graph` MCP server must be running. It auto-registers via the plugin's `.mcp.json` and starts at session startup. If MCP tools are unavailable when you call `build_or_update_graph`, run the diagnostic chain from `/composure:initialize` Step 2. The only fix for a disconnected MCP is restarting Claude Code. Do NOT run `claude mcp add` manually.
 
 ## Workflow
 
