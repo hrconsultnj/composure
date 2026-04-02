@@ -4,4 +4,5 @@ tasks-plans/
 docs/
 *.DS_Store
 plugins/composure/app/dist/
+plugins/composure/graph/src/
 plugins/composure/graph/pnpm-workspace.yaml
