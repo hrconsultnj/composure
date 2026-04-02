@@ -26,6 +26,17 @@
         }
       ]
     },
+    "supabase-browser-client-in-server": {
+      "appliesTo": ["**/app/**/page.tsx", "**/app/**/layout.tsx", "**/app/**/loading.tsx", "**/actions/**/*.ts"],
+      "rules": [
+        {
+          "pattern": "from\\s+['\"]@/lib/supabase/client['\"]|from\\s+['\"].*supabase.*client['\"]",
+          "severity": "error",
+          "message": "Browser Supabase client imported in a server file. Use createClient from @/lib/supabase/server for pages, layouts, and server actions.",
+          "skipIf": "use client"
+        }
+      ]
+    },
     "supabase-get-session": {
       "appliesTo": ["**/proxy.ts", "**/middleware.ts", "**/actions/**/*.ts", "**/app/**/layout.tsx", "**/app/**/page.tsx"],
       "rules": [

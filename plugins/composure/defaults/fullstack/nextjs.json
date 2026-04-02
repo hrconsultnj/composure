@@ -52,6 +52,16 @@
         }
       ]
     },
+    "nextjs-use-client-page": {
+      "appliesTo": ["**/app/**/page.tsx", "**/app/**/layout.tsx", "**/app/**/loading.tsx"],
+      "rules": [
+        {
+          "pattern": "^['\"]use client['\"]",
+          "severity": "error",
+          "message": "Pages, layouts, and loading files MUST be server components — never add 'use client'. Extract interactive parts into a client component in components/ and import it."
+        }
+      ]
+    },
     "nextjs-server-hooks": {
       "appliesTo": ["**/app/**/page.tsx", "**/app/**/layout.tsx", "**/app/**/loading.tsx"],
       "rules": [

@@ -147,6 +147,14 @@ case "$LANG" in
       "Lazy type (Function or Object). Use specific signature (() => void) or Record<string, unknown>."
     check "any-return" '\)\s*:\s*any\s*[{;]|\)\s*:\s*any\s*=>' \
       "Function with explicit ': any' return type. Define the actual return type."
+    # Supabase direct queries in "use client" components (Write = full file content)
+    if [[ "$TOOL_NAME" == "Write" ]] && is_rule_enabled "supabase-client-query"; then
+      if printf '%s\n' "$CONTENT" | grep -q "'use client'" || printf '%s\n' "$CONTENT" | grep -q '"use client"'; then
+        if printf '%s\n' "$CONTENT" | grep -qE '\.from\(\s*['\''"]'; then
+          VIOLATIONS="${VIOLATIONS}\n- Direct Supabase .from() query in a 'use client' component. Client components should fetch via TanStack Query + server actions, not direct database calls. Move queries to a server action in actions/ or a route handler in api/."
+        fi
+      fi
+    fi
     ;;
   python)
     check "type-ignore"     'type:\s*ignore'          "Fix the type error instead of ignoring it."
