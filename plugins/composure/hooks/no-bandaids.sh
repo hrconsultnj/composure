@@ -225,7 +225,9 @@ process_fv_groups() {
     local MATCH=false
     for GLOB_PATTERN in $(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".appliesTo[]" 2>/dev/null); do
       local REGEX_PATTERN
-      REGEX_PATTERN=$(printf '%s' "$GLOB_PATTERN" | sed 's/\*\*/.*?/g; s/\*/[^\/]*/g')
+      # Convert glob to regex: ** → any depth, * → one segment, dots escaped
+      # Uses placeholders to prevent sed passes from clobbering each other
+      REGEX_PATTERN=$(printf '%s' "$GLOB_PATTERN" | sed 's/\*\*/__DBLSTAR__/g; s/\./\\./g; s/\*/__STAR__/g; s/__DBLSTAR__/.*/g; s/__STAR__/[^\/]*/g')
       if printf '%s' "$REL_PATH" | grep -qE "^${REGEX_PATTERN}$"; then
         MATCH=true
         break
