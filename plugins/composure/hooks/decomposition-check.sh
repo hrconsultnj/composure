@@ -1,16 +1,12 @@
 #!/bin/bash
 # ============================================================
-# Code Quality Guard v4 — Global PostToolUse Hook
+# Code Quality Guard — PostToolUse Hook
 # ============================================================
-# Fires after Edit/Write on source files.
+# Fires after Edit/Write on source files. Detects oversized files,
+# large functions, inline types, and responsibility violations.
+# Logs findings to tasks-plans/tasks.md.
 #
-# v4 CHANGES (from v3):
-#   - Graph-aware: queries .code-review-graph/graph.db for exact
-#     AST-based function sizes when available (tree-sitter precision)
-#   - Falls back to regex heuristics when graph doesn't exist
-#   - Matcher changed from Read|Edit|Write to Edit|Write
-#     (scanning on Read adds latency without benefit)
-#
+# Task file management is in task-writer.sh (sourced helper).
 # Non-blocking (exit 0 always). Timeout: 10 seconds.
 # ============================================================
 
@@ -38,8 +34,6 @@ esac
 [ ! -f "$FILE_PATH" ] && exit 0
 
 # ── /simplify suggestion tracker ──────────────────────────────
-# Count source file edits per session. After threshold, suggest
-# /simplify once via systemMessage. Dedup prevents nagging.
 SIMPLIFY_THRESHOLD=5
 SESSION_KEY="${CLAUDE_SESSION_ID:-unknown}"
 SIMPLIFY_COUNTER="/tmp/composure-edits-${SESSION_KEY}"
@@ -55,7 +49,6 @@ fi
 
 LINE_COUNT=$(wc -l < "$FILE_PATH" 2>/dev/null | tr -d ' ')
 [ -z "$LINE_COUNT" ] || [ "$LINE_COUNT" -lt 100 ] && {
-  # File is very small — no decomposition needed, but still check simplify suggestion
   if [ -n "$SUGGEST_SIMPLIFY" ]; then
     printf '{"systemMessage": "%s"}' "$SUGGEST_SIMPLIFY"
   fi
@@ -75,30 +68,22 @@ RELATIVE_PATH="${FILE_PATH#$CLAUDE_PROJECT_DIR/}"
 [ "$RELATIVE_PATH" = "$FILE_PATH" ] && RELATIVE_PATH="$BASENAME"
 TASK_FILE="${CLAUDE_PROJECT_DIR}/tasks-plans/tasks.md"
 
-# Ensure the directory exists (for new projects)
-mkdir -p "$(dirname "$TASK_FILE")" 2>/dev/null
-
 # ── Dedup check: skip if this file already has an open task ──
-# NOTE: Use single-quote concatenation for backticks — double-quoted backticks
-# trigger command substitution in bash, breaking the grep pattern.
 DEDUP_PATTERN='`'"${RELATIVE_PATH}"'`'
 if [ -f "$TASK_FILE" ] && grep -qF -- "- [ ]" "$TASK_FILE" 2>/dev/null; then
   if grep -qF "$DEDUP_PATTERN" "$TASK_FILE" 2>/dev/null; then
-    # Check it's an OPEN task (not resolved)
     if grep -F "$DEDUP_PATTERN" "$TASK_FILE" | grep -qF -- "- [ ]"; then
-      exit 0  # Already tracked, skip
+      exit 0
     fi
   fi
 fi
 
-# ── Route file check ──
 IS_ROUTE=0
 case "$BASENAME" in
   page.tsx|page.ts|layout.tsx|layout.ts) IS_ROUTE=1 ;;
 esac
 
 # ── 1. Find large functions/components ──
-# Strategy: Use graph DB (exact AST sizes) if available, fall back to regex heuristics.
 LARGE_FUNCS=""
 LARGE_FUNC_COUNT=0
 
@@ -107,7 +92,6 @@ ABS_FILE_PATH=$(cd "$(dirname "$FILE_PATH")" 2>/dev/null && echo "$(pwd)/$(basen
 [ -z "$ABS_FILE_PATH" ] && ABS_FILE_PATH="$FILE_PATH"
 
 if [ -f "$GRAPH_DB" ] && command -v sqlite3 >/dev/null 2>&1; then
-  # ── Graph-aware path: exact function sizes from tree-sitter AST ──
   GRAPH_RESULTS=$(sqlite3 "$GRAPH_DB" \
     "SELECT name, line_start, line_end, (line_end - line_start + 1) as lines
      FROM nodes
@@ -125,7 +109,7 @@ if [ -f "$GRAPH_DB" ] && command -v sqlite3 >/dev/null 2>&1; then
     done <<< "$GRAPH_RESULTS"
   fi
 else
-  # ── Regex fallback: heuristic function size estimation ──
+  # Regex fallback: heuristic function size estimation
   FUNC_DECLS=$(grep -nE '^(export[[:space:]]+)?(default[[:space:]]+)?(async[[:space:]]+)?function[[:space:]]+[A-Za-z_]\w*' "$FILE_PATH" 2>/dev/null | head -20)
   ARROW_DECLS=$(grep -nE '^(export[[:space:]]+)?(const|let)[[:space:]]+[A-Za-z_]\w*[[:space:]]*:[[:space:]]*React\.(FC|memo|forwardRef)' "$FILE_PATH" 2>/dev/null | head -10)
   ARROW_ASSIGN=$(grep -nE '^(export[[:space:]]+)?(const|let)[[:space:]]+[A-Za-z_]\w*[[:space:]]*=[[:space:]]*(memo\(|forwardRef\(|\([[:space:]]*[\{)]|\([[:space:]]*props|\([[:space:]]*\)|\([[:space:]]*[a-z]\w*[[:space:],):]|function[[:space:]]*\(|\<\w)' "$FILE_PATH" 2>/dev/null | head -10)
@@ -186,34 +170,29 @@ if [ -n "$TYPE_NAMES" ]; then
   fi
 fi
 
-# ── 2b. Find inline data constants in component files ──
-# Detects data arrays/objects defined directly in .tsx files instead of in lib/.
-# The agent tends to inline data when no shared constants file exists yet.
+# ── 2b. Find inline data constants ──
 INLINE_DATA=""
 INLINE_DATA_COUNT=0
 case "$BASENAME" in
   *.tsx)
-    # Count top-level const declarations with array or typed-array literals
     DATA_CONSTS=$(grep -nE '^\s*(export\s+)?const\s+[A-Za-z_]\w*\s*(:\s*\w+(\[\]|<).*)?=\s*\[' "$FILE_PATH" 2>/dev/null | head -20)
     if [ -n "$DATA_CONSTS" ]; then
       INLINE_DATA_COUNT=$(echo "$DATA_CONSTS" | wc -l | tr -d ' ')
       if [ "$INLINE_DATA_COUNT" -gt 2 ]; then
         DATA_NAMES=$(echo "$DATA_CONSTS" | sed -E 's/.*const[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/' | tr '\n' ', ' | sed 's/,$//' | sed 's/,/, /g')
-        INLINE_DATA="  - MOVE: ${INLINE_DATA_COUNT} inline data constants (\`${DATA_NAMES}\`) to \`lib/constants.ts\` or \`lib/{feature}-data.ts\`"
+        INLINE_DATA="  - MOVE: ${INLINE_DATA_COUNT} inline data constants (\`${DATA_NAMES}\`) to \`lib/constants.ts\`"
       fi
     fi
     ;;
 esac
 
-# ── 3. Shared-type duplication check (NEW in v3) ──
-# Auto-detect shared package in monorepos (packages/shared, packages/common, etc.)
+# ── 3. Shared-type duplication check ──
 SHARED_TASK=""
 SHARED_DIR=""
 SHARED_PKG_NAME=""
 for candidate in "packages/shared/src" "packages/common/src" "packages/core/src"; do
   if [ -d "${CLAUDE_PROJECT_DIR}/${candidate}" ]; then
     SHARED_DIR="${CLAUDE_PROJECT_DIR}/${candidate}"
-    # Derive package name from package.json if available
     PKG_JSON="${CLAUDE_PROJECT_DIR}/$(dirname "$candidate")/package.json"
     if [ -f "$PKG_JSON" ]; then
       SHARED_PKG_NAME=$(grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' "$PKG_JSON" 2>/dev/null | sed 's/.*"name"[[:space:]]*:[[:space:]]*"//' | sed 's/"//')
@@ -238,9 +217,7 @@ if [ -n "$SHARED_DIR" ] && [ -n "$TYPE_NAMES" ]; then
   fi
 fi
 
-# ── 3b. Multiple exported components in one file ──
-# Each component should be its own file. A screen with EditModal + CreateForm
-# + LoadingView all exported is a responsibility violation.
+# ── 3b. Multiple exported components ──
 MULTI_COMPONENT=""
 COMPONENT_COUNT=0
 case "$BASENAME" in
@@ -250,13 +227,13 @@ case "$BASENAME" in
       COMPONENT_COUNT=$(echo "$COMPONENT_NAMES" | wc -l | tr -d ' ')
       if [ "$COMPONENT_COUNT" -gt 2 ]; then
         COMP_LIST=$(echo "$COMPONENT_NAMES" | tr '\n' ', ' | sed 's/,$//' | sed 's/,/, /g')
-        MULTI_COMPONENT="  - SPLIT: ${COMPONENT_COUNT} exported components (\`${COMP_LIST}\`) — each component should be its own file"
+        MULTI_COMPONENT="  - SPLIT: ${COMPONENT_COUNT} exported components (\`${COMP_LIST}\`) — each should be its own file"
       fi
     fi
     ;;
 esac
 
-# ── 4. Other checks (StyleSheet, modals, route thickness) ──
+# ── 4. Other checks ──
 OTHER_ITEMS=""
 
 STYLE_START=$(grep -n 'StyleSheet\.create' "$FILE_PATH" 2>/dev/null | head -1 | cut -d: -f1)
@@ -274,7 +251,7 @@ if [ "$IS_ROUTE" -eq 1 ] && [ "$LINE_COUNT" -gt 80 ]; then
   OTHER_ITEMS="${OTHER_ITEMS}  - REFACTOR: Route file (${LINE_COUNT} lines, should be <50) — move logic to container component\n"
 fi
 
-# ── 5. TODO/FIXME/HACK comments (AI debt markers) ──
+# ── 5. TODO/FIXME/HACK comments ──
 TODO_ITEMS=""
 TODO_COUNT=0
 TODO_MATCHES=$(grep -nE '//\s*(TODO|FIXME|HACK|XXX|TEMP|WORKAROUND)\b' "$FILE_PATH" 2>/dev/null | head -10)
@@ -287,7 +264,7 @@ if [ -n "$TODO_MATCHES" ]; then
   done <<< "$TODO_MATCHES"
 fi
 
-# ── 6. Lint/type suppression comments (AI band-aid markers) ──
+# ── 6. Lint/type suppression comments ──
 SUPPRESS_ITEMS=""
 SUPPRESS_COUNT=0
 SUPPRESS_MATCHES=$(grep -nE '(//\s*@ts-nocheck|//\s*@ts-ignore|/\*\s*eslint-disable\s*\*/|//\s*eslint-disable-next-line\s*$|//\s*biome-ignore\s*$|//\s*@ts-expect-error)' "$FILE_PATH" 2>/dev/null | head -10)
@@ -301,101 +278,37 @@ if [ -n "$SUPPRESS_MATCHES" ]; then
 fi
 
 # ── Determine severity ──
-# Priority: RESPONSIBILITY violations first, line count escalates severity.
-# A 200-line file with mixed concerns is worse than a 500-line cohesive parser.
 SEVERITY=""
 EMOJI=""
 HAS_RESPONSIBILITY_VIOLATION=0
 [ -n "$INLINE_TYPES" ] || [ -n "$INLINE_DATA" ] || [ -n "$MULTI_COMPONENT" ] || [ -n "$OTHER_ITEMS" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ] && HAS_RESPONSIBILITY_VIOLATION=1
 
 if [ "$LINE_COUNT" -ge "$CRITICAL_LINES" ]; then
-  SEVERITY="CRITICAL"
-  EMOJI="🔴"
+  SEVERITY="CRITICAL"; EMOJI="🔴"
 elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] && [ "$HAS_RESPONSIBILITY_VIOLATION" -eq 1 ]; then
-  SEVERITY="CRITICAL"
-  EMOJI="🔴"
+  SEVERITY="CRITICAL"; EMOJI="🔴"
 elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] || { [ "$LARGE_FUNC_COUNT" -gt 0 ] && [ "$LINE_COUNT" -ge "$WARN_LINES" ]; }; then
-  SEVERITY="HIGH"
-  EMOJI="🟡"
+  SEVERITY="HIGH"; EMOJI="🟡"
 elif [ "$LARGE_FUNC_COUNT" -gt 0 ]; then
-  # Large function in any file — responsibility violation regardless of file size
-  SEVERITY="HIGH"
-  EMOJI="🟡"
+  SEVERITY="HIGH"; EMOJI="🟡"
 elif [ "$HAS_RESPONSIBILITY_VIOLATION" -eq 1 ]; then
-  # Inline types, inline data, modals in routes, StyleSheet blocks — at any file size
-  SEVERITY="MODERATE"
-  EMOJI="🟢"
+  SEVERITY="MODERATE"; EMOJI="🟢"
 fi
 
-# ── Nothing to report? Check if we have a shared-type task at least ──
-if [ -z "$SEVERITY" ] && [ -z "$SHARED_TASK" ]; then
+[ -z "$SEVERITY" ] && [ -z "$SHARED_TASK" ] && {
+  if [ -n "$SUGGEST_SIMPLIFY" ]; then
+    printf '{"systemMessage": "%s"}' "$SUGGEST_SIMPLIFY"
+  fi
   exit 0
-fi
-
-# ── Write to task queue file (grouped by severity) ──
-
-# Section headers — tasks are inserted into the matching section
-SECTION_CRITICAL="## 🔴 Critical"
-SECTION_HIGH="## 🟡 High"
-SECTION_MODERATE="## 🟢 Moderate"
-
-# Initialize file with section headers if needed
-if [ ! -f "$TASK_FILE" ]; then
-  cat > "$TASK_FILE" << HEADER
-# Code Quality Tasks
-<!-- Auto-detected by code quality hooks. Process with /backlog or delegate to a sub-agent. -->
-<!-- Mark [x] when resolved. Delete resolved entries periodically. -->
-
-${SECTION_CRITICAL}
-
-${SECTION_HIGH}
-
-${SECTION_MODERATE}
-
-HEADER
-fi
-
-# Ensure all 3 sections exist (in case file was created by older hook version)
-for SECT in "$SECTION_CRITICAL" "$SECTION_HIGH" "$SECTION_MODERATE"; do
-  if ! grep -qF "$SECT" "$TASK_FILE" 2>/dev/null; then
-    echo -e "\n${SECT}\n" >> "$TASK_FILE"
-  fi
-done
-
-# ── Helper: insert a block into the correct section ──
-# Strategy: find the NEXT section header after target, insert before it.
-# CRITICAL inserts before 🟡, HIGH inserts before 🟢, MODERATE appends to EOF.
-insert_into_section() {
-  local target_section="$1"
-  shift
-  local block="$*"
-
-  local insert_before=""
-  case "$target_section" in
-    *Critical*) insert_before="$SECTION_HIGH" ;;
-    *High*)     insert_before="$SECTION_MODERATE" ;;
-    *)          insert_before="" ;;  # Moderate → append to end
-  esac
-
-  if [ -n "$insert_before" ]; then
-    local line_num
-    line_num=$(grep -nF "$insert_before" "$TASK_FILE" | head -1 | cut -d: -f1)
-    if [ -n "$line_num" ]; then
-      # Split file, insert block, rejoin
-      head -n "$((line_num - 1))" "$TASK_FILE" > "${TASK_FILE}.tmp"
-      echo -e "$block" >> "${TASK_FILE}.tmp"
-      tail -n "+${line_num}" "$TASK_FILE" >> "${TASK_FILE}.tmp"
-      mv "${TASK_FILE}.tmp" "$TASK_FILE"
-      return
-    fi
-  fi
-  # Fallback: append to end
-  echo -e "$block" >> "$TASK_FILE"
 }
+
+# ── Source task writer helper ──
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/task-writer.sh"
+init_task_file "$TASK_FILE"
 
 TASKS_ADDED=0
 
-# Write decomposition task into the correct severity section
 if [ -n "$SEVERITY" ]; then
   TASK_BLOCK="- [ ] ${EMOJI} **DECOMPOSE** \`${RELATIVE_PATH}\` (${LINE_COUNT} lines) [${TODAY}]"
   [ -n "$LARGE_FUNCS" ] && TASK_BLOCK="${TASK_BLOCK}\n${LARGE_FUNCS}"
@@ -405,43 +318,38 @@ if [ -n "$SEVERITY" ]; then
   [ -n "$OTHER_ITEMS" ] && TASK_BLOCK="${TASK_BLOCK}\n${OTHER_ITEMS}"
 
   case "$SEVERITY" in
-    CRITICAL) insert_into_section "$SECTION_CRITICAL" "$TASK_BLOCK" ;;
-    HIGH)     insert_into_section "$SECTION_HIGH" "$TASK_BLOCK" ;;
-    MODERATE) insert_into_section "$SECTION_MODERATE" "$TASK_BLOCK" ;;
+    CRITICAL) insert_into_section "$TASK_FILE" "$SECTION_CRITICAL" "$TASK_BLOCK" ;;
+    HIGH)     insert_into_section "$TASK_FILE" "$SECTION_HIGH" "$TASK_BLOCK" ;;
+    MODERATE) insert_into_section "$TASK_FILE" "$SECTION_MODERATE" "$TASK_BLOCK" ;;
   esac
   TASKS_ADDED=$((TASKS_ADDED + 1))
 fi
 
-# Write shared-type task (always Moderate section)
 if [ -n "$SHARED_TASK" ]; then
-  insert_into_section "$SECTION_MODERATE" "$SHARED_TASK"
+  insert_into_section "$TASK_FILE" "$SECTION_MODERATE" "$SHARED_TASK"
   TASKS_ADDED=$((TASKS_ADDED + 1))
 fi
 
-# Write lint suppression task (High section — hiding real errors)
 if [ "$SUPPRESS_COUNT" -gt 0 ]; then
   SUPPRESS_DEDUP='`'"${RELATIVE_PATH}"'`.*SUPPRESS'
   if ! grep -q "$SUPPRESS_DEDUP" "$TASK_FILE" 2>/dev/null; then
     SUPPRESS_BLOCK="- [ ] \xF0\x9F\x9F\xA1 **SUPPRESS** \`${RELATIVE_PATH}\` (${SUPPRESS_COUNT} suppression(s)) [${TODAY}]\n${SUPPRESS_ITEMS}"
-    insert_into_section "$SECTION_HIGH" "$SUPPRESS_BLOCK"
+    insert_into_section "$TASK_FILE" "$SECTION_HIGH" "$SUPPRESS_BLOCK"
     TASKS_ADDED=$((TASKS_ADDED + 1))
   fi
 fi
 
-# Write TODO/FIXME task (Moderate section — AI debt markers)
 if [ "$TODO_COUNT" -gt 0 ]; then
   TODO_DEDUP='`'"${RELATIVE_PATH}"'`.*TODO'
   if ! grep -q "$TODO_DEDUP" "$TASK_FILE" 2>/dev/null; then
     TODO_BLOCK="- [ ] \xF0\x9F\x94\xB5 **TODO** \`${RELATIVE_PATH}\` (${TODO_COUNT} comment(s)) [${TODAY}]\n${TODO_ITEMS}"
-    insert_into_section "$SECTION_MODERATE" "$TODO_BLOCK"
+    insert_into_section "$TASK_FILE" "$SECTION_MODERATE" "$TODO_BLOCK"
     TASKS_ADDED=$((TASKS_ADDED + 1))
   fi
 fi
 
-# ── Count total open tasks ──
 TOTAL_OPEN=$(grep -c '^\- \[ \]' "$TASK_FILE" 2>/dev/null || echo "0")
 
-# ── Return brief, non-distracting systemMessage ──
 MSG=""
 if [ "$TASKS_ADDED" -gt 0 ]; then
   MSG="Code quality: ${TASKS_ADDED} task(s) logged for \`${RELATIVE_PATH}\` (${TOTAL_OPEN} open total). Continue current work."

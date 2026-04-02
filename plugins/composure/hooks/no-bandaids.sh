@@ -1,24 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# no-bandaids.sh — Global PreToolUse hook that blocks band-aid fixes across languages.
-# Prevents Claude (and subagents) from using shortcuts instead of fixing root causes.
+# no-bandaids.sh — PreToolUse hook that blocks band-aid fixes across languages.
+# Prevents Claude (and subagents) from using type suppressions, unsafe casts,
+# and other shortcuts instead of fixing root causes.
 #
-# Config: place .claude/no-bandaids.json in any project to customize:
-# {
-#   "extensions": [".ts", ".tsx", ".js", ".jsx"],
-#   "skipPatterns": ["*.d.ts", "*.generated.*"],
-#   "disabledRules": ["non-null-assertion"],
-#   "typegenHint": "pnpm --filter @my-app/database generate",
-#   "frameworks": { "typescript": { ... }, "python": { ... }, "go": { ... } }
-# }
-#
-# Without config or frameworks field, defaults to TypeScript rules only.
+# Framework validation rules (plugin defaults + project config) are in a
+# separate hook: framework-validation.sh. Both run in parallel on Edit/Write.
 
 INPUT=$(cat)
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name')
 
-# Extract content being written — use printf throughout (portable, no flag interpretation)
 if [[ "$TOOL_NAME" == "Write" ]]; then
   CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.content // ""')
 elif [[ "$TOOL_NAME" == "Edit" ]]; then
@@ -33,11 +25,10 @@ FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // "unknown"')
 BASENAME=$(basename "$FILE_PATH")
 PROJECT_DIR=$(printf '%s' "$INPUT" | jq -r '.cwd // ""')
 
-# Fallback: derive project root from FILE_PATH if .cwd is empty
+# Derive project root if .cwd is empty
 if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
-  PROJECT_DIR=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null)
+  PROJECT_DIR=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || true)
 fi
-# Final fallback: walk up from FILE_PATH looking for .claude/ or .git/
 if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
   _dir=$(dirname "$FILE_PATH")
   while [[ "$_dir" != "/" && "$_dir" != "." ]]; do
@@ -83,7 +74,6 @@ if printf '%s' "$CONFIG" | jq -e '.frameworks' >/dev/null 2>&1; then
     exit 0
   fi
 else
-  # No frameworks field — backward compat: only run for typescript
   [[ "$LANG" != "typescript" ]] && exit 0
 fi
 
@@ -123,13 +113,13 @@ is_rule_enabled() {
   return 0
 }
 
-check() { # usage: check <rule-name> <regex> <message>
+check() {
   is_rule_enabled "$1" && printf '%s\n' "$CONTENT" | grep -qE "$2" && \
     VIOLATIONS="${VIOLATIONS}\n- $3"
   return 0
 }
 
-# ─── Run checks ──────────────────────────────────────────────────
+# ─── Run language-specific checks ────────────────────────────────
 VIOLATIONS=""
 
 case "$LANG" in
@@ -167,7 +157,7 @@ case "$LANG" in
     if [[ "$TOOL_NAME" == "Write" ]] && is_rule_enabled "supabase-client-query"; then
       if printf '%s\n' "$CONTENT" | grep -q "'use client'" || printf '%s\n' "$CONTENT" | grep -q '"use client"'; then
         if printf '%s\n' "$CONTENT" | grep -qE '\.from\(\s*['\''"]'; then
-          VIOLATIONS="${VIOLATIONS}\n- Direct Supabase .from() query in a 'use client' component. Client components should fetch via TanStack Query + server actions, not direct database calls. Move queries to a server action in actions/ or a route handler in api/."
+          VIOLATIONS="${VIOLATIONS}\n- Direct Supabase .from() query in a 'use client' component. Client components should fetch via TanStack Query + server actions, not direct database calls."
         fi
       fi
     fi
@@ -186,7 +176,6 @@ case "$LANG" in
     check "empty-interface" 'interface\{\}'            "Use 'any' keyword or generics (Go 1.18+)."
     check "bare-nolint"     '//nolint$'                "Add justification: //nolint:lintername // reason."
     if is_rule_enabled "panic" && [[ "$IS_TEST_FILE" == "false" ]]; then
-      # Allow panic in main packages and test files
       if ! printf '%s\n' "$CONTENT" | grep -q '^package main$'; then
         check "panic" 'panic\(' "Return error instead of panicking."
       fi
@@ -196,7 +185,6 @@ case "$LANG" in
     if [[ "$IS_TEST_FILE" == "false" ]]; then
       check "unwrap"  '\.unwrap\(\)' "Use ? operator or .expect('reason') instead of .unwrap()."
     fi
-    # unsafe without SAFETY comment (check line-by-line is impractical; flag any unsafe block)
     if is_rule_enabled "unsafe" && printf '%s\n' "$CONTENT" | grep -qE 'unsafe\s*\{'; then
       if ! printf '%s\n' "$CONTENT" | grep -qB1 '// SAFETY:' 2>/dev/null | grep -q 'unsafe'; then
         VIOLATIONS="${VIOLATIONS}\n- unsafe block without // SAFETY: comment. Add a SAFETY comment explaining the invariants."
@@ -226,158 +214,6 @@ case "$LANG" in
     ;;
 esac
 
-# ─── Framework validation rules ──────────────────────────────────
-# Two-layer system:
-#   1. Plugin defaults ($CLAUDE_PLUGIN_ROOT/defaults/framework-rules.json)
-#      — universal rules, cannot be disabled by project config
-#   2. Project config (no-bandaids.json frameworkValidation)
-#      — project-specific rules, additive only
-# Severity "error" → blocks. Severity "warn" → warns only.
-WARNINGS=""
-
-# Get relative path from project root for glob matching
-REL_PATH="${FILE_PATH#"$PROJECT_DIR"/}"
-
-# ─── Helper: process a set of framework validation groups ─────────
-# Args: $1 = JSON string containing groups, $2 = "plugin" or "project" (for messages)
-process_fv_groups() {
-  local FV_JSON="$1"
-  local SOURCE="$2"
-
-  for GROUP in $(printf '%s' "$FV_JSON" | jq -r 'keys[]' 2>/dev/null); do
-    # Check if file matches any appliesTo glob pattern
-    local MATCH=false
-    for GLOB_PATTERN in $(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".appliesTo[]" 2>/dev/null); do
-      local REGEX_PATTERN
-      # Convert glob to regex: ** → any depth, * → one segment, dots escaped
-      # Uses placeholders to prevent sed passes from clobbering each other
-      REGEX_PATTERN=$(printf '%s' "$GLOB_PATTERN" | sed 's/\*\*/__DBLSTAR__/g; s/\./\\./g; s/\*/__STAR__/g; s/__DBLSTAR__/.*/g; s/__STAR__/[^\/]*/g')
-      if printf '%s' "$REL_PATH" | grep -qE "^${REGEX_PATTERN}$"; then
-        MATCH=true
-        break
-      fi
-    done
-    [[ "$MATCH" == "false" ]] && continue
-
-    # Process each rule in this group
-    local RULE_COUNT
-    RULE_COUNT=$(printf '%s' "$FV_JSON" | jq ".\"$GROUP\".rules | length" 2>/dev/null)
-    [[ -z "$RULE_COUNT" || "$RULE_COUNT" == "null" ]] && continue
-
-    for ((i=0; i<RULE_COUNT; i++)); do
-      local RULE_PATTERN RULE_SEVERITY RULE_MESSAGE RULE_SKIPIF
-      RULE_PATTERN=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].pattern")
-      RULE_SEVERITY=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].severity")
-      RULE_MESSAGE=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].message")
-      RULE_SKIPIF=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].skipIf // empty")
-
-      # Skip if content matches skipIf pattern
-      if [[ -n "$RULE_SKIPIF" ]] && printf '%s\n' "$CONTENT" | grep -qE "$RULE_SKIPIF"; then
-        continue
-      fi
-
-      # Check if content matches the violation pattern
-      if printf '%s\n' "$CONTENT" | grep -qE "$RULE_PATTERN"; then
-        if [[ "$RULE_SEVERITY" == "error" ]]; then
-          VIOLATIONS="${VIOLATIONS}\n- [${GROUP}] ${RULE_MESSAGE}"
-        else
-          WARNINGS="${WARNINGS}\n- [${GROUP}] ${RULE_MESSAGE}"
-        fi
-      fi
-    done
-  done
-}
-
-# ─── Next.js: Block content components in app/ directory ─────
-# Only Next.js convention files belong in app/. All other .tsx
-# files should live in components/, not co-located with routes.
-# Disableable via: "disabledRules": ["nextjs-app-content"]
-if is_rule_enabled "nextjs-app-content" && \
-   printf '%s' "$CONFIG" | jq -e '[.frameworks[].frontend // empty] | index("nextjs")' >/dev/null 2>&1; then
-  case "$REL_PATH" in
-    app/*.tsx|src/app/*.tsx)
-      case "$BASENAME" in
-        page.tsx|layout.tsx|loading.tsx|error.tsx|not-found.tsx|global-error.tsx|template.tsx|default.tsx) ;;
-        # Image/metadata convention files (OG images, icons, sitemaps)
-        opengraph-image.tsx|twitter-image.tsx|icon.tsx|apple-icon.tsx|sitemap.tsx|robots.tsx|manifest.tsx) ;;
-        *)
-          VIOLATIONS="${VIOLATIONS}\n- [nextjs-app-content] Content component '${BASENAME}' belongs in components/, not app/. Route directories should only contain Next.js convention files (page/layout/loading/error/not-found/template/default). Move to components/pages/ or components/features/ and import from the route's page.tsx."
-          ;;
-      esac
-      ;;
-  esac
-fi
-
-# Layer 1: Plugin-level rules (immutable, always applied first)
-# Loads: shared.json (always) + category files based on detected stack
-PLUGIN_DEFAULTS="${CLAUDE_PLUGIN_ROOT:-/dev/null}/defaults"
-ALL_PLUGIN_GROUPS=""
-
-load_plugin_rules() {
-  local RULES_FILE="$1"
-  [[ ! -f "$RULES_FILE" ]] && return
-  local FV
-  FV=$(jq -r '.rules' "$RULES_FILE" 2>/dev/null)
-  [[ -z "$FV" || "$FV" == "null" ]] && return
-  ALL_PLUGIN_GROUPS="${ALL_PLUGIN_GROUPS} $(printf '%s' "$FV" | jq -r 'keys[]' 2>/dev/null)"
-  process_fv_groups "$FV" "plugin"
-}
-
-# Always load shared rules
-load_plugin_rules "${PLUGIN_DEFAULTS}/shared.json"
-
-# Load category rules based on detected stack in project config
-if [[ -f "$CONFIG_FILE" ]]; then
-  # Frontend framework (nextjs, vite, angular, expo)
-  FE=$(printf '%s' "$CONFIG" | jq -r '[.frameworks[].frontend // empty] | map(select(. != "null")) | unique[]' 2>/dev/null)
-  for fe in $FE; do
-    # Load all frontend/* rules (react, tailwind, shadcn)
-    for f in "${PLUGIN_DEFAULTS}"/frontend/*.json; do
-      load_plugin_rules "$f"
-    done
-    case "$fe" in
-      nextjs)  load_plugin_rules "${PLUGIN_DEFAULTS}/fullstack/nextjs.json" ;;
-      expo)    load_plugin_rules "${PLUGIN_DEFAULTS}/mobile/expo.json" ;;
-    esac
-  done
-
-  # Backend framework (supabase, express, fastapi, etc.)
-  BE=$(printf '%s' "$CONFIG" | jq -r '[.frameworks[].backend // empty] | map(select(. != "null")) | unique[]' 2>/dev/null)
-  for be in $BE; do
-    case "$be" in
-      supabase) load_plugin_rules "${PLUGIN_DEFAULTS}/backend/supabase.json" ;;
-    esac
-  done
-
-  # Vanilla HTML rules — load for non-framework projects
-  if printf '%s' "$CONFIG" | jq -e '.frameworks.html' >/dev/null 2>&1; then
-    load_plugin_rules "${PLUGIN_DEFAULTS}/vanilla.json"
-  fi
-
-  # SDK rules — detect from project dependencies
-  # TanStack Query
-  if printf '%s' "$CONFIG" | jq -r '.frameworks[].versions' 2>/dev/null | grep -q 'tanstack-query\|@tanstack/react-query'; then
-    load_plugin_rules "${PLUGIN_DEFAULTS}/sdks/tanstack-query.json"
-  fi
-  # Zod
-  if printf '%s' "$CONFIG" | jq -r '.frameworks[].versions' 2>/dev/null | grep -q 'zod'; then
-    load_plugin_rules "${PLUGIN_DEFAULTS}/sdks/zod.json"
-  fi
-fi
-
-# Layer 2: Project-level rules (additive — skip groups that match plugin names)
-if printf '%s' "$CONFIG" | jq -e '.frameworkValidation' >/dev/null 2>&1; then
-  PROJECT_FV=$(printf '%s' "$CONFIG" | jq -r '.frameworkValidation')
-  if [[ -n "$ALL_PLUGIN_GROUPS" ]]; then
-    # Build JSON array of plugin group names for filtering
-    PLUGIN_KEYS_JSON=$(printf '%s\n' $ALL_PLUGIN_GROUPS | sort -u | jq -R . | jq -s .)
-    FILTERED_FV=$(printf '%s' "$PROJECT_FV" | jq --argjson plugin "$PLUGIN_KEYS_JSON" 'with_entries(select(.key as $k | $plugin | index($k) | not))' 2>/dev/null)
-    [[ -n "$FILTERED_FV" && "$FILTERED_FV" != "null" ]] && process_fv_groups "$FILTERED_FV" "project"
-  else
-    process_fv_groups "$PROJECT_FV" "project"
-  fi
-fi
-
 # ─── Report ──────────────────────────────────────────────────────
 if [[ -n "$VIOLATIONS" ]]; then
   printf 'BLOCKED: Fix before proceeding (%s):\n' "$BASENAME" >&2
@@ -395,29 +231,17 @@ if [[ -n "$VIOLATIONS" ]]; then
     fi
   fi
 
-  # Append warnings if any
-  if [[ -n "$WARNINGS" ]]; then
-    printf '\nWarnings (non-blocking):\n' >&2
-    printf '%b\n' "$WARNINGS" >&2
-  fi
-
-  # ─── Escalation counter: force framework doc loading after repeated violations ───
+  # Escalation counter
   COUNTER_FILE="/tmp/composure-nobandaids-${CLAUDE_SESSION_ID:-unknown}"
   V_COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
   V_COUNT=$((V_COUNT + 1))
   printf '%d' "$V_COUNT" > "$COUNTER_FILE"
 
   if [[ "$V_COUNT" -ge 3 ]]; then
-    printf '\nMANDATORY ESCALATION: %d violations this session. You MUST invoke /composure:app-architecture NOW to load framework reference docs before attempting any more edits. The generated docs at .claude/frameworks/ contain the correct patterns for this stack.\n' "$V_COUNT" >&2
+    printf '\nMANDATORY ESCALATION: %d violations this session. You MUST invoke /composure:app-architecture NOW to load framework reference docs before attempting any more edits.\n' "$V_COUNT" >&2
   fi
 
   exit 2
-fi
-
-# Report warnings even when no blocking violations
-if [[ -n "$WARNINGS" ]]; then
-  printf 'Framework warnings in %s (non-blocking):\n' "$BASENAME" >&2
-  printf '%b\n' "$WARNINGS" >&2
 fi
 
 exit 0

@@ -72,6 +72,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Checking for band-aid fixes..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/framework-validation.sh\" 2>&1 || { echo '[composure:pre:framework-validation] hook failed' >&2; exit 0; }",
+            "timeout": 5,
+            "statusMessage": "Validating framework rules..."
           }
         ]
       }
