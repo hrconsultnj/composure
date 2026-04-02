@@ -1,6 +1,6 @@
 # Security Doc Template
 
-Template for Context7-generated security reference docs. Used by `/sentinel:initialize` when generating `.claude/security/generated/` docs for detected integrations.
+Template for Context7-generated security reference docs. Used by `/sentinel:assess` when generating `.claude/security/generated/` docs for detected integrations.
 
 ## Frontmatter (required)
 

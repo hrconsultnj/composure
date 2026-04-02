@@ -6,7 +6,7 @@ Read `.claude/shipyard.json` for stack and CI config:
 cat .claude/shipyard.json 2>/dev/null
 ```
 
-If missing, run `/shipyard:initialize` first. Do NOT proceed without a config -- the generated workflow depends on accurate stack detection.
+If missing, run `/shipyard:configure` first. Do NOT proceed without a config -- the generated workflow depends on accurate stack detection.
 
 Extract these values for workflow generation:
 - `ci.platform` -- which CI system to generate for

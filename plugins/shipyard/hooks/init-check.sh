@@ -9,7 +9,7 @@
 
 # Standalone mode (Shipyard without Composure)
 if [ ! -f ".claude/shipyard.json" ]; then
-  printf '[shipyard] Not initialized in this project. Run /shipyard:initialize to detect your CI/CD setup and deployment target.\n'
+  printf '[shipyard] Not configured in this project. Run /shipyard:configure to detect your CI/CD setup and deployment target.\n'
 fi
 
 exit 0

@@ -228,7 +228,7 @@ Every graph tool accepts a `repo_root` parameter. From a parent directory like `
 ### Sentinel
 
 ```
-/sentinel:initialize             # Detect stack, install security tools, generate config
+/sentinel:assess                 # Assess security surface, detect tools, generate config
 /sentinel:scan                   # Full SAST (Semgrep) + dependency audit
 /sentinel:audit-deps             # Focused dependency vulnerability scan
 /sentinel:headers                # HTTP security header analysis (context-aware grading)
@@ -242,7 +242,7 @@ Sentinel also runs automatically via hooks:
 ### Testbench
 
 ```
-/testbench:initialize            # Detect test framework, learn project conventions
+/testbench:calibrate             # Calibrate test bench, detect framework and conventions
 /testbench:generate <file>       # Generate tests matching your project style
 /testbench:run [all|changed]     # Run tests, parse failures with source context
 ```
@@ -250,7 +250,7 @@ Sentinel also runs automatically via hooks:
 ### Shipyard
 
 ```
-/shipyard:initialize             # Detect CI platform, deployment target, tools
+/shipyard:configure              # Configure CI platform, deployment target, tools
 /shipyard:ci-generate            # Generate CI workflow (GH Actions, GitLab, Bitbucket)
 /shipyard:ci-validate            # Validate existing CI workflows (12 checks + actionlint)
 /shipyard:deps-check             # Dependency health — CVEs, safe version recommendations

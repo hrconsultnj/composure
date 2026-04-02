@@ -81,51 +81,9 @@ If it already exists (Composure created it), leave it untouched.
 
 ## Report
 
-Print the initialization summary:
+**Read the report template** at `templates/assess-report.md` (relative to the plugin root: `plugins/sentinel/templates/assess-report.md`). Follow the template structure and rules exactly. Fill in placeholders with actual detected values from the steps above.
 
-```
-Sentinel initialized for <project-name>
-
-Stack:
-  - TypeScript / Next.js
-  - Lockfile: pnpm-lock.yaml
-
-Package managers:
-  - Preferred: pnpm 10.6.2
-  - Available: pnpm, npm
-
-System installers:
-  - Preferred: brew 4.5.2
-
-Security tooling:
-  - Semgrep: 1.108.0
-  - Trivy: not installed
-  - Grype: not installed
-
-Integrations detected:
-  - Stripe (@stripe/stripe-node 17.5.0) — sk_live_, sk_test_, rk_live_, rk_test_
-  - Supabase (@supabase/supabase-js 2.93.0) — service_role, anon_key
-  - OpenAI (openai 5.1.0) — sk-, sk-proj-
-  - Sentry (@sentry/nextjs 9.5.0) — DSN
-  - Resend (resend 4.2.0) — re_
-
-Generated:
-  - .claude/sentinel.json
-  - .claude/security/integrations.json (5 integrations)
-  - .claude/security/generated/ (security docs for detected integrations)
-
-Composure integration: yes (.claude/no-bandaids.json found)
-
-Active hooks:
-  - PreToolUse: secret-guard (19 patterns), insecure-pattern-guard (22 patterns), dep-guard (package safety + typosquat detection)
-  - SessionStart: dep-freshness-check (24h CVE cache + banned list staleness)
-
-Available skills:
-  /sentinel:scan          — Full security scan (Semgrep + dependency audit)
-  /sentinel:audit-deps    — Focused dependency CVE audit
-  /sentinel:headers       — HTTP security header analysis
-  /sentinel:package-risk  — Analyze installed package for suspicious behavior
-```
+Key: the template focuses on the user's project security surface — integrations, risk levels, secret patterns, tooling gaps. It explicitly excludes hooks, skill listings, and cross-plugin integration lines.
 
 ---
 

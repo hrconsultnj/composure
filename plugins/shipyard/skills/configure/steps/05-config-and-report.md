@@ -83,53 +83,9 @@ If it already exists (Composure or Sentinel created it), leave it untouched.
 
 ## Report
 
-```
-Shipyard initialized for <project-name>
+**Read the report template** at `templates/configure-report.md` (relative to the plugin root: `plugins/shipyard/templates/configure-report.md`). Follow the template structure and rules exactly. Fill in placeholders with actual detected values from the steps above.
 
-Stack:
-  - TypeScript / Next.js
-  - Package manager: pnpm
-  - Node: 22
-  - Build: pnpm build | Test: pnpm test | Lint: yes | Typecheck: yes
-
-CI/CD platform:
-  - Primary: GitHub Actions
-  - Workflows: ci.yml, deploy.yml
-
-Deployment targets:
-  - Vercel (vercel.json detected)
-
-Container:
-  - Dockerfile: no
-  - Docker Compose: no
-  - Kubernetes: no
-
-Tooling:
-  - actionlint: 1.7.0
-  - docker: 27.0.0
-  - vercel: 39.0.0
-  - gh: 2.65.0
-  - hadolint: not installed (no Dockerfile -- not needed)
-
-Generated:
-  - .claude/shipyard.json
-  - .claude/ci/generated/ (CI/CD reference docs)
-
-Composure integration: yes (.claude/no-bandaids.json found)
-Sentinel integration: yes (.claude/sentinel.json found)
-
-Active hooks:
-  - PreToolUse: ci-syntax-guard (validates CI config on Edit|Write)
-  - PreToolUse: dockerfile-guard (validates Dockerfiles on Edit|Write)
-  - SessionStart: init-check (suggests /shipyard:initialize if not configured)
-
-Available skills:
-  /shipyard:ci-generate   -- Generate CI/CD workflow from detected stack
-  /shipyard:ci-validate   -- Validate existing CI/CD workflows
-  /shipyard:deps-check    -- Dependency health audit (CVEs + outdated)
-  /shipyard:dockerfile    -- Generate or validate Dockerfiles
-  /shipyard:preflight     -- Production readiness checklist
-```
+Key: the template focuses on the user's deployment landscape — CI platform, deploy targets, build pipeline, tooling gaps. It explicitly excludes hooks, skill listings, and cross-plugin integration lines.
 
 ---
 

@@ -28,7 +28,7 @@ Read `.claude/sentinel.json` to determine:
 - **Framework detection** — which rulesets and known CVEs apply
 - **Custom `exposureBoundaries`** — project-specific path patterns for exposure zones
 
-If `.claude/sentinel.json` does not exist, run `/sentinel:initialize` first and STOP.
+If `.claude/sentinel.json` does not exist, run `/sentinel:assess` first and STOP.
 
 ## 1c. Load Exposure Boundaries
 

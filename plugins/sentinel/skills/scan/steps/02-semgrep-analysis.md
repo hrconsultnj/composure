@@ -45,7 +45,7 @@ Store all findings for use in Steps 4 (exposure analysis) and 5 (severity mappin
 ```
 Semgrep is not installed — skipping static analysis.
 Install with: brew install semgrep (or pip install semgrep)
-Run /sentinel:initialize to update tooling detection.
+Run /sentinel:assess to update tooling detection.
 ```
 
 Continue to the next step. A scan with only dependency audit is still valuable.

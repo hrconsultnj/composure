@@ -45,7 +45,7 @@ No test framework detected. Consider adding one:
   - Python: pytest (de facto standard)
   - Go: built-in (go test)
 
-Generated a minimal .claude/testbench.json. Run /testbench:initialize again after adding a framework.
+Generated a minimal .claude/testbench.json. Run /testbench:calibrate again after adding a framework.
 ```
 
 ---

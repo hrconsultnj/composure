@@ -1,12 +1,12 @@
 ---
-name: initialize
-description: Detect project stack, package managers, and security tooling. Generate .claude/sentinel.json config. Run once per project.
+name: assess
+description: Assess project security surface — detect stack, package managers, security tooling, and integrations. Generate .claude/sentinel.json config. Run once per project.
 argument-hint: "[--force] [--dry-run]"
 ---
 
-# Sentinel Initialize
+# Sentinel Assess
 
-Bootstrap Sentinel project-level configuration by detecting the tech stack, available package managers, system installers, and security tooling.
+Assess the project's security surface and bootstrap Sentinel configuration by detecting the tech stack, available package managers, system installers, and security tooling.
 
 ## Arguments
 

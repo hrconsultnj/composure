@@ -9,7 +9,7 @@ cat .claude/testbench.json 2>/dev/null
 If the config does not exist:
 
 ```
-Testbench not initialized. Run /testbench:initialize first.
+Testbench not calibrated. Run /testbench:calibrate first.
 ```
 
 Stop here. Do NOT guess run commands -- the wrong command wastes time and produces confusing output.

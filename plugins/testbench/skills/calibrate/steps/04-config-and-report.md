@@ -73,45 +73,8 @@ If the file already exists and `--force` is not passed, skip generation:
 
 ## 4b. Report
 
-Print a summary:
+**Read the report template** at `templates/calibrate-report.md` (relative to the plugin root: `plugins/testbench/templates/calibrate-report.md`). Follow the template structure and rules exactly. Fill in placeholders with actual detected values from the steps above.
 
-```
-Testbench initialized for <project-name>
-
-Test framework:
-  - Unit: Vitest (vitest.config.ts)
-  - E2E: Playwright (playwright.config.ts)
-  - Testing Library: @testing-library/react
-
-Conventions detected (from 3 test files):
-  - Import style: import { describe, it, expect } from 'vitest'
-  - Mock pattern: vi.mock(...)
-  - Assertion style: expect().toBe()
-  - File structure: colocated (src/foo.test.ts)
-  - Setup: beforeEach
-  - Naming: sentence style ('should handle empty input')
-
-Commands:
-  - Run all: pnpm test
-  - Run single: pnpm vitest run {file}
-  - Run changed: pnpm vitest run --changed
-  - Coverage: pnpm vitest run --coverage
-
-Generated:
-  - .claude/testbench.json (config)
-  - .claude/testing/generated/ (2 docs: vitest, playwright)
-
-Plugin integrations:
-  - Composure: yes (graph available for coverage analysis)
-  - Sentinel: no
-
-Active hooks:
-  - SessionStart: init-check (reminds if not initialized)
-  - PostToolUse: test-coverage-nudge (suggests /testbench:generate for untested files)
-
-Available skills:
-  /testbench:generate  -- Generate convention-aware tests for a file
-  /testbench:run       -- Run tests, parse failures, show context
-```
+Key: the template focuses on the user's testing landscape — frameworks, conventions learned, commands, coverage observations. It explicitly excludes hooks, skill listings, and cross-plugin integration lines.
 
 **Done.**

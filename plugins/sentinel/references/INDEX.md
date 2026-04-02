@@ -24,7 +24,7 @@
 
 ## Context7 Refresh
 
-These docs are curated point-in-time snapshots. When staleness thresholds are exceeded (see `.claude/sentinel.json`), the `/sentinel:initialize --force` skill queries Context7 to verify and update these patterns. The staleness thresholds are:
+These docs are curated point-in-time snapshots. When staleness thresholds are exceeded (see `.claude/sentinel.json`), the `/sentinel:assess --force` skill queries Context7 to verify and update these patterns. The staleness thresholds are:
 
 - TypeScript: 30 days
 - Python: 60 days

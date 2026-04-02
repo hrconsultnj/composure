@@ -1,12 +1,12 @@
 ---
-name: initialize
-description: Detect deployment targets, CI/CD platforms, container configs, and generate .claude/shipyard.json. Query Context7 for CI/CD reference docs. Run once per project.
+name: configure
+description: Configure deployment pipeline — detect CI/CD platforms, deployment targets, container configs, and generate .claude/shipyard.json. Query Context7 for CI/CD reference docs. Run once per project.
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 
-# Shipyard Initialize
+# Shipyard Configure
 
-Bootstrap Shipyard project-level configuration by detecting CI/CD platforms, deployment targets, container configs, and available DevOps tooling.
+Configure Shipyard by detecting CI/CD platforms, deployment targets, container configs, and available DevOps tooling.
 
 ## Arguments
 
