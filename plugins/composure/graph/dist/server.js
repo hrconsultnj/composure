@@ -31828,6 +31828,25 @@ server.tool("generate_audit_html", "Generate a self-contained HTML audit report 
   const result = generateAuditHtml(params);
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 });
+server.tool("search_references", "Search for string patterns across the repo with graph context enrichment. Like grep but returns matches with containing node, entity membership, importer count, and file role. Use for finding all references to a skill name, function, pattern, or any text string.", {
+  pattern: external_exports.string().describe("Regex pattern to search for."),
+  scope: external_exports.string().optional().describe("File glob to narrow search. Defaults to entire repo."),
+  context_lines: external_exports.number().default(1).describe("Lines of context before/after each match. Default: 1."),
+  max_results: external_exports.number().default(50).describe("Maximum results. Default: 50."),
+  repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
+}, async (params) => {
+  const result = searchReferences(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
+server.tool("get_dependency_chain", "Find the shortest path between two code entities in the graph. Shows how two files, functions, or types are connected through imports and calls.", {
+  from: external_exports.string().describe("Source node \u2014 name, qualified name, or file path."),
+  to: external_exports.string().describe("Target node \u2014 name, qualified name, or file path."),
+  max_depth: external_exports.number().default(10).describe("Maximum hops. Default: 10."),
+  repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
+}, async (params) => {
+  const result = getDependencyChain(params);
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
