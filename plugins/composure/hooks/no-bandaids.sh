@@ -33,6 +33,22 @@ FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // "unknown"')
 BASENAME=$(basename "$FILE_PATH")
 PROJECT_DIR=$(printf '%s' "$INPUT" | jq -r '.cwd // ""')
 
+# Fallback: derive project root from FILE_PATH if .cwd is empty
+if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
+  PROJECT_DIR=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null)
+fi
+# Final fallback: walk up from FILE_PATH looking for .claude/ or .git/
+if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
+  _dir=$(dirname "$FILE_PATH")
+  while [[ "$_dir" != "/" && "$_dir" != "." ]]; do
+    if [[ -d "${_dir}/.git" || -f "${_dir}/.claude/no-bandaids.json" ]]; then
+      PROJECT_DIR="$_dir"
+      break
+    fi
+    _dir=$(dirname "$_dir")
+  done
+fi
+
 # ─── Self-protection: block Claude from modifying enforcement configs ───
 case "$FILE_PATH" in
   */.claude/no-bandaids.json|*/.claude/sentinel.json|*/.claude/composure-pro.json|*/.claude/testbench.json|*/.claude/shipyard.json)
