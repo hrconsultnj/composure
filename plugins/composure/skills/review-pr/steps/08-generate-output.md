@@ -113,4 +113,4 @@ Not every section appears in every review. Follow these rules:
 
 ---
 
-**Done.**
+**Done.** If HIGH/CRITICAL findings were identified, persist them to `tasks-plans/tasks.md` as backlog items for follow-up.

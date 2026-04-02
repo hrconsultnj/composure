@@ -35,7 +35,7 @@ server.tool(
   "Build or incrementally update the code knowledge graph. Call this first to initialize the graph, or after making changes. By default performs an incremental update (only changed files). Set full_rebuild=true to re-parse every file.",
   {
     full_rebuild: z
-      .boolean()
+      .coerce.boolean()
       .default(false)
       .describe("If true, re-parse all files. Default: false (incremental)."),
     repo_root: z
@@ -137,7 +137,7 @@ server.tool(
       .default(2)
       .describe("Impact radius depth (number of hops)."),
     include_source: z
-      .boolean()
+      .coerce.boolean()
       .default(true)
       .describe("Include source code snippets for changed files."),
     max_lines_per_file: z
@@ -352,9 +352,9 @@ server.tool(
   "run_audit",
   "Run a comprehensive code audit using the knowledge graph. Computes code quality findings (oversized files/functions, untested code) from SQL queries. Optionally runs security tools (npm audit). Stores all findings and scores in the graph database. Returns a summary with letter grades.",
   {
-    include_security: z.boolean().default(true).describe("Run npm audit if package manager available."),
-    include_testing: z.boolean().default(true).describe("Analyze test coverage from TESTED_BY edges."),
-    include_deployment: z.boolean().default(false).describe("Run deployment preflight checks."),
+    include_security: z.coerce.boolean().default(true).describe("Run npm audit if package manager available."),
+    include_testing: z.coerce.boolean().default(true).describe("Analyze test coverage from TESTED_BY edges."),
+    include_deployment: z.coerce.boolean().default(false).describe("Run deployment preflight checks."),
     url: z.string().optional().describe("Deployment URL for HTTP header analysis."),
     repo_root: z.string().optional().describe("Repository root. Auto-detected if omitted."),
   },

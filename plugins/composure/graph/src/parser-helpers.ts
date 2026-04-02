@@ -292,6 +292,14 @@ export function resolveModuleToFile(
       const target = base + ext;
       if (existsSync(target)) return target;
     }
+    // TypeScript ESM: imports use .js/.jsx extensions that map to .ts/.tsx source files
+    const strippedBase = base.replace(/\.jsx?$/, "");
+    if (strippedBase !== base) {
+      for (const ext of extensions) {
+        const target = strippedBase + ext;
+        if (existsSync(target)) return target;
+      }
+    }
     for (const ext of extensions) {
       const target = resolve(base, `index${ext}`);
       if (existsSync(target)) return target;

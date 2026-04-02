@@ -129,4 +129,4 @@ To publish to npm (optional):
 
 ---
 
-**Done.** The MCP server is built, tested, and registered.
+**Done.** The MCP server is built, tested, and registered. Next: `/composure:review` to review changes, then `/composure:commit` to commit.

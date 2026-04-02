@@ -126,6 +126,8 @@ After committing (and pushing if requested), update the graph so it stays curren
 2. If available, call `build_or_update_graph({ full_rebuild: false })` — incremental update
 3. Report briefly: "Graph updated: N files changed"
 4. If unavailable, skip silently
+5. If HEAD is tagged (git describe --tags --exact-match HEAD), suggest: "`/composure:changelog` to generate a changelog for this release"
+6. If `package.json` was in the staged files, suggest: "`/composure:update-project` to refresh project config"
 
 ## Arguments
 

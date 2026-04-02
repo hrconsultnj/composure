@@ -76,4 +76,4 @@ The user sees tasks appearing, progressing, and completing — a live dashboard 
 - **The commit skill scans `tasks-plans/blueprints/*.md`** — open blueprint items are visible during commits
 - **After blueprint, the architecture docs are already loaded** — no need to invoke `/app-architecture` separately
 
-**Done.**
+**Done.** If the Implementation Spec describes file moves or renames, suggest `/composure:code-organizer` to handle the restructuring with import updates.

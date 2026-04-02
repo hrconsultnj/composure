@@ -4,6 +4,7 @@
  * The CodeParser class orchestrates parsing: reads files, runs tree-sitter,
  * walks the AST to extract structural nodes/edges, and resolves call targets.
  * Helper functions for AST extraction live in parser-helpers.ts.
+ * Node handler functions live in parser-handlers.ts.
  */
 
 import { createHash } from "node:crypto";
@@ -21,19 +22,25 @@ import {
   CALL_TYPES,
   TYPE_TYPES,
   isTestFile,
-  isTestFunction,
   qualify,
   getNodeText,
   getName,
   getArrowFunctionName,
-  getParams,
-  getReturnType,
-  getBases,
-  extractImportTarget,
   collectJsImportNames,
-  getCallName,
+  extractImportTarget,
   resolveModuleToFile,
 } from "./parser-helpers.js";
+
+import {
+  handleClass,
+  handleType,
+  handleFunction,
+  handleLexicalDeclaration,
+  handleImport,
+  handleCall,
+  resolveCallTargets,
+  generateTestEdges,
+} from "./parser-handlers.js";
 
 // ── Language detection ─────────────────────────────────────────────
 
@@ -52,8 +59,6 @@ const SQL_EXTENSIONS = new Set([".sql", ".prisma"]);
 /** Files handled by the package.json parser (by filename, not extension). */
 const PKG_FILENAMES = new Set(["package.json", "pnpm-workspace.yaml", "turbo.json"]);
 
-// Config file detection is imported at the call site (config-parser.ts)
-// to avoid circular deps. This is a lightweight filename check.
 const CONFIG_FILENAMES_QUICK = new Set([
   "tsconfig.json", "tsconfig.base.json", "tsconfig.app.json",
   ".env.example", ".env.local.example", ".env.template",
@@ -72,17 +77,10 @@ function isConfigFile(filePath: string): boolean {
 }
 
 const MD_EXTENSIONS = new Set([".md", ".mdx"]);
-
-/** Extensions handled by the shell parser (not tree-sitter). */
 const SH_EXTENSIONS = new Set([".sh"]);
-
-/** Extensions handled by the YAML parser (K8s manifests — filtered by content). */
 const YAML_EXTENSIONS = new Set([".yaml", ".yml"]);
-
-/** Extensions handled by the HCL parser (Terraform). */
 const TF_EXTENSIONS = new Set([".tf"]);
 
-/** Dockerfile detection — by filename, not extension. */
 function isDockerfileName(filePath: string): boolean {
   const name = basename(filePath);
   return name === "Dockerfile" || name.startsWith("Dockerfile.") || name.toLowerCase() === "dockerfile";
@@ -94,11 +92,9 @@ export function isParseable(filePath: string): boolean {
   if (SH_EXTENSIONS.has(ext)) return true;
   if (PKG_FILENAMES.has(basename(filePath))) return true;
   if (isConfigFile(filePath)) return true;
-  if (MD_EXTENSIONS.has(ext)) return true; // md-parser does its own filtering
-  // hooks.json files in hooks/ directories
+  if (MD_EXTENSIONS.has(ext)) return true;
   if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/")) return true;
-  // Infra parsers: K8s YAML, Terraform HCL, Dockerfiles
-  if (YAML_EXTENSIONS.has(ext)) return true; // yaml-parser filters by content
+  if (YAML_EXTENSIONS.has(ext)) return true;
   if (TF_EXTENSIONS.has(ext)) return true;
   if (isDockerfileName(filePath)) return true;
   return false;
@@ -121,8 +117,6 @@ export function fileHash(filePath: string): string {
 
 // ── CodeParser ─────────────────────────────────────────────────────
 
-// Resolve WASM file paths relative to this module's location.
-// After esbuild bundles into dist/, the .wasm files sit alongside the JS.
 const __dirname = typeof import.meta.url !== "undefined"
   ? fileURLToPath(new URL(".", import.meta.url))
   : process.cwd();
@@ -140,10 +134,6 @@ export class CodeParser {
   private languages = new Map<string, Language>();
   private moduleCache = new Map<string, string | null>();
 
-  /**
-   * Initialize web-tree-sitter runtime and load grammars.
-   * Must be called once before parseFile/parseBytes.
-   */
   async init(): Promise<void> {
     if (!parserInitialized) {
       await Parser.init();
@@ -197,7 +187,6 @@ export class CodeParser {
     const edges: EdgeInfo[] = [];
     const testFile = isTestFile(filePath);
 
-    // File node
     const lineCount = source.toString().split("\n").length;
     nodes.push({
       kind: "File",
@@ -209,23 +198,20 @@ export class CodeParser {
       is_test: testFile,
     });
 
-    // Pre-scan for import map and defined names
     const importMap = new Map<string, string>();
     const definedNames = new Set<string>();
     this.collectFileScope(tree.rootNode, importMap, definedNames);
 
-    // Walk the AST
-    this.extractFromTree(
+    const walkFn = this.extractFromTree.bind(this);
+    walkFn(
       tree.rootNode, language, filePath, nodes, edges,
       null, null, importMap, definedNames, 0,
     );
 
-    // Post-process: resolve bare call targets
-    this.resolveCallTargets(nodes, edges, filePath);
+    resolveCallTargets(nodes, edges, filePath);
 
-    // Generate TESTED_BY edges
     if (testFile) {
-      this.generateTestEdges(nodes, edges);
+      generateTestEdges(nodes, edges);
     }
 
     return { nodes, edges };
@@ -309,11 +295,14 @@ export class CodeParser {
   ): void {
     if (depth > CodeParser.MAX_DEPTH) return;
 
+    const walkFn = this.extractFromTree.bind(this);
+    const resolveCallFn = this.resolveCallTarget.bind(this);
+
     for (const child of root.children) {
       const nodeType = child.type;
 
       if (nodeType === "export_statement") {
-        this.extractFromTree(
+        walkFn(
           child, language, filePath, nodes, edges,
           enclosingClass, enclosingFunc, importMap, definedNames, depth + 1,
         );
@@ -321,285 +310,35 @@ export class CodeParser {
       }
 
       if (CLASS_TYPES.has(nodeType)) {
-        if (this.handleClass(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth)) continue;
+        if (handleClass(walkFn, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth)) continue;
       }
 
       if (TYPE_TYPES.has(nodeType)) {
-        if (this.handleType(child, filePath, nodes, edges, enclosingClass, language)) continue;
+        if (handleType(child, filePath, nodes, edges, enclosingClass, language)) continue;
       }
 
       if (FUNCTION_TYPES.has(nodeType)) {
-        if (this.handleFunction(child, nodeType, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth)) continue;
+        if (handleFunction(walkFn, child, nodeType, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth)) continue;
       }
 
       if (nodeType === "lexical_declaration") {
-        this.handleLexicalDeclaration(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth);
+        handleLexicalDeclaration(walkFn, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth);
       }
 
       if (IMPORT_TYPES.has(nodeType)) {
-        this.handleImport(child, filePath, edges);
+        handleImport(child, filePath, edges);
         continue;
       }
 
       if (CALL_TYPES.has(nodeType)) {
-        this.handleCall(child, filePath, enclosingClass, enclosingFunc, importMap, definedNames, edges);
+        handleCall(resolveCallFn, child, filePath, enclosingClass, enclosingFunc, importMap, definedNames, edges);
       }
 
-      this.extractFromTree(
+      walkFn(
         child, language, filePath, nodes, edges,
         enclosingClass, enclosingFunc, importMap, definedNames, depth + 1,
       );
     }
-  }
-
-  // ── JSDoc extraction ─────────────────────────────────────────────
-
-  /**
-   * Extract the first sentence of a JSDoc comment preceding a node.
-   * Only for exported functions — internal helpers don't need searchable summaries.
-   */
-  private extractJsDocSummary(node: Node): string | undefined {
-    // Check if this node is inside an export_statement
-    const parent = node.parent;
-    const isExported = parent?.type === "export_statement"
-      || (parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement");
-    if (!isExported) return undefined;
-
-    // Find the preceding sibling that's a comment
-    const exportNode = parent?.type === "export_statement" ? parent : parent?.parent;
-    const commentNode = exportNode?.previousNamedSibling ?? node.previousNamedSibling;
-    if (!commentNode || commentNode.type !== "comment") return undefined;
-
-    const text = getNodeText(commentNode);
-    if (!text.startsWith("/**")) return undefined;
-
-    // Extract content between /** and */, strip * prefixes
-    const content = text
-      .replace(/^\/\*\*\s*/, "")
-      .replace(/\s*\*\/$/, "")
-      .split("\n")
-      .map((line) => line.replace(/^\s*\*\s?/, "").trim())
-      .filter((line) => line && !line.startsWith("@"))
-      .join(" ")
-      .trim();
-
-    if (!content) return undefined;
-
-    // Take first sentence (up to first period followed by space/end, or first 150 chars)
-    const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
-    return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
-  }
-
-  // ── Heuristic summary from name (fallback when no JSDoc) ─────────
-
-  /**
-   * Split camelCase/PascalCase name into a lowercase search-friendly summary.
-   * Only for exported functions — internal helpers don't need indexing.
-   * Not documentation — a search index so "workspace" finds "getWorkspaceProvider".
-   */
-  private heuristicSummary(node: Node, name: string, params?: string | null): string | undefined {
-    const parent = node.parent;
-    const isExported = parent?.type === "export_statement"
-      || (parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement");
-    if (!isExported) return undefined;
-
-    // Split camelCase/PascalCase: "getWorkspaceProvider" → ["get", "workspace", "provider"]
-    const words = name
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
-      .toLowerCase()
-      .split(/\s+/);
-
-    if (words.length <= 1) return undefined; // Single-word names aren't useful
-
-    let summary = words.join(" ");
-
-    // Add param context for short names: "use auth" → "use auth hook"
-    if (words[0] === "use" && words.length <= 3) {
-      summary += " hook";
-    }
-
-    return summary;
-  }
-
-  // ── Node handlers (called from extractFromTree) ──────────────────
-
-  private handleClass(
-    child: Node, language: string, filePath: string,
-    nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
-    importMap: Map<string, string>, definedNames: Set<string>, depth: number,
-  ): boolean {
-    const name = getName(child, "class");
-    if (!name) return false;
-
-    nodes.push({
-      kind: "Class", name, file_path: filePath,
-      line_start: child.startPosition.row + 1,
-      line_end: child.endPosition.row + 1,
-      language, parent_name: enclosingClass ?? undefined, is_test: false,
-    });
-
-    edges.push({
-      kind: "CONTAINS", source: filePath,
-      target: qualify(name, filePath, enclosingClass),
-      file_path: filePath, line: child.startPosition.row + 1,
-    });
-
-    for (const base of getBases(child)) {
-      edges.push({
-        kind: "INHERITS",
-        source: qualify(name, filePath, enclosingClass),
-        target: base, file_path: filePath, line: child.startPosition.row + 1,
-      });
-    }
-
-    this.extractFromTree(
-      child, language, filePath, nodes, edges,
-      name, null, importMap, definedNames, depth + 1,
-    );
-    return true;
-  }
-
-  private handleType(
-    child: Node, filePath: string,
-    nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
-    language: string,
-  ): boolean {
-    const name = getName(child, "type");
-    if (!name) return false;
-
-    nodes.push({
-      kind: "Type", name, file_path: filePath,
-      line_start: child.startPosition.row + 1,
-      line_end: child.endPosition.row + 1,
-      language, parent_name: enclosingClass ?? undefined, is_test: false,
-    });
-
-    const container = enclosingClass
-      ? qualify(enclosingClass, filePath, null)
-      : filePath;
-    edges.push({
-      kind: "CONTAINS", source: container,
-      target: qualify(name, filePath, enclosingClass),
-      file_path: filePath, line: child.startPosition.row + 1,
-    });
-    return true;
-  }
-
-  private handleFunction(
-    child: Node, nodeType: string, language: string,
-    filePath: string, nodes: NodeInfo[], edges: EdgeInfo[],
-    enclosingClass: string | null, importMap: Map<string, string>,
-    definedNames: Set<string>, depth: number,
-  ): boolean {
-    const name = nodeType === "arrow_function"
-      ? getArrowFunctionName(child)
-      : getName(child, "function");
-    if (!name) return false;
-
-    const isTest = isTestFunction(name, filePath);
-    const qualified = qualify(name, filePath, enclosingClass);
-
-    const params = getParams(child) ?? undefined;
-    const summary = isTest ? undefined
-      : (this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name, params));
-    nodes.push({
-      kind: isTest ? "Test" : "Function", name, file_path: filePath,
-      line_start: child.startPosition.row + 1,
-      line_end: child.endPosition.row + 1,
-      language, parent_name: enclosingClass ?? undefined,
-      params,
-      return_type: getReturnType(child) ?? undefined,
-      summary,
-      is_test: isTest,
-    });
-
-    const container = enclosingClass
-      ? qualify(enclosingClass, filePath, null)
-      : filePath;
-    edges.push({
-      kind: "CONTAINS", source: container, target: qualified,
-      file_path: filePath, line: child.startPosition.row + 1,
-    });
-
-    this.extractFromTree(
-      child, language, filePath, nodes, edges,
-      enclosingClass, name, importMap, definedNames, depth + 1,
-    );
-    return true;
-  }
-
-  private handleLexicalDeclaration(
-    child: Node, language: string, filePath: string,
-    nodes: NodeInfo[], edges: EdgeInfo[], enclosingClass: string | null,
-    importMap: Map<string, string>, definedNames: Set<string>, depth: number,
-  ): void {
-    for (const decl of child.children) {
-      if (decl.type !== "variable_declarator") continue;
-      const nameNode = decl.childForFieldName("name");
-      const valueNode = decl.childForFieldName("value");
-      if (!nameNode || valueNode?.type !== "arrow_function") continue;
-
-      const name = getNodeText(nameNode);
-      const isTest = isTestFunction(name, filePath);
-      const qualified = qualify(name, filePath, enclosingClass);
-
-      const arrowParams = getParams(valueNode) ?? undefined;
-      const summary = isTest ? undefined
-        : (this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name, arrowParams));
-      nodes.push({
-        kind: isTest ? "Test" : "Function", name, file_path: filePath,
-        line_start: valueNode.startPosition.row + 1,
-        line_end: valueNode.endPosition.row + 1,
-        language, parent_name: enclosingClass ?? undefined,
-        params: arrowParams,
-        return_type: getReturnType(valueNode) ?? undefined,
-        summary,
-        is_test: isTest,
-      });
-
-      const container = enclosingClass
-        ? qualify(enclosingClass, filePath, null)
-        : filePath;
-      edges.push({
-        kind: "CONTAINS", source: container, target: qualified,
-        file_path: filePath, line: valueNode.startPosition.row + 1,
-      });
-
-      this.extractFromTree(
-        valueNode, language, filePath, nodes, edges,
-        enclosingClass, name, importMap, definedNames, depth + 1,
-      );
-    }
-  }
-
-  private handleImport(
-    child: Node, filePath: string, edges: EdgeInfo[],
-  ): void {
-    const module = extractImportTarget(child);
-    if (!module) return;
-    const resolved = resolveModuleToFile(module, filePath);
-    edges.push({
-      kind: "IMPORTS_FROM", source: filePath,
-      target: resolved ?? module,
-      file_path: filePath, line: child.startPosition.row + 1,
-    });
-  }
-
-  private handleCall(
-    child: Node, filePath: string,
-    enclosingClass: string | null, enclosingFunc: string | null,
-    importMap: Map<string, string>, definedNames: Set<string>,
-    edges: EdgeInfo[],
-  ): void {
-    const callName = getCallName(child);
-    if (!callName || !enclosingFunc) return;
-    const caller = qualify(enclosingFunc, filePath, enclosingClass);
-    const target = this.resolveCallTarget(callName, filePath, importMap, definedNames);
-    edges.push({
-      kind: "CALLS", source: caller, target,
-      file_path: filePath, line: child.startPosition.row + 1,
-    });
   }
 
   // ── Call target resolution ───────────────────────────────────────
@@ -623,39 +362,5 @@ export class CodeParser {
     if (this.moduleCache.size > 15000) this.moduleCache.clear();
     this.moduleCache.set(cacheKey, resolved);
     return resolved;
-  }
-
-  private resolveCallTargets(nodes: NodeInfo[], edges: EdgeInfo[], filePath: string): void {
-    const symbols = new Map<string, string>();
-    for (const node of nodes) {
-      if (node.kind === "Function" || node.kind === "Class" || node.kind === "Type" || node.kind === "Test") {
-        const qn = qualify(node.name, filePath, node.parent_name ?? null);
-        if (!symbols.has(node.name)) symbols.set(node.name, qn);
-      }
-    }
-    for (let i = 0; i < edges.length; i++) {
-      const edge = edges[i];
-      if (edge.kind === "CALLS" && !edge.target.includes("::")) {
-        const resolved = symbols.get(edge.target);
-        if (resolved) edges[i] = { ...edge, target: resolved };
-      }
-    }
-  }
-
-  private generateTestEdges(nodes: NodeInfo[], edges: EdgeInfo[]): void {
-    const testQNames = new Set<string>();
-    for (const n of nodes) {
-      if (n.is_test) testQNames.add(qualify(n.name, n.file_path, n.parent_name ?? null));
-    }
-    const newEdges: EdgeInfo[] = [];
-    for (const edge of edges) {
-      if (edge.kind === "CALLS" && testQNames.has(edge.source)) {
-        newEdges.push({
-          kind: "TESTED_BY", source: edge.target, target: edge.source,
-          file_path: edge.file_path, line: edge.line,
-        });
-      }
-    }
-    edges.push(...newEdges);
   }
 }

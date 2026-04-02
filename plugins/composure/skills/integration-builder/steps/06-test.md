@@ -71,4 +71,4 @@ Ensure tests can run without real API credentials:
 
 Run `{test command}` to verify."
 
-**Done.**
+**Done.** Next: `/composure:review` to review changes, then `/composure:commit` to commit.

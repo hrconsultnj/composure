@@ -2,7 +2,8 @@
  * SQLite-backed knowledge graph storage and query engine.
  *
  * Uses Node.js built-in node:sqlite (DatabaseSync) — zero native dependencies.
- * Serialization helpers (row converters, dict formatters) live in serialization.ts.
+ * Write operations (CRUD) live here. Query operations are in store-queries.ts.
+ * Serialization helpers (row converters) live in serialization.ts.
  */
 import { DatabaseSync } from "node:sqlite";
 import type { EdgeInfo, GraphEdge, GraphNode, GraphStats, NodeInfo } from "./types.js";
@@ -20,6 +21,9 @@ export declare class GraphStore {
     upsertEdge(edge: EdgeInfo): number;
     removeFileData(filePath: string): void;
     storeFileNodesEdges(filePath: string, nodes: NodeInfo[], edges: EdgeInfo[], fileHash?: string): void;
+    upsertEntity(name: string, displayName: string, source: string): void;
+    upsertEntityMember(entityName: string, nodeQualifiedName: string, role: string, confidence: number): void;
+    removeEntityData(): void;
     getNode(qualifiedName: string): GraphNode | null;
     getNodesByFile(filePath: string): GraphNode[];
     getAllFiles(): string[];
@@ -30,25 +34,22 @@ export declare class GraphStore {
     searchEdgesByTargetName(name: string, kind?: string): GraphEdge[];
     getAllEdges(): GraphEdge[];
     getEdgesAmong(qualifiedNames: Set<string>): GraphEdge[];
-    upsertEntity(name: string, displayName: string, source: string): void;
-    upsertEntityMember(entityName: string, nodeQualifiedName: string, role: string, confidence: number): void;
-    removeEntityData(): void;
-    getAllEntities(): Array<{
+    getAllEntities(): {
         name: string;
         display_name: string;
         source: string;
         member_count: number;
-    }>;
-    getEntityMembers(entityName: string, minConfidence?: number): Array<{
+    }[];
+    getEntityMembers(entityName: string, minConfidence?: number): {
         node: GraphNode;
         role: string;
         confidence: number;
-    }>;
-    getEntitiesForNode(qualifiedName: string): Array<{
+    }[];
+    getEntitiesForNode(qualifiedName: string): {
         entity_name: string;
         role: string;
         confidence: number;
-    }>;
+    }[];
     getEntityRoleCounts(entityName: string): Record<string, number>;
     getStats(): GraphStats;
 }

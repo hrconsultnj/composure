@@ -81,4 +81,4 @@ Do NOT use AskUserQuestion — just offer. If the user asks for help, debug the 
 
 ---
 
-**Done.** The MCP servers are configured and verified.
+**Done.** The MCP servers are configured and verified. Next: `/composure:review` to review changes, then `/composure:commit` to commit.

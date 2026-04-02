@@ -2,14 +2,16 @@
  * SQLite-backed knowledge graph storage and query engine.
  *
  * Uses Node.js built-in node:sqlite (DatabaseSync) — zero native dependencies.
- * Serialization helpers (row converters, dict formatters) live in serialization.ts.
+ * Write operations (CRUD) live here. Query operations are in store-queries.ts.
+ * Serialization helpers (row converters) live in serialization.ts.
  */
 
 import { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { EdgeInfo, GraphEdge, GraphNode, GraphStats, NodeInfo } from "./types.js";
-import { makeQualifiedName, rowToNode, rowToEdge } from "./serialization.js";
+import { makeQualifiedName } from "./serialization.js";
+import * as Q from "./store-queries.js";
 
 // Re-export for consumers that import from store.ts
 export { nodeToDict, edgeToDict } from "./serialization.js";
@@ -267,144 +269,6 @@ export class GraphStore {
     }
   }
 
-  // ── Node queries ───────────────────────────────────────────────
-
-  getNode(qualifiedName: string): GraphNode | null {
-    const row = this.db
-      .prepare("SELECT * FROM nodes WHERE qualified_name = ?")
-      .get(qualifiedName) as Record<string, unknown> | undefined;
-    return row ? rowToNode(row) : null;
-  }
-
-  getNodesByFile(filePath: string): GraphNode[] {
-    const rows = this.db
-      .prepare("SELECT * FROM nodes WHERE file_path = ?")
-      .all(filePath) as Record<string, unknown>[];
-    return rows.map(rowToNode);
-  }
-
-  getAllFiles(): string[] {
-    const rows = this.db
-      .prepare("SELECT DISTINCT file_path FROM nodes ORDER BY file_path")
-      .all() as { file_path: string }[];
-    return rows.map((r) => r.file_path);
-  }
-
-  searchNodes(query: string, limit = 20): GraphNode[] {
-    const words = query.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [];
-
-    const conditions = words.map(
-      () => "(name LIKE ? OR qualified_name LIKE ? OR summary LIKE ?)",
-    );
-    const params: (string | number)[] = [];
-    for (const w of words) {
-      params.push(`%${w}%`, `%${w}%`, `%${w}%`);
-    }
-
-    const sql = `SELECT * FROM nodes WHERE ${conditions.join(" AND ")} LIMIT ?`;
-    params.push(limit);
-
-    const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[];
-    return rows.map(rowToNode);
-  }
-
-  getNodesBySize(
-    minLines: number,
-    maxLines?: number,
-    kind?: string,
-    filePathPattern?: string,
-    limit = 50,
-  ): GraphNode[] {
-    const conditions: string[] = [
-      "(line_end - line_start + 1) >= ?",
-    ];
-    const params: (string | number)[] = [minLines];
-
-    if (maxLines != null) {
-      conditions.push("(line_end - line_start + 1) <= ?");
-      params.push(maxLines);
-    }
-    if (kind) {
-      conditions.push("kind = ?");
-      params.push(kind);
-    }
-    if (filePathPattern) {
-      const likePattern = filePathPattern
-        .replace(/\*\*/g, "%")
-        .replace(/\*/g, "%")
-        .replace(/\?/g, "_");
-      conditions.push("file_path LIKE ?");
-      params.push(likePattern);
-    }
-
-    const sql = `
-      SELECT * FROM nodes
-      WHERE ${conditions.join(" AND ")}
-      ORDER BY (line_end - line_start + 1) DESC
-      LIMIT ?
-    `;
-    params.push(limit);
-
-    const rows = this.db.prepare(sql).all(...params) as Record<string, unknown>[];
-    return rows.map(rowToNode);
-  }
-
-  // ── Edge queries ───────────────────────────────────────────────
-
-  getEdgesBySource(qualifiedName: string): GraphEdge[] {
-    const rows = this.db
-      .prepare("SELECT * FROM edges WHERE source_qualified = ?")
-      .all(qualifiedName) as Record<string, unknown>[];
-    return rows.map(rowToEdge);
-  }
-
-  getEdgesByTarget(qualifiedName: string): GraphEdge[] {
-    const rows = this.db
-      .prepare("SELECT * FROM edges WHERE target_qualified = ?")
-      .all(qualifiedName) as Record<string, unknown>[];
-    return rows.map(rowToEdge);
-  }
-
-  searchEdgesByTargetName(name: string, kind = "CALLS"): GraphEdge[] {
-    const rows = this.db
-      .prepare(
-        "SELECT * FROM edges WHERE kind = ? AND (target_qualified LIKE ? OR target_qualified = ?)",
-      )
-      .all(kind, `%::${name}`, name) as Record<string, unknown>[];
-    return rows.map(rowToEdge);
-  }
-
-  getAllEdges(): GraphEdge[] {
-    const rows = this.db
-      .prepare("SELECT * FROM edges")
-      .all() as Record<string, unknown>[];
-    return rows.map(rowToEdge);
-  }
-
-  getEdgesAmong(qualifiedNames: Set<string>): GraphEdge[] {
-    if (qualifiedNames.size === 0) return [];
-
-    this.db.exec("CREATE TEMP TABLE IF NOT EXISTS _qn_filter (qn TEXT PRIMARY KEY)");
-    this.db.exec("DELETE FROM _qn_filter");
-
-    const insert = this.db.prepare("INSERT OR IGNORE INTO _qn_filter (qn) VALUES (?)");
-    this.db.exec("BEGIN");
-    for (const n of qualifiedNames) insert.run(n);
-    this.db.exec("COMMIT");
-
-    const rows = this.db
-      .prepare(
-        `SELECT e.* FROM edges e
-         WHERE e.source_qualified IN (SELECT qn FROM _qn_filter)
-           AND e.target_qualified IN (SELECT qn FROM _qn_filter)`,
-      )
-      .all() as Record<string, unknown>[];
-
-    this.db.exec("DELETE FROM _qn_filter");
-    return rows.map(rowToEdge);
-  }
-
   // ── Entity CRUD ────────────────────────────────────────────────
 
   upsertEntity(name: string, displayName: string, source: string): void {
@@ -444,125 +308,23 @@ export class GraphStore {
     this.db.exec("DELETE FROM entities");
   }
 
-  getAllEntities(): Array<{
-    name: string;
-    display_name: string;
-    source: string;
-    member_count: number;
-  }> {
-    const rows = this.db
-      .prepare(
-        `SELECT e.name, e.display_name, e.source,
-                COUNT(em.node_qualified_name) as member_count
-         FROM entities e
-         LEFT JOIN entity_members em ON em.entity_name = e.name
-         GROUP BY e.name
-         ORDER BY member_count DESC`,
-      )
-      .all() as Array<{
-      name: string;
-      display_name: string;
-      source: string;
-      member_count: number;
-    }>;
-    return rows;
+  // ── Query delegation (implementations in store-queries.ts) ─────
+
+  getNode(qualifiedName: string): GraphNode | null { return Q.getNode(this.db, qualifiedName); }
+  getNodesByFile(filePath: string): GraphNode[] { return Q.getNodesByFile(this.db, filePath); }
+  getAllFiles(): string[] { return Q.getAllFiles(this.db); }
+  searchNodes(query: string, limit = 20): GraphNode[] { return Q.searchNodes(this.db, query, limit); }
+  getNodesBySize(minLines: number, maxLines?: number, kind?: string, filePathPattern?: string, limit = 50): GraphNode[] {
+    return Q.getNodesBySize(this.db, minLines, maxLines, kind, filePathPattern, limit);
   }
-
-  getEntityMembers(
-    entityName: string,
-    minConfidence = 0.5,
-  ): Array<{ node: GraphNode; role: string; confidence: number }> {
-    const rows = this.db
-      .prepare(
-        `SELECT n.*, em.role, em.confidence
-         FROM entity_members em
-         JOIN nodes n ON n.qualified_name = em.node_qualified_name
-         WHERE em.entity_name = ? AND em.confidence >= ?
-         ORDER BY em.role, n.file_path`,
-      )
-      .all(entityName, minConfidence) as Array<
-      Record<string, unknown> & { role: string; confidence: number }
-    >;
-    return rows.map((r) => ({
-      node: rowToNode(r),
-      role: r.role as string,
-      confidence: r.confidence as number,
-    }));
-  }
-
-  getEntitiesForNode(
-    qualifiedName: string,
-  ): Array<{ entity_name: string; role: string; confidence: number }> {
-    return this.db
-      .prepare(
-        `SELECT entity_name, role, confidence
-         FROM entity_members
-         WHERE node_qualified_name = ?`,
-      )
-      .all(qualifiedName) as Array<{
-      entity_name: string;
-      role: string;
-      confidence: number;
-    }>;
-  }
-
-  getEntityRoleCounts(
-    entityName: string,
-  ): Record<string, number> {
-    const rows = this.db
-      .prepare(
-        `SELECT role, COUNT(*) as c FROM entity_members
-         WHERE entity_name = ? GROUP BY role`,
-      )
-      .all(entityName) as Array<{ role: string; c: number }>;
-    const result: Record<string, number> = {};
-    for (const r of rows) result[r.role] = r.c;
-    return result;
-  }
-
-  // ── Stats ──────────────────────────────────────────────────────
-
-  getStats(): GraphStats {
-    const totalNodes = (
-      this.db.prepare("SELECT COUNT(*) as c FROM nodes").get() as { c: number }
-    ).c;
-    const totalEdges = (
-      this.db.prepare("SELECT COUNT(*) as c FROM edges").get() as { c: number }
-    ).c;
-
-    const nodesByKind: Record<string, number> = {};
-    const nkRows = this.db
-      .prepare("SELECT kind, COUNT(*) as c FROM nodes GROUP BY kind")
-      .all() as { kind: string; c: number }[];
-    for (const r of nkRows) nodesByKind[r.kind] = r.c;
-
-    const edgesByKind: Record<string, number> = {};
-    const ekRows = this.db
-      .prepare("SELECT kind, COUNT(*) as c FROM edges GROUP BY kind")
-      .all() as { kind: string; c: number }[];
-    for (const r of ekRows) edgesByKind[r.kind] = r.c;
-
-    const langRows = this.db
-      .prepare("SELECT DISTINCT language FROM nodes WHERE language IS NOT NULL AND language != ''")
-      .all() as { language: string }[];
-    const languages = langRows.map((r) => r.language);
-
-    const filesCount = (
-      this.db
-        .prepare("SELECT COUNT(DISTINCT file_path) as c FROM nodes")
-        .get() as { c: number }
-    ).c;
-
-    const lastUpdated = this.getMetadata("last_updated");
-
-    return {
-      total_nodes: totalNodes,
-      total_edges: totalEdges,
-      nodes_by_kind: nodesByKind,
-      edges_by_kind: edgesByKind,
-      languages,
-      files_count: filesCount,
-      last_updated: lastUpdated,
-    };
-  }
+  getEdgesBySource(qualifiedName: string): GraphEdge[] { return Q.getEdgesBySource(this.db, qualifiedName); }
+  getEdgesByTarget(qualifiedName: string): GraphEdge[] { return Q.getEdgesByTarget(this.db, qualifiedName); }
+  searchEdgesByTargetName(name: string, kind = "CALLS"): GraphEdge[] { return Q.searchEdgesByTargetName(this.db, name, kind); }
+  getAllEdges(): GraphEdge[] { return Q.getAllEdges(this.db); }
+  getEdgesAmong(qualifiedNames: Set<string>): GraphEdge[] { return Q.getEdgesAmong(this.db, qualifiedNames); }
+  getAllEntities() { return Q.getAllEntities(this.db); }
+  getEntityMembers(entityName: string, minConfidence = 0.5) { return Q.getEntityMembers(this.db, entityName, minConfidence); }
+  getEntitiesForNode(qualifiedName: string) { return Q.getEntitiesForNode(this.db, qualifiedName); }
+  getEntityRoleCounts(entityName: string) { return Q.getEntityRoleCounts(this.db, entityName); }
+  getStats(): GraphStats { return Q.getStats(this.db, this.getMetadata.bind(this)); }
 }
