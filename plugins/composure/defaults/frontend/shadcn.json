@@ -11,6 +11,17 @@
         }
       ]
     },
+    "shadcn-cursor-pointer-base": {
+      "appliesTo": ["**/globals.css", "**/global.css"],
+      "rules": [
+        {
+          "pattern": "cursor:\\s*pointer",
+          "severity": "warn",
+          "message": "Missing cursor-pointer base styles. Add @layer base { a, button, [role='button'] { cursor: pointer; } } to globals.css so all interactive elements are clickable without per-instance classes.",
+          "invertMatch": true
+        }
+      ]
+    },
     "shadcn-hardcoded-colors": {
       "appliesTo": ["**/*.tsx"],
       "rules": [
