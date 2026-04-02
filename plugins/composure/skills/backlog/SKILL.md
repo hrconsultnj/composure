@@ -108,6 +108,11 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 
 #### `delegate` — Dispatch sub-agents in parallel
 
+**When to use agents vs batch (direct reads):**
+- **<5 tasks touching <10 files total** → use `batch` mode instead. Read files directly, process sequentially. Faster, cheaper, no agent overhead.
+- **5+ independent tasks** → use `delegate`. Sub-agents run in parallel, each with specific file paths and instructions.
+- **Rule**: agents are for PARALLELISM on independent work, not for reading files. If tasks are sequential (each depends on the previous), use `batch`.
+
 **Prerequisites:**
 - **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/audits/*.md` or `tasks-plans/blueprints/*.md` files have open items, stop: "No tasks to delegate. Run `/composure:audit` or `/composure:blueprint` first."
 - **The code graph is NOT required for dispatching.** The analysis was already done (by audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching.
@@ -115,8 +120,9 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 **Dependency chain:** `/audit` (analyzes, creates tasks) → `/backlog delegate` (executes tasks) → `/backlog verify` (confirms results)
 
 1. Create TaskCreate entries first (sync step)
-2. Group tasks by independence (files that don't import each other can be done in parallel)
-3. Launch sub-agents for independent groups — **include decomposition details from `tasks-plans/audits/` in the agent prompt**:
+2. **Query the graph** for each task's file to get imports and dependents — include these paths in the agent prompt so agents don't need to search
+3. Group tasks by independence (files that don't import each other can be done in parallel)
+4. Launch sub-agents for independent groups — give each agent **EXACT file paths** from the graph, not broad search prompts:
    ```
    Agent 1: Decompose create-user-sheet (Critical) — split into 5 step files + orchestrator
    Agent 2: Split keys.ts (Critical) — 10 domain files + barrel
@@ -146,7 +152,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 5. Report: verified N items, M completed, K remaining
 6. If all items in an audit file are `[x]` → suggest running `/backlog archive`
 
-**Spawn as sub-agent**: This mode should use an Agent (subagent_type: "general-purpose") to run the verification in parallel if there are 5+ open items. The agent reads each file, checks sizes, and returns a verification report.
+**When to spawn sub-agent for verify**: Only if there are 10+ open items (each needs a file read + size check). For <10 items, run verification directly — Read each file, check size, faster than agent startup overhead.
 
 #### `archive` — Move completed audits, reset task queue
 1. Find all files in `tasks-plans/audits/*.md` and `tasks-plans/blueprints/*.md` where **every** `- [ ]` is now `- [x]`

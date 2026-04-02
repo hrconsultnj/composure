@@ -5,4 +5,3 @@ docs/
 *.DS_Store
 plugins/composure/app/dist/
 plugins/composure/graph/pnpm-workspace.yaml
-use-cases/graph-narrows-agent-deepens/

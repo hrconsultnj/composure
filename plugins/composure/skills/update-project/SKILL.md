@@ -166,9 +166,9 @@ Same logic as `/composure:initialize` Step 8 — check if companion plugins are 
 
 1. Check which companions are installed (via plugin cache directory, not CLI)
 2. For any installed but uninitialized companion (config file missing):
-   - Sentinel: run `/sentinel:initialize` if `.claude/sentinel.json` missing
-   - Testbench: run `/testbench:initialize` if `.claude/testbench.json` missing
-   - Shipyard: run `/shipyard:initialize` if `.claude/shipyard.json` missing
+   - Sentinel: run `/sentinel:assess` if `.claude/sentinel.json` missing
+   - Testbench: run `/testbench:calibrate` if `.claude/testbench.json` missing
+   - Shipyard: run `/shipyard:configure` if `.claude/shipyard.json` missing
 3. For any companion NOT installed: install it from the marketplace, then initialize
 4. Skip this step if only `docs`, `hooks`, or `stack` was passed (not `all`)
 

@@ -6,7 +6,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
@@ -28230,220 +28236,226 @@ async function buildOrUpdateGraph(params) {
   }
 }
 
-// dist/tools/query-graph.js
-import { resolve as resolve4 } from "node:path";
-var BUILTIN_NAMES = /* @__PURE__ */ new Set([
-  "map",
-  "filter",
-  "reduce",
-  "forEach",
-  "find",
-  "some",
-  "every",
-  "includes",
-  "push",
-  "pop",
-  "shift",
-  "splice",
-  "slice",
-  "concat",
-  "join",
-  "sort",
-  "reverse",
-  "keys",
-  "values",
-  "entries",
-  "toString",
-  "valueOf",
-  "hasOwnProperty",
-  "console",
-  "log",
-  "warn",
-  "error",
-  "JSON",
-  "parse",
-  "stringify",
-  "parseInt",
-  "parseFloat",
-  "setTimeout",
-  "setInterval",
-  "clearTimeout",
-  "clearInterval",
-  "Promise",
-  "then",
-  "catch",
-  "finally",
-  "require"
-]);
-var QUERY_DESCRIPTIONS = {
-  callers_of: "Find all functions that call a given function",
-  callees_of: "Find all functions called by a given function",
-  imports_of: "Find all imports of a given file or module",
-  importers_of: "Find all files that import a given file or module",
-  children_of: "Find all nodes contained in a file or class",
-  tests_for: "Find all tests for a given function or class",
-  inheritors_of: "Find classes that inherit from a given class",
-  file_summary: "Get a summary of all nodes in a file"
-};
-function edgesByTarget(store, qn, edgeKind) {
-  const results = [];
-  const edges = [];
-  for (const e of store.getEdgesByTarget(qn)) {
-    if (e.kind === edgeKind) {
-      edges.push(edgeToDict(e));
-      const node = store.getNode(e.source_qualified);
-      if (node)
-        results.push(nodeToDict(node));
+// dist/tools/search-references.js
+import { execSync } from "node:child_process";
+import { relative as relative3, resolve as resolve4 } from "node:path";
+function classifyFileRole(filePath) {
+  if (/\/skills\//.test(filePath))
+    return "skill";
+  if (/\/hooks\//.test(filePath))
+    return "hook";
+  if (/\/components\//.test(filePath))
+    return "component";
+  if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
+    return "route";
+  if (/\/hooks\//.test(filePath))
+    return "hook";
+  if (/\.(test|spec)\./.test(filePath))
+    return "test";
+  if (/\/lib\//.test(filePath))
+    return "lib";
+  if (/\.(config|rc)\.\w+$/.test(filePath))
+    return "config";
+  if (/\/defaults\//.test(filePath))
+    return "defaults";
+  if (/\/templates\//.test(filePath))
+    return "template";
+  if (/\/steps\//.test(filePath))
+    return "skill-step";
+  if (/\/references\//.test(filePath))
+    return "reference";
+  return "source";
+}
+function findRg() {
+  const candidates = [
+    "/usr/local/bin/rg",
+    "/opt/homebrew/bin/rg",
+    `${process.env.HOME}/.cargo/bin/rg`
+  ];
+  for (const p of candidates) {
+    try {
+      if (__require("node:fs").existsSync(p))
+        return p;
+    } catch {
     }
   }
-  return { results, edges };
+  return "rg";
 }
-function edgesBySource(store, qn, edgeKind) {
-  const results = [];
-  const edges = [];
-  for (const e of store.getEdgesBySource(qn)) {
-    if (e.kind === edgeKind) {
-      edges.push(edgeToDict(e));
-      const node = store.getNode(e.target_qualified);
-      if (node)
-        results.push(nodeToDict(node));
+function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
+  const target = scope ? resolve4(root, scope) : root;
+  try {
+    const rg = findRg();
+    const cmd = [
+      rg,
+      "--no-heading",
+      "-n",
+      contextLines > 0 ? `-C${contextLines}` : "",
+      "--max-count",
+      String(maxResults),
+      "--glob",
+      "!node_modules",
+      "--glob",
+      "!.git",
+      "--glob",
+      "!dist",
+      "--glob",
+      "!*.map",
+      JSON.stringify(pattern),
+      JSON.stringify(target)
+    ].filter(Boolean).join(" ");
+    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+    return parseRipgrepOutput(output, root, contextLines);
+  } catch (err2) {
+    const msg = err2 instanceof Error ? err2.message : String(err2);
+    if (msg.includes("not found") || msg.includes("ENOENT")) {
+      return searchWithGrep(root, pattern, target, contextLines, maxResults);
     }
+    return [];
   }
-  return { results, edges };
 }
-function callersOf(store, qn, nodeName) {
-  const { results, edges } = edgesByTarget(store, qn, "CALLS");
-  if (nodeName) {
-    for (const e of store.searchEdgesByTargetName(nodeName, "CALLS")) {
-      if (e.target_qualified !== qn) {
-        edges.push(edgeToDict(e));
-        const caller = store.getNode(e.source_qualified);
-        if (caller)
-          results.push(nodeToDict(caller));
+function searchWithGrep(root, pattern, target, contextLines, maxResults) {
+  const cmd = [
+    "grep",
+    "-rn",
+    contextLines > 0 ? `-C${contextLines}` : "",
+    "--include=*.ts",
+    "--include=*.tsx",
+    "--include=*.js",
+    "--include=*.jsx",
+    "--include=*.md",
+    "--include=*.sh",
+    "--include=*.json",
+    "--exclude-dir=node_modules",
+    "--exclude-dir=.git",
+    "--exclude-dir=dist",
+    `-m${maxResults}`,
+    JSON.stringify(pattern),
+    JSON.stringify(target)
+  ].filter(Boolean).join(" ");
+  try {
+    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+    return parseRipgrepOutput(output, root, contextLines);
+  } catch {
+    return [];
+  }
+}
+function parseRipgrepOutput(output, root, contextLines) {
+  const matches = [];
+  const lines = output.split("\n").filter(Boolean);
+  if (contextLines === 0) {
+    for (const line of lines) {
+      const m = line.match(/^(.+?):(\d+):(.*)$/);
+      if (m) {
+        matches.push({
+          file: relative3(root, m[1]),
+          line: parseInt(m[2], 10),
+          text: m[3]
+        });
       }
     }
-  }
-  return { results, edges };
-}
-function fileSummary(store, filePath) {
-  const results = store.getNodesByFile(filePath).map(nodeToDict);
-  return { results, edges: [] };
-}
-function inheritorsOf(store, qn) {
-  const results = [];
-  const edges = [];
-  for (const e of store.getEdgesByTarget(qn)) {
-    if (e.kind === "INHERITS" || e.kind === "IMPLEMENTS") {
-      edges.push(edgeToDict(e));
-      const node = store.getNode(e.source_qualified);
-      if (node)
-        results.push(nodeToDict(node));
+  } else {
+    let currentMatch = null;
+    const beforeLines = [];
+    for (const line of lines) {
+      if (line === "--") {
+        if (currentMatch)
+          matches.push(currentMatch);
+        currentMatch = null;
+        beforeLines.length = 0;
+        continue;
+      }
+      const matchLine = line.match(/^(.+?):(\d+):(.*)$/);
+      const ctxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
+      if (matchLine) {
+        currentMatch = {
+          file: relative3(root, matchLine[1]),
+          line: parseInt(matchLine[2], 10),
+          text: matchLine[3],
+          context_before: beforeLines.length > 0 ? beforeLines.join("\n") : void 0
+        };
+        beforeLines.length = 0;
+      } else if (ctxLine) {
+        if (currentMatch) {
+          currentMatch.context_after = (currentMatch.context_after ?? "") + (currentMatch.context_after ? "\n" : "") + ctxLine[3];
+        } else {
+          beforeLines.push(ctxLine[3]);
+        }
+      }
     }
+    if (currentMatch)
+      matches.push(currentMatch);
   }
-  return { results, edges };
+  return matches;
 }
-function queryGraph(params) {
-  const { pattern, target } = params;
+function searchReferences(params) {
   const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
-  if (!(pattern in QUERY_DESCRIPTIONS)) {
-    return {
-      status: "error",
-      error: `Unknown pattern '${pattern}'. Available: ${Object.keys(QUERY_DESCRIPTIONS).join(", ")}`
-    };
-  }
-  if (pattern === "callers_of" && BUILTIN_NAMES.has(target) && !target.includes("::")) {
+  const contextLines = params.context_lines ?? 1;
+  const maxResults = params.max_results ?? 50;
+  const matches = searchWithRipgrep(root, params.pattern, params.scope, contextLines, maxResults);
+  if (matches.length === 0) {
     return {
       status: "ok",
-      pattern,
-      target,
-      description: QUERY_DESCRIPTIONS[pattern],
-      summary: `'${target}' is a common builtin \u2014 callers_of skipped to avoid noise.`,
-      results: [],
-      edges: []
+      summary: `No matches for "${params.pattern}"`,
+      pattern: params.pattern,
+      results: []
     };
   }
-  let store;
+  let store = null;
   try {
     store = new GraphStore(dbPath);
-  } catch (err2) {
-    return {
-      status: "error",
-      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
-    };
+  } catch {
   }
-  try {
-    let node = store.getNode(target);
-    let resolvedTarget = target;
-    if (!node) {
-      const absTarget = resolve4(root, target);
-      node = store.getNode(absTarget);
-      if (node)
-        resolvedTarget = absTarget;
-    }
-    if (!node) {
-      const candidates = store.searchNodes(target, 5);
-      if (candidates.length === 1) {
-        node = candidates[0];
-        resolvedTarget = node.qualified_name;
-      } else if (candidates.length > 1) {
-        return {
-          status: "ambiguous",
-          summary: `Multiple matches for '${target}'. Please use a qualified name.`,
-          candidates: candidates.map(nodeToDict)
-        };
+  const results = matches.map((m) => {
+    const absPath = resolve4(root, m.file);
+    let containingNode = null;
+    let entity = null;
+    let importersCount = 0;
+    if (store) {
+      const fileNodes = store.getNodesByFile(absPath);
+      for (const node of fileNodes) {
+        if (node.kind === "File")
+          continue;
+        if (node.line_start <= m.line && node.line_end >= m.line) {
+          containingNode = node.name;
+          break;
+        }
+      }
+      const fileNode = fileNodes.find((n) => n.kind === "File");
+      if (fileNode) {
+        try {
+          const rows = store.getDb().prepare("SELECT COUNT(*) as cnt FROM edges WHERE target_qualified = ? AND kind = 'IMPORTS_FROM'").all(fileNode.qualified_name);
+          importersCount = rows[0]?.cnt ?? 0;
+        } catch {
+        }
+      }
+      try {
+        const entityRows = store.getDb().prepare("SELECT entity_name FROM entity_members WHERE node_qualified_name = ? LIMIT 1").all(fileNode?.qualified_name ?? "");
+        entity = entityRows[0]?.entity_name ?? null;
+      } catch {
       }
     }
-    if (!node && pattern !== "file_summary") {
-      return { status: "not_found", summary: `No node found matching '${target}'.` };
-    }
-    const qn = node?.qualified_name ?? resolvedTarget;
-    let result;
-    switch (pattern) {
-      case "callers_of":
-        result = callersOf(store, qn, node?.name ?? null);
-        break;
-      case "callees_of":
-        result = edgesBySource(store, qn, "CALLS");
-        break;
-      case "imports_of":
-        result = edgesBySource(store, qn, "IMPORTS_FROM");
-        break;
-      case "importers_of":
-        result = edgesByTarget(store, qn, "IMPORTS_FROM");
-        break;
-      case "children_of":
-        result = edgesBySource(store, qn, "CONTAINS");
-        break;
-      case "tests_for":
-        result = edgesBySource(store, qn, "TESTED_BY");
-        break;
-      case "inheritors_of":
-        result = inheritorsOf(store, qn);
-        break;
-      case "file_summary":
-        result = fileSummary(store, node?.file_path ?? resolvedTarget);
-        break;
-      default:
-        result = { results: [], edges: [] };
-    }
     return {
-      status: "ok",
-      pattern,
-      target,
-      description: QUERY_DESCRIPTIONS[pattern],
-      summary: `${pattern}(${target}): ${result.results.length} results, ${result.edges.length} edges`,
-      results: result.results,
-      edges: result.edges
+      file: m.file,
+      line: m.line,
+      text: m.text,
+      ...m.context_before ? { context_before: m.context_before } : {},
+      ...m.context_after ? { context_after: m.context_after } : {},
+      containing_node: containingNode,
+      entity,
+      importers_count: importersCount,
+      role: classifyFileRole(m.file)
     };
-  } finally {
+  });
+  if (store)
     store.close();
-  }
+  return {
+    status: "ok",
+    summary: `Found ${results.length} matches for "${params.pattern}"`,
+    pattern: params.pattern,
+    results
+  };
 }
-
-// dist/tools/get-review-context.js
-import { readFileSync as readFileSync9 } from "node:fs";
-import { relative as relative3, resolve as resolve5 } from "node:path";
 
 // dist/bfs.js
 function buildAdjacencyList(edges) {
@@ -28593,7 +28605,331 @@ function getImpactRadius(store, changedFiles, maxDepth = 2, maxNodes = 500) {
   };
 }
 
+// dist/tools/get-dependency-chain.js
+function getDependencyChain(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const fromNode = resolveTarget(store, params.from);
+    const toNode = resolveTarget(store, params.to);
+    if (!fromNode) {
+      const candidates = store.searchNodes(params.from, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.from}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.from}'`
+      };
+    }
+    if (!toNode) {
+      const candidates = store.searchNodes(params.to, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.to}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.to}'`
+      };
+    }
+    const result = getShortestPath(store, fromNode.qualified_name, toNode.qualified_name, params.max_depth ?? 10);
+    if (!result.found) {
+      return {
+        status: "ok",
+        summary: `No path found between '${fromNode.name}' and '${toNode.name}' within ${params.max_depth ?? 10} hops`,
+        from: nodeToDict(fromNode),
+        to: nodeToDict(toNode),
+        path: [],
+        edges: [],
+        connected: false
+      };
+    }
+    const pathNames = result.path.map((n) => n.name);
+    const summary = `${pathNames.join(" \u2192 ")} (${result.depth} hop${result.depth === 1 ? "" : "s"})`;
+    return {
+      status: "ok",
+      summary,
+      from: nodeToDict(fromNode),
+      to: nodeToDict(toNode),
+      path: result.path.map(nodeToDict),
+      edges: result.edges.map(edgeToDict),
+      depth: result.depth,
+      connected: true
+    };
+  } finally {
+    store.close();
+  }
+}
+function resolveTarget(store, target) {
+  let node = store.getNode(target);
+  if (node)
+    return node;
+  const fileNodes = store.getNodesByFile(target);
+  const fileNode = fileNodes.find((n) => n.kind === "File");
+  if (fileNode)
+    return fileNode;
+  const candidates = store.searchNodes(target, 2);
+  if (candidates.length === 1)
+    return candidates[0];
+  return null;
+}
+
+// dist/tools/query-graph.js
+import { resolve as resolve5 } from "node:path";
+var BUILTIN_NAMES = /* @__PURE__ */ new Set([
+  "map",
+  "filter",
+  "reduce",
+  "forEach",
+  "find",
+  "some",
+  "every",
+  "includes",
+  "push",
+  "pop",
+  "shift",
+  "splice",
+  "slice",
+  "concat",
+  "join",
+  "sort",
+  "reverse",
+  "keys",
+  "values",
+  "entries",
+  "toString",
+  "valueOf",
+  "hasOwnProperty",
+  "console",
+  "log",
+  "warn",
+  "error",
+  "JSON",
+  "parse",
+  "stringify",
+  "parseInt",
+  "parseFloat",
+  "setTimeout",
+  "setInterval",
+  "clearTimeout",
+  "clearInterval",
+  "Promise",
+  "then",
+  "catch",
+  "finally",
+  "require"
+]);
+var QUERY_DESCRIPTIONS = {
+  callers_of: "Find all functions that call a given function",
+  callees_of: "Find all functions called by a given function",
+  imports_of: "Find all imports of a given file or module",
+  importers_of: "Find all files that import a given file or module",
+  children_of: "Find all nodes contained in a file or class",
+  tests_for: "Find all tests for a given function or class",
+  inheritors_of: "Find classes that inherit from a given class",
+  file_summary: "Get a summary of all nodes in a file",
+  references_of: "Grep for a string pattern with graph context enrichment",
+  dependency_chain: "Shortest path between two nodes in the graph"
+};
+function edgesByTarget(store, qn, edgeKind) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesByTarget(qn)) {
+    if (e.kind === edgeKind) {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.source_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function edgesBySource(store, qn, edgeKind) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesBySource(qn)) {
+    if (e.kind === edgeKind) {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.target_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function callersOf(store, qn, nodeName) {
+  const { results, edges } = edgesByTarget(store, qn, "CALLS");
+  if (nodeName) {
+    for (const e of store.searchEdgesByTargetName(nodeName, "CALLS")) {
+      if (e.target_qualified !== qn) {
+        edges.push(edgeToDict(e));
+        const caller = store.getNode(e.source_qualified);
+        if (caller)
+          results.push(nodeToDict(caller));
+      }
+    }
+  }
+  return { results, edges };
+}
+function fileSummary(store, filePath) {
+  const results = store.getNodesByFile(filePath).map(nodeToDict);
+  return { results, edges: [] };
+}
+function inheritorsOf(store, qn) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesByTarget(qn)) {
+    if (e.kind === "INHERITS" || e.kind === "IMPLEMENTS") {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.source_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function queryGraph(params) {
+  const { pattern, target } = params;
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  if (!(pattern in QUERY_DESCRIPTIONS)) {
+    return {
+      status: "error",
+      error: `Unknown pattern '${pattern}'. Available: ${Object.keys(QUERY_DESCRIPTIONS).join(", ")}`
+    };
+  }
+  if (pattern === "references_of") {
+    return searchReferences({
+      pattern: target,
+      scope: params.scope,
+      context_lines: params.context_lines,
+      max_results: params.max_results,
+      repo_root: params.repo_root
+    });
+  }
+  if (pattern === "dependency_chain") {
+    if (!params.target_to) {
+      return {
+        status: "error",
+        error: "dependency_chain requires target_to (destination node)."
+      };
+    }
+    return getDependencyChain({
+      from: target,
+      to: params.target_to,
+      max_depth: 10,
+      repo_root: params.repo_root
+    });
+  }
+  if (pattern === "callers_of" && BUILTIN_NAMES.has(target) && !target.includes("::")) {
+    return {
+      status: "ok",
+      pattern,
+      target,
+      description: QUERY_DESCRIPTIONS[pattern],
+      summary: `'${target}' is a common builtin \u2014 callers_of skipped to avoid noise.`,
+      results: [],
+      edges: []
+    };
+  }
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    let node = store.getNode(target);
+    let resolvedTarget = target;
+    if (!node) {
+      const absTarget = resolve5(root, target);
+      node = store.getNode(absTarget);
+      if (node)
+        resolvedTarget = absTarget;
+    }
+    if (!node) {
+      const candidates = store.searchNodes(target, 5);
+      if (candidates.length === 1) {
+        node = candidates[0];
+        resolvedTarget = node.qualified_name;
+      } else if (candidates.length > 1) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${target}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+    }
+    if (!node && pattern !== "file_summary") {
+      return { status: "not_found", summary: `No node found matching '${target}'.` };
+    }
+    const qn = node?.qualified_name ?? resolvedTarget;
+    let result;
+    switch (pattern) {
+      case "callers_of":
+        result = callersOf(store, qn, node?.name ?? null);
+        break;
+      case "callees_of":
+        result = edgesBySource(store, qn, "CALLS");
+        break;
+      case "imports_of":
+        result = edgesBySource(store, qn, "IMPORTS_FROM");
+        break;
+      case "importers_of":
+        result = edgesByTarget(store, qn, "IMPORTS_FROM");
+        break;
+      case "children_of":
+        result = edgesBySource(store, qn, "CONTAINS");
+        break;
+      case "tests_for":
+        result = edgesBySource(store, qn, "TESTED_BY");
+        break;
+      case "inheritors_of":
+        result = inheritorsOf(store, qn);
+        break;
+      case "file_summary":
+        result = fileSummary(store, node?.file_path ?? resolvedTarget);
+        break;
+      default:
+        result = { results: [], edges: [] };
+    }
+    return {
+      status: "ok",
+      pattern,
+      target,
+      description: QUERY_DESCRIPTIONS[pattern],
+      summary: `${pattern}(${target}): ${result.results.length} results, ${result.edges.length} edges`,
+      results: result.results,
+      edges: result.edges
+    };
+  } finally {
+    store.close();
+  }
+}
+
 // dist/tools/get-review-context.js
+import { readFileSync as readFileSync9 } from "node:fs";
+import { relative as relative4, resolve as resolve6 } from "node:path";
 function getReviewContext(params) {
   const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
@@ -28610,7 +28946,7 @@ function getReviewContext(params) {
     };
   }
   try {
-    let changedFiles = params.changed_files?.map((f) => resolve5(root, f));
+    let changedFiles = params.changed_files?.map((f) => resolve6(root, f));
     if (!changedFiles || changedFiles.length === 0) {
       changedFiles = [
         .../* @__PURE__ */ new Set([
@@ -28641,7 +28977,7 @@ function getReviewContext(params) {
           const lines = content.split("\n");
           const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
 ... (${lines.length - maxLines} more lines)` : content;
-          sourceSnippets[relative3(root, f)] = snippet;
+          sourceSnippets[relative4(root, f)] = snippet;
         } catch {
         }
       }
@@ -28678,8 +29014,8 @@ function getReviewContext(params) {
       status: "ok",
       summary,
       context: {
-        changed_files: changedFiles.map((f) => relative3(root, f)),
-        impacted_files: impact.impacted_files.map((f) => relative3(root, f)),
+        changed_files: changedFiles.map((f) => relative4(root, f)),
+        impacted_files: impact.impacted_files.map((f) => relative4(root, f)),
         graph: {
           changed_nodes: impact.changed_nodes.map(nodeToDict),
           impacted_nodes: impact.impacted_nodes.map(nodeToDict),
@@ -28695,7 +29031,7 @@ function getReviewContext(params) {
 }
 
 // dist/tools/get-impact-radius.js
-import { relative as relative4 } from "node:path";
+import { relative as relative5 } from "node:path";
 function getImpactRadiusTool(params) {
   const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
@@ -28740,10 +29076,10 @@ function getImpactRadiusTool(params) {
     return {
       status: "ok",
       summary,
-      changed_files: changedFiles.map((f) => relative4(root, f)),
+      changed_files: changedFiles.map((f) => relative5(root, f)),
       changed_nodes: result.changed_nodes.map(nodeToDict),
       impacted_nodes: result.impacted_nodes.map(nodeToDict),
-      impacted_files: result.impacted_files.map((f) => relative4(root, f)),
+      impacted_files: result.impacted_files.map((f) => relative5(root, f)),
       edges: result.edges.map(edgeToDict),
       truncated: result.truncated,
       total_impacted: result.total_impacted
@@ -28847,7 +29183,7 @@ function listGraphStats(params) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename7, dirname as dirname8, join as join4, relative as relative5, resolve as resolve6 } from "node:path";
+import { basename as basename7, dirname as dirname8, join as join4, relative as relative6, resolve as resolve7 } from "node:path";
 
 // dist/html-template.js
 function generateGraphHtml(data) {
@@ -29568,7 +29904,7 @@ function resolveImportTarget(specifier, sourceFile, fileSet) {
   if (!specifier.startsWith("."))
     return null;
   const sourceDir = dirname8(sourceFile);
-  const base = resolve6(sourceDir, specifier);
+  const base = resolve7(sourceDir, specifier);
   if (fileSet.has(base))
     return base;
   const stripped = base.replace(/\.(js|mjs|jsx)$/, "");
@@ -29615,7 +29951,7 @@ function extractVisNodes(store, repoRoot) {
     const fileNode = fileNodes.find((n) => n.kind === "File");
     if (!fileNode)
       continue;
-    const relPath = relative5(repoRoot, filePath);
+    const relPath = relative6(repoRoot, filePath);
     const lines = fileNode.line_end - fileNode.line_start + 1;
     const functions = fileNodes.filter((n) => n.kind === "Function").length;
     const classes = fileNodes.filter((n) => n.kind === "Class").length;
@@ -29802,7 +30138,7 @@ function entityScope(params) {
 // dist/tools/run-audit.js
 import { execFileSync as execFileSync2 } from "node:child_process";
 import { existsSync as existsSync5, readFileSync as readFileSync10 } from "node:fs";
-import { join as join5, relative as relative6 } from "node:path";
+import { join as join5, relative as relative7 } from "node:path";
 
 // dist/audit-store.js
 function insertFinding(store, f) {
@@ -30087,7 +30423,7 @@ function analyzeCohesion(store, db, runId, repoRoot) {
         finding_type: "grab-bag",
         severity: rec.severity,
         node_qualified_name: file.file_qn,
-        file_path: relative6(repoRoot, file.file_path),
+        file_path: relative7(repoRoot, file.file_path),
         title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
         detail: {
           function_count: file.func_count,
@@ -30125,7 +30461,7 @@ function analyzeCohesion(store, db, runId, repoRoot) {
         finding_type: "mixed-concerns",
         severity: rec.severity,
         node_qualified_name: row.file_qn,
-        file_path: relative6(repoRoot, row.file_path),
+        file_path: relative7(repoRoot, row.file_path),
         title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
         detail: {
           function_count: funcCount.cnt,
@@ -30164,11 +30500,11 @@ function analyzeCohesion(store, db, runId, repoRoot) {
           finding_type: "inline-candidate",
           severity: "info",
           node_qualified_name: f.qualified_name,
-          file_path: relative6(repoRoot, f.file_path),
-          title: `"${f.name}" only called from ${relative6(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
+          file_path: relative7(repoRoot, f.file_path),
+          title: `"${f.name}" only called from ${relative7(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
           detail: {
             function_name: f.name,
-            sole_caller: relative6(repoRoot, f.sole_caller_file),
+            sole_caller: relative7(repoRoot, f.sole_caller_file),
             recommendation: "move-on-next-touch",
             reason: "Function has a single consumer. Co-locate when you're already editing either file \u2014 not worth a dedicated refactor."
           },
@@ -30202,13 +30538,13 @@ function analyzeCohesion(store, db, runId, repoRoot) {
         category: "code-quality",
         finding_type: "colocate-types",
         severity: "info",
-        file_path: relative6(repoRoot, filePath),
+        file_path: relative7(repoRoot, filePath),
         title: `${types.length} types each only imported by one file \u2014 co-locate with consumers?`,
         detail: {
           type_count: types.length,
           types: types.slice(0, 5).map((t) => ({
             name: t.name,
-            sole_importer: relative6(repoRoot, t.sole_importer)
+            sole_importer: relative7(repoRoot, t.sole_importer)
           })),
           recommendation: "move-on-next-touch",
           reason: "Types have single consumers. Move them when you're already editing the consumer file."
@@ -30250,7 +30586,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
       finding_type: findingType,
       severity,
       node_qualified_name: f.qualified_name,
-      file_path: relative6(repoRoot, f.file_path),
+      file_path: relative7(repoRoot, f.file_path),
       title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
       detail: {
         lines: f.lines,
@@ -30273,7 +30609,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
       finding_type: "oversized-function",
       severity: "moderate",
       node_qualified_name: f.qualified_name,
-      file_path: relative6(repoRoot, f.file_path),
+      file_path: relative7(repoRoot, f.file_path),
       title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
       detail: {
         lines: f.lines,
@@ -30355,7 +30691,7 @@ function analyzeFileOrganization(store, runId, repoRoot) {
       finding_type: "misplaced-app-content",
       severity: "moderate",
       node_qualified_name: f.qualified_name,
-      file_path: relative6(repoRoot, f.file_path),
+      file_path: relative7(repoRoot, f.file_path),
       title: `Content component '${f.name}' in app/ \u2014 move to components/`,
       detail: {
         recommendation: "split",
@@ -30380,7 +30716,7 @@ function analyzeTestCoverage(store, runId, repoRoot) {
     insertTestCoverage(store, {
       audit_run_id: runId,
       node_qualified_name: r.qualified_name,
-      file_path: relative6(repoRoot, r.file_path),
+      file_path: relative7(repoRoot, r.file_path),
       has_test_edge: r.test_count > 0,
       coverage_pct: null,
       test_count: r.test_count
@@ -30392,7 +30728,7 @@ function analyzeTestCoverage(store, runId, repoRoot) {
         finding_type: "untested-function",
         severity: "low",
         node_qualified_name: r.qualified_name,
-        file_path: relative6(repoRoot, r.file_path),
+        file_path: relative7(repoRoot, r.file_path),
         title: `Function "${r.name}" has no test coverage`,
         detail: { name: r.name },
         score_impact: IMPACTS.UNTESTED_FUNC
@@ -30692,267 +31028,6 @@ function generateAuditHtml(params) {
   }
 }
 
-// dist/tools/search-references.js
-import { execSync } from "node:child_process";
-import { relative as relative7, resolve as resolve7 } from "node:path";
-function classifyFileRole(filePath) {
-  if (/\/skills\//.test(filePath))
-    return "skill";
-  if (/\/hooks\//.test(filePath))
-    return "hook";
-  if (/\/components\//.test(filePath))
-    return "component";
-  if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
-    return "route";
-  if (/\/hooks\//.test(filePath))
-    return "hook";
-  if (/\.(test|spec)\./.test(filePath))
-    return "test";
-  if (/\/lib\//.test(filePath))
-    return "lib";
-  if (/\.(config|rc)\.\w+$/.test(filePath))
-    return "config";
-  if (/\/defaults\//.test(filePath))
-    return "defaults";
-  if (/\/templates\//.test(filePath))
-    return "template";
-  if (/\/steps\//.test(filePath))
-    return "skill-step";
-  if (/\/references\//.test(filePath))
-    return "reference";
-  return "source";
-}
-function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
-  const target = scope ? resolve7(root, scope) : root;
-  const cmd = [
-    "rg",
-    "--no-heading",
-    "-n",
-    contextLines > 0 ? `-C${contextLines}` : "",
-    "--max-count",
-    String(maxResults),
-    "--glob",
-    "!node_modules",
-    "--glob",
-    "!.git",
-    "--glob",
-    "!dist",
-    "--glob",
-    "!*.map",
-    JSON.stringify(pattern),
-    JSON.stringify(target)
-  ].filter(Boolean).join(" ");
-  try {
-    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
-    return parseRipgrepOutput(output, root, contextLines);
-  } catch {
-    return [];
-  }
-}
-function parseRipgrepOutput(output, root, contextLines) {
-  const matches = [];
-  const lines = output.split("\n").filter(Boolean);
-  if (contextLines === 0) {
-    for (const line of lines) {
-      const m = line.match(/^(.+?):(\d+):(.*)$/);
-      if (m) {
-        matches.push({
-          file: relative7(root, m[1]),
-          line: parseInt(m[2], 10),
-          text: m[3]
-        });
-      }
-    }
-  } else {
-    let currentMatch = null;
-    const beforeLines = [];
-    for (const line of lines) {
-      if (line === "--") {
-        if (currentMatch)
-          matches.push(currentMatch);
-        currentMatch = null;
-        beforeLines.length = 0;
-        continue;
-      }
-      const matchLine = line.match(/^(.+?):(\d+):(.*)$/);
-      const ctxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
-      if (matchLine) {
-        currentMatch = {
-          file: relative7(root, matchLine[1]),
-          line: parseInt(matchLine[2], 10),
-          text: matchLine[3],
-          context_before: beforeLines.length > 0 ? beforeLines.join("\n") : void 0
-        };
-        beforeLines.length = 0;
-      } else if (ctxLine) {
-        if (currentMatch) {
-          currentMatch.context_after = (currentMatch.context_after ?? "") + (currentMatch.context_after ? "\n" : "") + ctxLine[3];
-        } else {
-          beforeLines.push(ctxLine[3]);
-        }
-      }
-    }
-    if (currentMatch)
-      matches.push(currentMatch);
-  }
-  return matches;
-}
-function searchReferences(params) {
-  const root = findProjectRoot(params.repo_root);
-  const dbPath = getDbPath(root);
-  const contextLines = params.context_lines ?? 1;
-  const maxResults = params.max_results ?? 50;
-  const matches = searchWithRipgrep(root, params.pattern, params.scope, contextLines, maxResults);
-  if (matches.length === 0) {
-    return {
-      status: "ok",
-      summary: `No matches for "${params.pattern}"`,
-      pattern: params.pattern,
-      results: []
-    };
-  }
-  let store = null;
-  try {
-    store = new GraphStore(dbPath);
-  } catch {
-  }
-  const results = matches.map((m) => {
-    const absPath = resolve7(root, m.file);
-    let containingNode = null;
-    let entity = null;
-    let importersCount = 0;
-    if (store) {
-      const fileNodes = store.getNodesByFile(absPath);
-      for (const node of fileNodes) {
-        if (node.kind === "File")
-          continue;
-        if (node.line_start <= m.line && node.line_end >= m.line) {
-          containingNode = node.name;
-          break;
-        }
-      }
-      const fileNode = fileNodes.find((n) => n.kind === "File");
-      if (fileNode) {
-        try {
-          const rows = store.getDb().prepare("SELECT COUNT(*) as cnt FROM edges WHERE target_qualified = ? AND kind = 'IMPORTS_FROM'").all(fileNode.qualified_name);
-          importersCount = rows[0]?.cnt ?? 0;
-        } catch {
-        }
-      }
-      try {
-        const entityRows = store.getDb().prepare("SELECT entity_name FROM entity_members WHERE node_qualified_name = ? LIMIT 1").all(fileNode?.qualified_name ?? "");
-        entity = entityRows[0]?.entity_name ?? null;
-      } catch {
-      }
-    }
-    return {
-      file: m.file,
-      line: m.line,
-      text: m.text,
-      ...m.context_before ? { context_before: m.context_before } : {},
-      ...m.context_after ? { context_after: m.context_after } : {},
-      containing_node: containingNode,
-      entity,
-      importers_count: importersCount,
-      role: classifyFileRole(m.file)
-    };
-  });
-  if (store)
-    store.close();
-  return {
-    status: "ok",
-    summary: `Found ${results.length} matches for "${params.pattern}"`,
-    pattern: params.pattern,
-    results
-  };
-}
-
-// dist/tools/get-dependency-chain.js
-function getDependencyChain(params) {
-  const root = findProjectRoot(params.repo_root);
-  const dbPath = getDbPath(root);
-  let store;
-  try {
-    store = new GraphStore(dbPath);
-  } catch (err2) {
-    return {
-      status: "error",
-      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
-    };
-  }
-  try {
-    const fromNode = resolveTarget(store, params.from);
-    const toNode = resolveTarget(store, params.to);
-    if (!fromNode) {
-      const candidates = store.searchNodes(params.from, 5);
-      if (candidates.length > 0) {
-        return {
-          status: "ambiguous",
-          summary: `Multiple matches for '${params.from}'. Please use a qualified name.`,
-          candidates: candidates.map(nodeToDict)
-        };
-      }
-      return {
-        status: "not_found",
-        summary: `No node found matching '${params.from}'`
-      };
-    }
-    if (!toNode) {
-      const candidates = store.searchNodes(params.to, 5);
-      if (candidates.length > 0) {
-        return {
-          status: "ambiguous",
-          summary: `Multiple matches for '${params.to}'. Please use a qualified name.`,
-          candidates: candidates.map(nodeToDict)
-        };
-      }
-      return {
-        status: "not_found",
-        summary: `No node found matching '${params.to}'`
-      };
-    }
-    const result = getShortestPath(store, fromNode.qualified_name, toNode.qualified_name, params.max_depth ?? 10);
-    if (!result.found) {
-      return {
-        status: "ok",
-        summary: `No path found between '${fromNode.name}' and '${toNode.name}' within ${params.max_depth ?? 10} hops`,
-        from: nodeToDict(fromNode),
-        to: nodeToDict(toNode),
-        path: [],
-        edges: [],
-        connected: false
-      };
-    }
-    const pathNames = result.path.map((n) => n.name);
-    const summary = `${pathNames.join(" \u2192 ")} (${result.depth} hop${result.depth === 1 ? "" : "s"})`;
-    return {
-      status: "ok",
-      summary,
-      from: nodeToDict(fromNode),
-      to: nodeToDict(toNode),
-      path: result.path.map(nodeToDict),
-      edges: result.edges.map(edgeToDict),
-      depth: result.depth,
-      connected: true
-    };
-  } finally {
-    store.close();
-  }
-}
-function resolveTarget(store, target) {
-  let node = store.getNode(target);
-  if (node)
-    return node;
-  const fileNodes = store.getNodesByFile(target);
-  const fileNode = fileNodes.find((n) => n.kind === "File");
-  if (fileNode)
-    return fileNode;
-  const candidates = store.searchNodes(target, 2);
-  if (candidates.length === 1)
-    return candidates[0];
-  return null;
-}
-
 // dist/server.js
 var server = new McpServer({
   name: "composure-graph",
@@ -30978,7 +31053,9 @@ Available patterns:
 - children_of: Find nodes contained in a file or class
 - tests_for: Find tests for the target
 - inheritors_of: Find classes that inherit from the target
-- file_summary: Get all nodes in a file`, {
+- file_summary: Get all nodes in a file
+- references_of: Grep for target string with graph context (containing node, importers, role)
+- dependency_chain: Shortest path between target and target_to`, {
   pattern: external_exports.enum([
     "callers_of",
     "callees_of",
@@ -30987,9 +31064,15 @@ Available patterns:
     "children_of",
     "tests_for",
     "inheritors_of",
-    "file_summary"
+    "file_summary",
+    "references_of",
+    "dependency_chain"
   ]).describe("Query pattern name."),
-  target: external_exports.string().describe("Node name, qualified name, or file path to query."),
+  target: external_exports.string().describe("Node name, qualified name, or file path. For references_of: the search pattern."),
+  target_to: external_exports.string().optional().describe("Second target for dependency_chain (destination node)."),
+  scope: external_exports.string().optional().describe("File glob to narrow references_of search (e.g., '**/*.md')."),
+  context_lines: external_exports.number().optional().describe("Lines of context for references_of (like grep -C). Default: 1."),
+  max_results: external_exports.number().optional().describe("Max results for references_of. Default: 50."),
   repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
 }, async (params) => {
   const result = queryGraph(params);
@@ -31108,25 +31191,6 @@ server.tool("generate_audit_html", "Generate a self-contained HTML audit report 
   repo_root: external_exports.string().optional().describe("Repository root. Auto-detected if omitted.")
 }, async (params) => {
   const result = generateAuditHtml(params);
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
-server.tool("search_references", "Search for string patterns across the repo with graph context enrichment. Like grep but returns matches with containing node, entity membership, importer count, and file role. Use for finding all references to a skill name, function, pattern, or any text string.", {
-  pattern: external_exports.string().describe("Regex pattern to search for (e.g., '/composure:blueprint', 'useAuth')."),
-  scope: external_exports.string().optional().describe("File glob to narrow search (e.g., '**/*.md', 'plugins/composure/skills/**'). Defaults to entire repo."),
-  context_lines: external_exports.number().default(1).describe("Lines of context before/after each match (like grep -C). Default: 1."),
-  max_results: external_exports.number().default(50).describe("Maximum results to return. Default: 50."),
-  repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
-}, async (params) => {
-  const result = searchReferences(params);
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
-server.tool("get_dependency_chain", "Find the shortest path between two code entities in the graph. Shows how two files, functions, or types are connected through imports and calls. Use for understanding dependency relationships and tracing how code connects.", {
-  from: external_exports.string().describe("Source node \u2014 name, qualified name, or file path."),
-  to: external_exports.string().describe("Target node \u2014 name, qualified name, or file path."),
-  max_depth: external_exports.number().default(10).describe("Maximum hops to search. Default: 10."),
-  repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
-}, async (params) => {
-  const result = getDependencyChain(params);
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 });
 async function main() {

@@ -171,7 +171,8 @@ Phase 7: Navigation   → fullstack/nextjs/ | frontend/vite/ | mobile/expo/
 | `/audit` | Invoke manually | Full codebase audit for size violations | `tasks-plans/audit-{date}.md` |
 | `/backlog` | Invoke manually | Process tasks from both sources | TaskCreate entries |
 | `/backlog sync` | Invoke at session start | Load pending tasks into current session | TaskCreate entries |
-| `/backlog delegate` | Invoke to execute | Dispatch parallel sub-agents to fix | Completed tasks |
+| `/backlog batch` | Invoke to execute | Process sequentially — read files directly (<10 tasks) | Completed tasks |
+| `/backlog delegate` | Invoke to execute | Parallel sub-agents with graph-provided paths (10+ tasks) | Completed tasks |
 | `find_large_functions_tool` | MCP tool (code-review-graph) | Query AST graph for oversized functions | Direct query results |
 
 ### /simplify Integration

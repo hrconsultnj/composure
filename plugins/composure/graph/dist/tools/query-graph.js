@@ -1,5 +1,7 @@
 import { GraphStore, edgeToDict, nodeToDict } from "../store.js";
 import { findProjectRoot, getDbPath } from "../incremental.js";
+import { searchReferences } from "./search-references.js";
+import { getDependencyChain } from "./get-dependency-chain.js";
 import { resolve } from "node:path";
 // Common builtins that produce noise for callers_of queries
 const BUILTIN_NAMES = new Set([
@@ -21,6 +23,8 @@ const QUERY_DESCRIPTIONS = {
     tests_for: "Find all tests for a given function or class",
     inheritors_of: "Find classes that inherit from a given class",
     file_summary: "Get a summary of all nodes in a file",
+    references_of: "Grep for a string pattern with graph context enrichment",
+    dependency_chain: "Shortest path between two nodes in the graph",
 };
 function edgesByTarget(store, qn, edgeKind) {
     const results = [];
@@ -90,6 +94,30 @@ export function queryGraph(params) {
             status: "error",
             error: `Unknown pattern '${pattern}'. Available: ${Object.keys(QUERY_DESCRIPTIONS).join(", ")}`,
         };
+    }
+    // ── Delegated patterns (use their own DB connections) ──────────
+    if (pattern === "references_of") {
+        return searchReferences({
+            pattern: target,
+            scope: params.scope,
+            context_lines: params.context_lines,
+            max_results: params.max_results,
+            repo_root: params.repo_root,
+        });
+    }
+    if (pattern === "dependency_chain") {
+        if (!params.target_to) {
+            return {
+                status: "error",
+                error: "dependency_chain requires target_to (destination node).",
+            };
+        }
+        return getDependencyChain({
+            from: target,
+            to: params.target_to,
+            max_depth: 10,
+            repo_root: params.repo_root,
+        });
     }
     if (pattern === "callers_of" && BUILTIN_NAMES.has(target) && !target.includes("::")) {
         return {

@@ -79,7 +79,7 @@ if [ "$GRAPH_STALE" -eq 1 ]; then
     cat <<'EOMSG'
 [composure:MANDATORY] Code graph is stale or missing. You MUST call build_or_update_graph({ full_rebuild: true }) BEFORE doing any other work — no exceptions. Do NOT use Explore agents for structural questions when graph MCP tools exist. The graph costs 15 seconds and 0 tokens. An explore agent costs 5-20K tokens per query.
 
-After building, use graph tools FIRST for: file imports (query_graph), callers/dependents (get_impact_radius), finding code (semantic_search_nodes), function sizes (find_large_functions). Only use Explore agents for understanding INTENT (business logic, why something was coded a certain way) — never for STRUCTURE.
+After building, use graph tools FIRST for: file imports (query_graph), callers/dependents (get_impact_radius), finding code (semantic_search_nodes), function sizes (find_large_functions), string references (query_graph pattern: "references_of" with target as search string, optional scope/context_lines/max_results), dependency chains (query_graph pattern: "dependency_chain" with target + target_to). Only use Explore agents for understanding INTENT (business logic, why something was coded a certain way) — never for STRUCTURE.
 EOMSG
   else
     cat <<EOMSG

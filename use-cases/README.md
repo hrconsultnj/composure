@@ -12,3 +12,4 @@ Each case study documents what happened, what the plugin did differently, and th
 | [Blueprint vs Plan Mode](blueprint-vs-plan-mode/) | Graph-powered planning vs Explore agents | 2.75x fewer tokens, 2.6x faster, higher quality plans |
 | [Progressive Refinement](progressive-refinement/) | Template-driven quality, native tool learning | 28/40 → 39/40 quality, one template change, same token cost |
 | [Session Context Optimization](session-context-optimization/) | Lightweight hooks, on-demand loading | ~200 lines → ~8 lines at session start |
+| [Graph Narrows, Agent Deepens](graph-narrows-agent-deepens/) | search_references, get_dependency_chain, JSDoc summaries | 2.85x faster, 37% better quality, neither alone is optimal |

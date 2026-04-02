@@ -36,25 +36,67 @@ function classifyFileRole(filePath) {
         return "reference";
     return "source";
 }
+function findRg() {
+    // Check common locations for ripgrep binary
+    const candidates = [
+        "/usr/local/bin/rg",
+        "/opt/homebrew/bin/rg",
+        `${process.env.HOME}/.cargo/bin/rg`,
+    ];
+    for (const p of candidates) {
+        try {
+            if (require("node:fs").existsSync(p))
+                return p;
+        }
+        catch { /* skip */ }
+    }
+    return "rg"; // hope it's in PATH
+}
 function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
     const target = scope ? resolve(root, scope) : root;
+    // Try ripgrep first, fall back to grep
+    try {
+        const rg = findRg();
+        const cmd = [
+            rg, "--no-heading", "-n",
+            contextLines > 0 ? `-C${contextLines}` : "",
+            "--max-count", String(maxResults),
+            "--glob", "!node_modules",
+            "--glob", "!.git",
+            "--glob", "!dist",
+            "--glob", "!*.map",
+            JSON.stringify(pattern),
+            JSON.stringify(target),
+        ].filter(Boolean).join(" ");
+        const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+        return parseRipgrepOutput(output, root, contextLines);
+    }
+    catch (err) {
+        // If rg not found, fall back to grep
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("not found") || msg.includes("ENOENT")) {
+            return searchWithGrep(root, pattern, target, contextLines, maxResults);
+        }
+        // rg exits with code 1 when no matches — that's fine
+        return [];
+    }
+}
+function searchWithGrep(root, pattern, target, contextLines, maxResults) {
     const cmd = [
-        "rg", "--no-heading", "-n",
+        "grep", "-rn",
         contextLines > 0 ? `-C${contextLines}` : "",
-        "--max-count", String(maxResults),
-        "--glob", "!node_modules",
-        "--glob", "!.git",
-        "--glob", "!dist",
-        "--glob", "!*.map",
+        "--include=*.ts", "--include=*.tsx", "--include=*.js", "--include=*.jsx",
+        "--include=*.md", "--include=*.sh", "--include=*.json",
+        "--exclude-dir=node_modules", "--exclude-dir=.git", "--exclude-dir=dist",
+        `-m${maxResults}`,
         JSON.stringify(pattern),
         JSON.stringify(target),
     ].filter(Boolean).join(" ");
     try {
         const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
-        return parseRipgrepOutput(output, root, contextLines);
+        return parseRipgrepOutput(output, root, contextLines); // grep format is compatible
     }
     catch {
-        // rg exits with code 1 when no matches found
         return [];
     }
 }
