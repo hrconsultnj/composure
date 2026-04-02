@@ -6,13 +6,13 @@ import { existsSync as existsSync5 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync11, statSync as statSync2 } from "node:fs";
-import { dirname as dirname6, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync3, readFileSync as readFileSync12, statSync as statSync2 } from "node:fs";
+import { dirname as dirname6, join as join4, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { basename, dirname as dirname2, extname, join } from "node:path";
+import { readFileSync as readFileSync2 } from "node:fs";
+import { basename, dirname as dirname2, extname, join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // node_modules/.pnpm/web-tree-sitter@0.26.7/node_modules/web-tree-sitter/web-tree-sitter.js
@@ -3987,8 +3987,8 @@ var Query = class {
 };
 
 // dist/parser-helpers.js
-import { existsSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
 
 // dist/parser.js
 var EXT_TO_LANG = {
@@ -4000,53 +4000,53 @@ var EXT_TO_LANG = {
 var PARSEABLE_EXTENSIONS = new Set(Object.keys(EXT_TO_LANG));
 var __dirname = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
 var WASM_PATHS = {
-  typescript: join(__dirname, "tree-sitter-typescript.wasm"),
-  tsx: join(__dirname, "tree-sitter-tsx.wasm"),
-  javascript: join(__dirname, "tree-sitter-javascript.wasm"),
-  jsx: join(__dirname, "tree-sitter-javascript.wasm")
+  typescript: join2(__dirname, "tree-sitter-typescript.wasm"),
+  tsx: join2(__dirname, "tree-sitter-tsx.wasm"),
+  javascript: join2(__dirname, "tree-sitter-javascript.wasm"),
+  jsx: join2(__dirname, "tree-sitter-javascript.wasm")
 };
 
 // dist/sql-parser.js
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
 import { basename as basename2, extname as extname2 } from "node:path";
 
 // dist/pkg-parser.js
-import { readFileSync as readFileSync3, existsSync as existsSync2 } from "node:fs";
-import { basename as basename3, dirname as dirname3, join as join2 } from "node:path";
+import { readFileSync as readFileSync4, existsSync as existsSync2 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join3 } from "node:path";
 
 // dist/config-parser.js
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
 import { basename as basename4, extname as extname3 } from "node:path";
 
 // dist/md-parser.js
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { basename as basename5, dirname as dirname4, extname as extname4 } from "node:path";
 
 // dist/sh-parser.js
-import { readFileSync as readFileSync6 } from "node:fs";
+import { readFileSync as readFileSync7 } from "node:fs";
 import { basename as basename6, dirname as dirname5, extname as extname5, resolve as resolve2 } from "node:path";
 
 // dist/yaml-parser.js
-import { readFileSync as readFileSync7 } from "node:fs";
+import { readFileSync as readFileSync8 } from "node:fs";
 import { basename as basename7, extname as extname6 } from "node:path";
 
 // dist/hcl-parser.js
-import { readFileSync as readFileSync8 } from "node:fs";
+import { readFileSync as readFileSync9 } from "node:fs";
 import { basename as basename8, extname as extname7 } from "node:path";
 
 // dist/dockerfile-parser.js
-import { readFileSync as readFileSync9 } from "node:fs";
+import { readFileSync as readFileSync10 } from "node:fs";
 import { basename as basename9 } from "node:path";
 
 // dist/entities.js
-import { readFileSync as readFileSync10 } from "node:fs";
+import { readFileSync as readFileSync11 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
   let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
-    if (existsSync3(join3(dir, ".git")))
+    if (existsSync3(join4(dir, ".git")))
       return dir;
     const parent = dirname6(dir);
     if (parent === dir)
@@ -4058,12 +4058,12 @@ function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
 function getDbPath(repoRoot) {
-  return join3(repoRoot, ".code-review-graph", "graph.db");
+  return join4(repoRoot, ".code-review-graph", "graph.db");
 }
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename10, dirname as dirname8, join as join4, relative as relative3, resolve as resolve4 } from "node:path";
+import { basename as basename10, dirname as dirname8, join as join5, relative as relative3, resolve as resolve4 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
@@ -5211,8 +5211,8 @@ function resolveImportTarget(specifier, sourceFile, fileSet) {
       return stripped + ext;
   }
   for (const ext of extensions) {
-    if (fileSet.has(join4(stripped, `index${ext}`)))
-      return join4(stripped, `index${ext}`);
+    if (fileSet.has(join5(stripped, `index${ext}`)))
+      return join5(stripped, `index${ext}`);
   }
   return null;
 }
@@ -5326,7 +5326,7 @@ function generateGraphHtmlTool(params) {
         filesCount: nodes.length
       }
     });
-    const outputPath = params.output_path ?? join4(root, ".code-review-graph", "graph.html");
+    const outputPath = params.output_path ?? join5(root, ".code-review-graph", "graph.html");
     writeFileSync2(outputPath, html, "utf-8");
     const catCounts = {};
     for (const n of nodes) {

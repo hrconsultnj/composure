@@ -23,4 +23,6 @@ export declare function getBases(node: Node): string[];
 export declare function extractImportTarget(node: Node): string | null;
 export declare function collectJsImportNames(clauseNode: Node, module: string, importMap: Map<string, string>): void;
 export declare function getCallName(node: Node): string | null;
+/** Clear the alias cache (call between full rebuilds if needed). */
+export declare function clearAliasCache(): void;
 export declare function resolveModuleToFile(module: string, callerFilePath: string): string | null;

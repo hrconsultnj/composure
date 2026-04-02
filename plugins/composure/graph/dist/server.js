@@ -21437,13 +21437,13 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync11, statSync as statSync2 } from "node:fs";
-import { dirname as dirname7, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync12, statSync as statSync2 } from "node:fs";
+import { dirname as dirname7, join as join4, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { basename, dirname as dirname3, extname, join } from "node:path";
+import { readFileSync as readFileSync2 } from "node:fs";
+import { basename, dirname as dirname3, extname, join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // node_modules/.pnpm/web-tree-sitter@0.26.7/node_modules/web-tree-sitter/web-tree-sitter.js
@@ -25418,8 +25418,8 @@ var Query = class {
 };
 
 // dist/parser-helpers.js
-import { existsSync as existsSync2, statSync } from "node:fs";
-import { dirname as dirname2, resolve } from "node:path";
+import { existsSync as existsSync2, readFileSync, statSync } from "node:fs";
+import { dirname as dirname2, resolve, join } from "node:path";
 var CLASS_TYPES = /* @__PURE__ */ new Set(["class_declaration", "class"]);
 var FUNCTION_TYPES = /* @__PURE__ */ new Set([
   "function_declaration",
@@ -25564,25 +25564,94 @@ function getCallName(node) {
   }
   return null;
 }
-function resolveModuleToFile(module2, callerFilePath) {
-  if (!module2.startsWith("."))
-    return null;
-  const callerDir = dirname2(callerFilePath);
-  const base = resolve(callerDir, module2);
-  const extensions = [".ts", ".tsx", ".js", ".jsx"];
-  if (existsSync2(base) && !isDirectory(base))
-    return base;
-  for (const ext of extensions) {
-    const target = base + ext;
-    if (existsSync2(target))
-      return target;
+var aliasCache = /* @__PURE__ */ new Map();
+function loadPathAliases(projectRoot) {
+  const cached2 = aliasCache.get(projectRoot);
+  if (cached2)
+    return cached2;
+  const aliases = [];
+  const candidates = ["tsconfig.json", "tsconfig.base.json", "jsconfig.json"];
+  for (const name2 of candidates) {
+    const configPath = join(projectRoot, name2);
+    if (!existsSync2(configPath))
+      continue;
+    try {
+      const raw = readFileSync(configPath, "utf-8");
+      const cleaned = raw.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      const config2 = JSON.parse(cleaned);
+      const paths = config2?.compilerOptions?.paths;
+      if (!paths)
+        continue;
+      for (const [pattern, targets] of Object.entries(paths)) {
+        const prefix = pattern.replace(/\*$/, "");
+        aliases.push({ prefix, targets: targets.map((t) => t.replace(/\*$/, "")) });
+      }
+      break;
+    } catch {
+      continue;
+    }
   }
-  for (const ext of extensions) {
-    const target = resolve(base, `index${ext}`);
-    if (existsSync2(target))
-      return target;
+  aliasCache.set(projectRoot, aliases);
+  return aliases;
+}
+function resolveAlias(module2, callerFilePath) {
+  let dir = dirname2(callerFilePath);
+  let projectRoot = null;
+  for (let i2 = 0; i2 < 20; i2++) {
+    if (existsSync2(join(dir, "tsconfig.json")) || existsSync2(join(dir, "package.json"))) {
+      projectRoot = dir;
+      break;
+    }
+    const parent = dirname2(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  if (!projectRoot)
+    return null;
+  const aliases = loadPathAliases(projectRoot);
+  for (const { prefix, targets } of aliases) {
+    if (module2.startsWith(prefix)) {
+      const rest = module2.slice(prefix.length);
+      for (const target of targets) {
+        const resolved = resolve(projectRoot, target, rest);
+        const extensions = [".ts", ".tsx", ".js", ".jsx"];
+        if (existsSync2(resolved) && !isDirectory(resolved))
+          return resolved;
+        for (const ext of extensions) {
+          if (existsSync2(resolved + ext))
+            return resolved + ext;
+        }
+        for (const ext of extensions) {
+          const indexPath = resolve(resolved, `index${ext}`);
+          if (existsSync2(indexPath))
+            return indexPath;
+        }
+      }
+    }
   }
   return null;
+}
+function resolveModuleToFile(module2, callerFilePath) {
+  if (module2.startsWith(".")) {
+    const callerDir = dirname2(callerFilePath);
+    const base = resolve(callerDir, module2);
+    const extensions = [".ts", ".tsx", ".js", ".jsx"];
+    if (existsSync2(base) && !isDirectory(base))
+      return base;
+    for (const ext of extensions) {
+      const target = base + ext;
+      if (existsSync2(target))
+        return target;
+    }
+    for (const ext of extensions) {
+      const target = resolve(base, `index${ext}`);
+      if (existsSync2(target))
+        return target;
+    }
+    return null;
+  }
+  return resolveAlias(module2, callerFilePath);
 }
 function isDirectory(p) {
   try {
@@ -25658,15 +25727,15 @@ function detectLanguage(filePath) {
   return EXT_TO_LANG[extname(filePath).toLowerCase()] ?? null;
 }
 function fileHash(filePath) {
-  const content = readFileSync(filePath);
+  const content = readFileSync2(filePath);
   return createHash("sha256").update(content).digest("hex");
 }
 var __dirname2 = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
 var WASM_PATHS = {
-  typescript: join(__dirname2, "tree-sitter-typescript.wasm"),
-  tsx: join(__dirname2, "tree-sitter-tsx.wasm"),
-  javascript: join(__dirname2, "tree-sitter-javascript.wasm"),
-  jsx: join(__dirname2, "tree-sitter-javascript.wasm")
+  typescript: join2(__dirname2, "tree-sitter-typescript.wasm"),
+  tsx: join2(__dirname2, "tree-sitter-tsx.wasm"),
+  javascript: join2(__dirname2, "tree-sitter-javascript.wasm"),
+  jsx: join2(__dirname2, "tree-sitter-javascript.wasm")
 };
 var parserInitialized = false;
 var CodeParser = class _CodeParser {
@@ -25702,7 +25771,7 @@ var CodeParser = class _CodeParser {
   parseFile(filePath) {
     let source;
     try {
-      source = readFileSync(filePath);
+      source = readFileSync2(filePath);
     } catch {
       return { nodes: [], edges: [] };
     }
@@ -26082,7 +26151,7 @@ var CodeParser = class _CodeParser {
 };
 
 // dist/sql-parser.js
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
 import { basename as basename2, extname as extname2 } from "node:path";
 function qualify2(name2, filePath, parent) {
   return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
@@ -26107,7 +26176,7 @@ function isSqlParseable(filePath) {
 function parseSqlFile(filePath) {
   let content;
   try {
-    content = readFileSync2(filePath, "utf-8");
+    content = readFileSync3(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -26511,8 +26580,8 @@ function parsePrismaSchema(filePath, content) {
 }
 
 // dist/pkg-parser.js
-import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
-import { basename as basename3, dirname as dirname4, join as join2 } from "node:path";
+import { readFileSync as readFileSync4, existsSync as existsSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join3 } from "node:path";
 var PKG_FILES = /* @__PURE__ */ new Set(["package.json"]);
 var WORKSPACE_FILES = /* @__PURE__ */ new Set(["pnpm-workspace.yaml", "turbo.json"]);
 function isPkgParseable(filePath) {
@@ -26528,7 +26597,7 @@ function lineCount2(content) {
 function parsePkgFile(filePath) {
   let content;
   try {
-    content = readFileSync3(filePath, "utf-8");
+    content = readFileSync4(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -26557,7 +26626,7 @@ function parsePackageJson(filePath, content) {
   const pkgName = pkg.name ?? basename3(dirname4(filePath));
   const pkgVersion = pkg.version ?? "0.0.0";
   const isWorkspaceRoot = !!pkg.workspaces;
-  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join2(dirname4(filePath), "turbo.json"));
+  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join3(dirname4(filePath), "turbo.json"));
   nodes.push({
     kind: isMonorepoRoot ? "Workspace" : "Package",
     name: pkgName,
@@ -26830,7 +26899,7 @@ function findYamlLine(content, needle) {
 }
 
 // dist/config-parser.js
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
 import { basename as basename4, extname as extname3 } from "node:path";
 var CONFIG_FILENAMES = /* @__PURE__ */ new Set([
   "tsconfig.json",
@@ -26917,7 +26986,7 @@ function stripJsonComments(input) {
 function parseConfigFile(filePath) {
   let content;
   try {
-    content = readFileSync4(filePath, "utf-8");
+    content = readFileSync5(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -27192,7 +27261,7 @@ function parseVercelJson(filePath, content) {
 }
 
 // dist/md-parser.js
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { basename as basename5, dirname as dirname5, extname as extname4 } from "node:path";
 var MD_EXTENSIONS2 = /* @__PURE__ */ new Set([".md", ".mdx"]);
 var INDEXED_MD_NAMES = /* @__PURE__ */ new Set([
@@ -27267,7 +27336,7 @@ function classifySection(heading, body2) {
 function parseMdFile(filePath) {
   let content;
   try {
-    content = readFileSync5(filePath, "utf-8");
+    content = readFileSync6(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -27448,7 +27517,7 @@ function sanitizeName(heading) {
 }
 
 // dist/sh-parser.js
-import { readFileSync as readFileSync6 } from "node:fs";
+import { readFileSync as readFileSync7 } from "node:fs";
 import { basename as basename6, dirname as dirname6, extname as extname5, resolve as resolve2 } from "node:path";
 function isShParseable(filePath) {
   const ext = extname5(filePath).toLowerCase();
@@ -27470,7 +27539,7 @@ function parseShFile(filePath) {
 function parseShellScript(filePath) {
   let content;
   try {
-    content = readFileSync6(filePath, "utf-8");
+    content = readFileSync7(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -27601,7 +27670,7 @@ function parseShellScript(filePath) {
 function parseHooksJson(filePath) {
   let content;
   try {
-    content = readFileSync6(filePath, "utf-8");
+    content = readFileSync7(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -27769,7 +27838,7 @@ function findLineInContent(content, needle) {
 }
 
 // dist/yaml-parser.js
-import { readFileSync as readFileSync7 } from "node:fs";
+import { readFileSync as readFileSync8 } from "node:fs";
 import { basename as basename7, extname as extname6 } from "node:path";
 function isYamlParseable(filePath) {
   const ext = extname6(filePath).toLowerCase();
@@ -27800,7 +27869,7 @@ var CLAIM_NAME_RE = /claimName:\s*(\S+)/g;
 function parseYamlFile(filePath) {
   let content;
   try {
-    content = readFileSync7(filePath, "utf-8");
+    content = readFileSync8(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -27924,7 +27993,7 @@ function extractReferences(doc) {
 }
 
 // dist/hcl-parser.js
-import { readFileSync as readFileSync8 } from "node:fs";
+import { readFileSync as readFileSync9 } from "node:fs";
 import { basename as basename8, extname as extname7 } from "node:path";
 function isHclParseable(filePath) {
   return extname7(filePath).toLowerCase() === ".tf";
@@ -27945,7 +28014,7 @@ var SOURCE_RE = /source\s*=\s*"([^"]+)"/;
 function parseHclFile(filePath) {
   let content;
   try {
-    content = readFileSync8(filePath, "utf-8");
+    content = readFileSync9(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -28137,7 +28206,7 @@ function extractBlockReferences(body2, _filePath, blockStart) {
 }
 
 // dist/dockerfile-parser.js
-import { readFileSync as readFileSync9 } from "node:fs";
+import { readFileSync as readFileSync10 } from "node:fs";
 import { basename as basename9 } from "node:path";
 var DOCKERFILE_NAMES = /* @__PURE__ */ new Set([
   "Dockerfile",
@@ -28165,7 +28234,7 @@ function lineCount6(content) {
 function parseDockerfile(filePath) {
   let content;
   try {
-    content = readFileSync9(filePath, "utf-8");
+    content = readFileSync10(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -28280,7 +28349,7 @@ function extractStages(content, lines) {
 }
 
 // dist/entities.js
-import { readFileSync as readFileSync10 } from "node:fs";
+import { readFileSync as readFileSync11 } from "node:fs";
 import { relative } from "node:path";
 var STRIP_PREFIXES = /* @__PURE__ */ new Set(["user_", "admin_", "public_", "auth_"]);
 function normalizeEntityName(raw) {
@@ -28379,7 +28448,7 @@ function detectAndStoreEntities(store, repoRoot) {
     if (!rel.includes("migration") && !filePath.endsWith(".sql"))
       continue;
     try {
-      const content = readFileSync10(filePath, "utf-8");
+      const content = readFileSync11(filePath, "utf-8");
       const tableMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi);
       for (const match of tableMatches) {
         const tableName = match[1];
@@ -28553,7 +28622,7 @@ function shouldIgnore(filePath) {
 function findRepoRoot(start2) {
   let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
-    if (existsSync4(join3(dir, ".git")))
+    if (existsSync4(join4(dir, ".git")))
       return dir;
     const parent = dirname7(dir);
     if (parent === dir)
@@ -28565,7 +28634,7 @@ function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
 function getDbPath(repoRoot) {
-  return join3(repoRoot, ".code-review-graph", "graph.db");
+  return join4(repoRoot, ".code-review-graph", "graph.db");
 }
 function execGit(args2, cwd) {
   try {
@@ -28612,11 +28681,11 @@ function collectAllFiles(repoRoot) {
   });
 }
 function loadIgnorePatterns(repoRoot) {
-  const ignorePath = join3(repoRoot, ".code-review-graphignore");
+  const ignorePath = join4(repoRoot, ".code-review-graphignore");
   if (!existsSync4(ignorePath))
     return [];
   try {
-    return readFileSync11(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    return readFileSync12(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   } catch {
     return [];
   }
@@ -29479,7 +29548,7 @@ function queryGraph(params) {
 }
 
 // dist/tools/get-review-context.js
-import { readFileSync as readFileSync12 } from "node:fs";
+import { readFileSync as readFileSync13 } from "node:fs";
 import { relative as relative4, resolve as resolve6 } from "node:path";
 function getReviewContext(params) {
   const root = findProjectRoot(params.repo_root);
@@ -29524,7 +29593,7 @@ function getReviewContext(params) {
     if (includeSource) {
       for (const f of changedFiles) {
         try {
-          const content = readFileSync12(f, "utf-8");
+          const content = readFileSync13(f, "utf-8");
           const lines = content.split("\n");
           const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
 ... (${lines.length - maxLines} more lines)` : content;
@@ -29734,7 +29803,7 @@ function listGraphStats(params) {
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename10, dirname as dirname8, join as join4, relative as relative6, resolve as resolve7 } from "node:path";
+import { basename as basename10, dirname as dirname8, join as join5, relative as relative6, resolve as resolve7 } from "node:path";
 
 // dist/html-template.js
 function generateGraphHtml(data) {
@@ -30465,8 +30534,8 @@ function resolveImportTarget(specifier, sourceFile, fileSet) {
       return stripped + ext;
   }
   for (const ext of extensions) {
-    if (fileSet.has(join4(stripped, `index${ext}`)))
-      return join4(stripped, `index${ext}`);
+    if (fileSet.has(join5(stripped, `index${ext}`)))
+      return join5(stripped, `index${ext}`);
   }
   return null;
 }
@@ -30580,7 +30649,7 @@ function generateGraphHtmlTool(params) {
         filesCount: nodes.length
       }
     });
-    const outputPath = params.output_path ?? join4(root, ".code-review-graph", "graph.html");
+    const outputPath = params.output_path ?? join5(root, ".code-review-graph", "graph.html");
     writeFileSync2(outputPath, html, "utf-8");
     const catCounts = {};
     for (const n of nodes) {
@@ -30687,8 +30756,8 @@ function entityScope(params) {
 }
 
 // dist/tools/run-audit.js
-import { existsSync as existsSync6, readFileSync as readFileSync14 } from "node:fs";
-import { join as join6, relative as relative9 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync15 } from "node:fs";
+import { join as join7, relative as relative9 } from "node:path";
 
 // dist/audit-store.js
 function insertFinding(store, f) {
@@ -30813,8 +30882,8 @@ function rowToScore(row) {
 
 // dist/tools/audit-analyzers.js
 import { execFileSync as execFileSync2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync13 } from "node:fs";
-import { join as join5, relative as relative7 } from "node:path";
+import { existsSync as existsSync5, readFileSync as readFileSync14 } from "node:fs";
+import { join as join6, relative as relative7 } from "node:path";
 var IMPACTS = {
   FILE_400: 5,
   FILE_600: 15,
@@ -30850,11 +30919,11 @@ function execSafe(cmd, args2, cwd) {
   }
 }
 function findPkgManager(root) {
-  if (existsSync5(join5(root, "pnpm-lock.yaml")))
+  if (existsSync5(join6(root, "pnpm-lock.yaml")))
     return "pnpm";
-  if (existsSync5(join5(root, "yarn.lock")))
+  if (existsSync5(join6(root, "yarn.lock")))
     return "yarn";
-  if (existsSync5(join5(root, "package-lock.json")))
+  if (existsSync5(join6(root, "package-lock.json")))
     return "npm";
   return null;
 }
@@ -30904,11 +30973,11 @@ var NEXTJS_CONVENTION_FILES = /* @__PURE__ */ new Set([
   "manifest.tsx"
 ]);
 function analyzeFileOrganization(store, runId, repoRoot) {
-  const configPath = join5(repoRoot, ".claude", "no-bandaids.json");
+  const configPath = join6(repoRoot, ".claude", "no-bandaids.json");
   if (!existsSync5(configPath))
     return 0;
   try {
-    const config2 = JSON.parse(readFileSync13(configPath, "utf-8"));
+    const config2 = JSON.parse(readFileSync14(configPath, "utf-8"));
     const frameworks = config2.frameworks || {};
     const isNextJs = Object.values(frameworks).some((fw) => fw.frontend === "nextjs");
     if (!isNextJs)
@@ -31341,10 +31410,10 @@ function analyzeCodeQuality(store, runId, repoRoot) {
     });
     findingCount++;
   }
-  const tasksPath = join6(repoRoot, "tasks-plans", "tasks.md");
+  const tasksPath = join7(repoRoot, "tasks-plans", "tasks.md");
   if (existsSync6(tasksPath)) {
     try {
-      const content = readFileSync14(tasksPath, "utf-8");
+      const content = readFileSync15(tasksPath, "utf-8");
       const openCount = (content.match(/^- \[ \]/gm) || []).length;
       if (openCount > 0) {
         const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
@@ -31445,22 +31514,22 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync7, readFileSync as readFileSync15, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
-import { basename as basename11, dirname as dirname9, join as join7 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync16, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename11, dirname as dirname9, join as join8 } from "node:path";
 function findTemplateDir() {
   const candidates = [
-    join7(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
+    join8(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
     // Fallback: check CLAUDE_PLUGIN_ROOT
-    process.env.CLAUDE_PLUGIN_ROOT ? join7(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
+    process.env.CLAUDE_PLUGIN_ROOT ? join8(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
   ].filter(Boolean);
   for (const dir of candidates) {
-    if (existsSync7(join7(dir, "audit-header.html")))
+    if (existsSync7(join8(dir, "audit-header.html")))
       return dir;
   }
   return null;
 }
 function readTemplate(dir, name2) {
-  return readFileSync15(join7(dir, name2), "utf-8");
+  return readFileSync16(join8(dir, name2), "utf-8");
 }
 function coverageColor(pct) {
   if (pct >= 80)
@@ -31569,11 +31638,11 @@ function generateAuditHtml(params) {
     for (const [placeholder, value] of Object.entries(replacements)) {
       html = html.replaceAll(placeholder, value);
     }
-    const outputDir = join7(root, "tasks-plans", "audits");
+    const outputDir = join8(root, "tasks-plans", "audits");
     if (!existsSync7(outputDir))
       mkdirSync2(outputDir, { recursive: true });
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
-    const outputPath = params.output_path ?? join7(outputDir, `audit-${timestamp}.html`);
+    const outputPath = params.output_path ?? join8(outputDir, `audit-${timestamp}.html`);
     writeFileSync3(outputPath, html, "utf-8");
     const overall = getOverallScore(store, runId);
     return {

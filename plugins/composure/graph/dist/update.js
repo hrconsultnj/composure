@@ -7,8 +7,8 @@ import { resolve as resolve4 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { basename, dirname as dirname2, extname, join } from "node:path";
+import { readFileSync as readFileSync2 } from "node:fs";
+import { basename, dirname as dirname2, extname, join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // node_modules/.pnpm/web-tree-sitter@0.26.7/node_modules/web-tree-sitter/web-tree-sitter.js
@@ -3983,8 +3983,8 @@ var Query = class {
 };
 
 // dist/parser-helpers.js
-import { existsSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, resolve, join } from "node:path";
 var CLASS_TYPES = /* @__PURE__ */ new Set(["class_declaration", "class"]);
 var FUNCTION_TYPES = /* @__PURE__ */ new Set([
   "function_declaration",
@@ -4129,25 +4129,94 @@ function getCallName(node) {
   }
   return null;
 }
-function resolveModuleToFile(module2, callerFilePath) {
-  if (!module2.startsWith("."))
-    return null;
-  const callerDir = dirname(callerFilePath);
-  const base = resolve(callerDir, module2);
-  const extensions = [".ts", ".tsx", ".js", ".jsx"];
-  if (existsSync(base) && !isDirectory(base))
-    return base;
-  for (const ext of extensions) {
-    const target = base + ext;
-    if (existsSync(target))
-      return target;
+var aliasCache = /* @__PURE__ */ new Map();
+function loadPathAliases(projectRoot) {
+  const cached = aliasCache.get(projectRoot);
+  if (cached)
+    return cached;
+  const aliases = [];
+  const candidates = ["tsconfig.json", "tsconfig.base.json", "jsconfig.json"];
+  for (const name2 of candidates) {
+    const configPath = join(projectRoot, name2);
+    if (!existsSync(configPath))
+      continue;
+    try {
+      const raw = readFileSync(configPath, "utf-8");
+      const cleaned = raw.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      const config = JSON.parse(cleaned);
+      const paths = config?.compilerOptions?.paths;
+      if (!paths)
+        continue;
+      for (const [pattern, targets] of Object.entries(paths)) {
+        const prefix = pattern.replace(/\*$/, "");
+        aliases.push({ prefix, targets: targets.map((t) => t.replace(/\*$/, "")) });
+      }
+      break;
+    } catch {
+      continue;
+    }
   }
-  for (const ext of extensions) {
-    const target = resolve(base, `index${ext}`);
-    if (existsSync(target))
-      return target;
+  aliasCache.set(projectRoot, aliases);
+  return aliases;
+}
+function resolveAlias(module2, callerFilePath) {
+  let dir = dirname(callerFilePath);
+  let projectRoot = null;
+  for (let i2 = 0; i2 < 20; i2++) {
+    if (existsSync(join(dir, "tsconfig.json")) || existsSync(join(dir, "package.json"))) {
+      projectRoot = dir;
+      break;
+    }
+    const parent = dirname(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  if (!projectRoot)
+    return null;
+  const aliases = loadPathAliases(projectRoot);
+  for (const { prefix, targets } of aliases) {
+    if (module2.startsWith(prefix)) {
+      const rest = module2.slice(prefix.length);
+      for (const target of targets) {
+        const resolved = resolve(projectRoot, target, rest);
+        const extensions = [".ts", ".tsx", ".js", ".jsx"];
+        if (existsSync(resolved) && !isDirectory(resolved))
+          return resolved;
+        for (const ext of extensions) {
+          if (existsSync(resolved + ext))
+            return resolved + ext;
+        }
+        for (const ext of extensions) {
+          const indexPath = resolve(resolved, `index${ext}`);
+          if (existsSync(indexPath))
+            return indexPath;
+        }
+      }
+    }
   }
   return null;
+}
+function resolveModuleToFile(module2, callerFilePath) {
+  if (module2.startsWith(".")) {
+    const callerDir = dirname(callerFilePath);
+    const base = resolve(callerDir, module2);
+    const extensions = [".ts", ".tsx", ".js", ".jsx"];
+    if (existsSync(base) && !isDirectory(base))
+      return base;
+    for (const ext of extensions) {
+      const target = base + ext;
+      if (existsSync(target))
+        return target;
+    }
+    for (const ext of extensions) {
+      const target = resolve(base, `index${ext}`);
+      if (existsSync(target))
+        return target;
+    }
+    return null;
+  }
+  return resolveAlias(module2, callerFilePath);
 }
 function isDirectory(p) {
   try {
@@ -4223,15 +4292,15 @@ function detectLanguage(filePath) {
   return EXT_TO_LANG[extname(filePath).toLowerCase()] ?? null;
 }
 function fileHash(filePath) {
-  const content = readFileSync(filePath);
+  const content = readFileSync2(filePath);
   return createHash("sha256").update(content).digest("hex");
 }
 var __dirname = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
 var WASM_PATHS = {
-  typescript: join(__dirname, "tree-sitter-typescript.wasm"),
-  tsx: join(__dirname, "tree-sitter-tsx.wasm"),
-  javascript: join(__dirname, "tree-sitter-javascript.wasm"),
-  jsx: join(__dirname, "tree-sitter-javascript.wasm")
+  typescript: join2(__dirname, "tree-sitter-typescript.wasm"),
+  tsx: join2(__dirname, "tree-sitter-tsx.wasm"),
+  javascript: join2(__dirname, "tree-sitter-javascript.wasm"),
+  jsx: join2(__dirname, "tree-sitter-javascript.wasm")
 };
 var parserInitialized = false;
 var CodeParser = class _CodeParser {
@@ -4267,7 +4336,7 @@ var CodeParser = class _CodeParser {
   parseFile(filePath) {
     let source;
     try {
-      source = readFileSync(filePath);
+      source = readFileSync2(filePath);
     } catch {
       return { nodes: [], edges: [] };
     }
@@ -5065,11 +5134,11 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync11, statSync as statSync2 } from "node:fs";
-import { dirname as dirname7, join as join3, relative as relative2, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync12, statSync as statSync2 } from "node:fs";
+import { dirname as dirname7, join as join4, relative as relative2, resolve as resolve3 } from "node:path";
 
 // dist/sql-parser.js
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
 import { basename as basename2, extname as extname2 } from "node:path";
 function qualify2(name2, filePath, parent) {
   return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
@@ -5094,7 +5163,7 @@ function isSqlParseable(filePath) {
 function parseSqlFile(filePath) {
   let content;
   try {
-    content = readFileSync2(filePath, "utf-8");
+    content = readFileSync3(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -5498,8 +5567,8 @@ function parsePrismaSchema(filePath, content) {
 }
 
 // dist/pkg-parser.js
-import { readFileSync as readFileSync3, existsSync as existsSync3 } from "node:fs";
-import { basename as basename3, dirname as dirname4, join as join2 } from "node:path";
+import { readFileSync as readFileSync4, existsSync as existsSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join3 } from "node:path";
 var PKG_FILES = /* @__PURE__ */ new Set(["package.json"]);
 var WORKSPACE_FILES = /* @__PURE__ */ new Set(["pnpm-workspace.yaml", "turbo.json"]);
 function isPkgParseable(filePath) {
@@ -5515,7 +5584,7 @@ function lineCount2(content) {
 function parsePkgFile(filePath) {
   let content;
   try {
-    content = readFileSync3(filePath, "utf-8");
+    content = readFileSync4(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -5544,7 +5613,7 @@ function parsePackageJson(filePath, content) {
   const pkgName = pkg.name ?? basename3(dirname4(filePath));
   const pkgVersion = pkg.version ?? "0.0.0";
   const isWorkspaceRoot = !!pkg.workspaces;
-  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join2(dirname4(filePath), "turbo.json"));
+  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join3(dirname4(filePath), "turbo.json"));
   nodes.push({
     kind: isMonorepoRoot ? "Workspace" : "Package",
     name: pkgName,
@@ -5817,7 +5886,7 @@ function findYamlLine(content, needle) {
 }
 
 // dist/config-parser.js
-import { readFileSync as readFileSync4 } from "node:fs";
+import { readFileSync as readFileSync5 } from "node:fs";
 import { basename as basename4, extname as extname3 } from "node:path";
 var CONFIG_FILENAMES = /* @__PURE__ */ new Set([
   "tsconfig.json",
@@ -5904,7 +5973,7 @@ function stripJsonComments(input) {
 function parseConfigFile(filePath) {
   let content;
   try {
-    content = readFileSync4(filePath, "utf-8");
+    content = readFileSync5(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -6179,7 +6248,7 @@ function parseVercelJson(filePath, content) {
 }
 
 // dist/md-parser.js
-import { readFileSync as readFileSync5 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 import { basename as basename5, dirname as dirname5, extname as extname4 } from "node:path";
 var MD_EXTENSIONS2 = /* @__PURE__ */ new Set([".md", ".mdx"]);
 var INDEXED_MD_NAMES = /* @__PURE__ */ new Set([
@@ -6254,7 +6323,7 @@ function classifySection(heading, body2) {
 function parseMdFile(filePath) {
   let content;
   try {
-    content = readFileSync5(filePath, "utf-8");
+    content = readFileSync6(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -6435,7 +6504,7 @@ function sanitizeName(heading) {
 }
 
 // dist/sh-parser.js
-import { readFileSync as readFileSync6 } from "node:fs";
+import { readFileSync as readFileSync7 } from "node:fs";
 import { basename as basename6, dirname as dirname6, extname as extname5, resolve as resolve2 } from "node:path";
 function isShParseable(filePath) {
   const ext = extname5(filePath).toLowerCase();
@@ -6457,7 +6526,7 @@ function parseShFile(filePath) {
 function parseShellScript(filePath) {
   let content;
   try {
-    content = readFileSync6(filePath, "utf-8");
+    content = readFileSync7(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -6588,7 +6657,7 @@ function parseShellScript(filePath) {
 function parseHooksJson(filePath) {
   let content;
   try {
-    content = readFileSync6(filePath, "utf-8");
+    content = readFileSync7(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -6756,7 +6825,7 @@ function findLineInContent(content, needle) {
 }
 
 // dist/yaml-parser.js
-import { readFileSync as readFileSync7 } from "node:fs";
+import { readFileSync as readFileSync8 } from "node:fs";
 import { basename as basename7, extname as extname6 } from "node:path";
 function isYamlParseable(filePath) {
   const ext = extname6(filePath).toLowerCase();
@@ -6787,7 +6856,7 @@ var CLAIM_NAME_RE = /claimName:\s*(\S+)/g;
 function parseYamlFile(filePath) {
   let content;
   try {
-    content = readFileSync7(filePath, "utf-8");
+    content = readFileSync8(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -6911,7 +6980,7 @@ function extractReferences(doc) {
 }
 
 // dist/hcl-parser.js
-import { readFileSync as readFileSync8 } from "node:fs";
+import { readFileSync as readFileSync9 } from "node:fs";
 import { basename as basename8, extname as extname7 } from "node:path";
 function isHclParseable(filePath) {
   return extname7(filePath).toLowerCase() === ".tf";
@@ -6932,7 +7001,7 @@ var SOURCE_RE = /source\s*=\s*"([^"]+)"/;
 function parseHclFile(filePath) {
   let content;
   try {
-    content = readFileSync8(filePath, "utf-8");
+    content = readFileSync9(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -7124,7 +7193,7 @@ function extractBlockReferences(body2, _filePath, blockStart) {
 }
 
 // dist/dockerfile-parser.js
-import { readFileSync as readFileSync9 } from "node:fs";
+import { readFileSync as readFileSync10 } from "node:fs";
 import { basename as basename9 } from "node:path";
 var DOCKERFILE_NAMES = /* @__PURE__ */ new Set([
   "Dockerfile",
@@ -7152,7 +7221,7 @@ function lineCount6(content) {
 function parseDockerfile(filePath) {
   let content;
   try {
-    content = readFileSync9(filePath, "utf-8");
+    content = readFileSync10(filePath, "utf-8");
   } catch {
     return { nodes: [], edges: [] };
   }
@@ -7267,14 +7336,14 @@ function extractStages(content, lines) {
 }
 
 // dist/entities.js
-import { readFileSync as readFileSync10 } from "node:fs";
+import { readFileSync as readFileSync11 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
 function findRepoRoot(start2) {
   let dir = start2 ? resolve3(start2) : process.cwd();
   while (true) {
-    if (existsSync4(join3(dir, ".git")))
+    if (existsSync4(join4(dir, ".git")))
       return dir;
     const parent = dirname7(dir);
     if (parent === dir)
@@ -7286,7 +7355,7 @@ function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
 function getDbPath(repoRoot) {
-  return join3(repoRoot, ".code-review-graph", "graph.db");
+  return join4(repoRoot, ".code-review-graph", "graph.db");
 }
 function findDependents(store, filePath) {
   const edges = store.getEdgesByTarget(filePath);
