@@ -17,6 +17,15 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 # Skip entirely if Composure not initialized — init-check already tells them
 [ ! -f "$PROJECT_DIR/.claude/no-bandaids.json" ] && exit 0
 
+# ── Auto-sync composureVersion on every resume ──
+PLUGIN_VERSION=$(jq -r '.version // ""' "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
+PROJECT_VERSION=$(jq -r '.composureVersion // ""' "$PROJECT_DIR/.claude/no-bandaids.json" 2>/dev/null)
+if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
+  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' "$PROJECT_DIR/.claude/no-bandaids.json" > "$PROJECT_DIR/.claude/no-bandaids.json.tmp" \
+    && mv "$PROJECT_DIR/.claude/no-bandaids.json.tmp" "$PROJECT_DIR/.claude/no-bandaids.json" 2>/dev/null
+  printf '[composure] Config synced: composureVersion %s → %s\n' "$PROJECT_VERSION" "$PLUGIN_VERSION"
+fi
+
 TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
 GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
 
@@ -82,8 +91,8 @@ if [ "$GRAPH_STALE" -eq 1 ]; then
 After building, use graph tools FIRST for: file imports (query_graph), callers/dependents (get_impact_radius), finding code (semantic_search_nodes), function sizes (find_large_functions), string references (query_graph pattern: "references_of" with target as search string, optional scope/context_lines/max_results), dependency chains (query_graph pattern: "dependency_chain" with target + target_to). Only use Explore agents for understanding INTENT (business logic, why something was coded a certain way) — never for STRUCTURE.
 EOMSG
   else
-    cat <<EOMSG
-[composure:MANDATORY] Code graph is stale or missing, and the composure-graph MCP server may not be registered. Run /composure:build-graph to attempt the build. If the MCP tool is unavailable, tell the user: "Run: claude mcp add composure-graph -- node --experimental-sqlite ${GRAPH_SERVER_JS:-PLUGIN_ROOT/graph/dist/server.js} and restart."
+    cat <<'EOMSG'
+[composure:MANDATORY] Code graph is stale or missing, and the composure-graph MCP server may not be connected. Run /composure:build-graph to attempt the build. If the MCP tool is unavailable, tell the user to restart Claude Code — the plugin auto-registers the MCP server via .mcp.json.
 EOMSG
   fi
 fi
