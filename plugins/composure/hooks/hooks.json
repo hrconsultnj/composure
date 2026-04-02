@@ -37,6 +37,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-read-clear.sh\" 2>&1 || exit 0",
+            "timeout": 2,
+            "statusMessage": ""
+          }
+        ]
+      },
+      {
         "matcher": "Read|Edit|Write",
         "hooks": [
           {
@@ -66,6 +77,17 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": ".*composure.graph.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-read-reminder.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

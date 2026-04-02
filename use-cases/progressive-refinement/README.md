@@ -301,4 +301,6 @@ If you're building tools that extend Claude Code (or any AI coding assistant):
 
 ---
 
+**Docs:** [composure-pro.com](https://composure-pro.com)
+
 *Composure v1.2.75 · Claude Opus 4.6 · Measured 2026-03-31*

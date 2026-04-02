@@ -321,4 +321,6 @@ Rate limit reporting and token optimization research referenced in this document
 
 ---
 
+**Docs:** [composure-pro.com](https://composure-pro.com)
+
 *Composure v1.2.74 · Claude Opus 4.6 · Measured 2026-03-31*

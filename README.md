@@ -2,7 +2,9 @@
 
 Claude writes code fast. These plugins make sure it writes it right.
 
-> 5 plugins &middot; 29 skills &middot; 20 automated hooks &middot; 8 indexed languages &middot; One command setup
+> 5 plugins &middot; 33 skills &middot; 17 automated hooks &middot; 13 MCP tools &middot; 8 indexed languages &middot; One command setup
+>
+> **Full docs & getting started:** [composure-pro.com](https://composure-pro.com)
 
 <p align="center">
   <img src="assets/hero-ecosystem.png" alt="The Pentagon — 5 plugins covering every stage of your project" width="800">
@@ -38,8 +40,9 @@ All plugins, all skills, all hooks — free for personal use, education, and non
 | What | Count | Details |
 |------|-------|---------|
 | Plugins | 5 | Composure, Design Forge, Sentinel, Testbench, Shipyard |
-| Skills | 27 | Architecture, security scanning, test generation, CI/CD, audits |
-| Hooks | 19 | Code quality, secret detection, type safety, CI validation |
+| Skills | 33 | Architecture, blueprinting, security scanning, test generation, CI/CD, audits, integrations |
+| Hooks | 17 | Code quality, secret detection, type safety, decomposition, graph updates |
+| MCP tools | 13 | Graph queries, semantic search, reference search, dependency chains, audits, reports |
 | Reference docs | 23 | Security patterns, testing patterns, deployment guides |
 | Templates | 12 | Test files, GH Actions workflows, Dockerfiles |
 | Hook enforcement | 7 languages | TypeScript, Python, Go, Rust, C++, Swift, Kotlin |
@@ -210,28 +213,36 @@ Every graph tool accepts a `repo_root` parameter. From a parent directory like `
 <details>
 <summary><strong>All skills reference</strong></summary>
 
-### Composure
+### Composure (17 skills)
 
 ```
 /composure:initialize            # Detect stack, build graph, generate config
+/composure:blueprint             # Pre-work assessment — discovery + graph-powered planning
 /composure:app-architecture      # Feature-building guide — framework-specific refs
 /composure:commit                # Commit with auto task queue hygiene + graph update
-/composure:audit                 # Full codebase scan for size violations + ghost duplicates
-/composure:backlog               # Process task queue (verify, delegate, archive)
+/composure:audit                 # Full codebase health audit with letter grades
+/composure:report                # Generate self-contained HTML audit report
+/composure:backlog               # Manage task queue (add, batch, delegate, verify, archive)
 /composure:review-pr             # PR review with blast-radius analysis
 /composure:review                # Review changes since last commit
 /composure:build-graph           # Build/update code review knowledge graph
+/composure:view-graph            # Open graph visualization in browser
 /composure:code-organizer        # Restructure project layout to framework conventions
+/composure:integration-builder   # Stack-agnostic third-party API integration scaffolding
+/composure:mcp-setup             # Discover and configure existing MCP servers
+/composure:mcp-builder           # Scaffold new MCP server projects
+/composure:changelog             # Auto-generate changelog from git history + graph entities
 /composure:update-project        # Refresh config, hooks, or docs without full re-init
 ```
 
-### Sentinel
+### Sentinel (5 skills)
 
 ```
 /sentinel:assess                 # Assess security surface, detect tools, generate config
 /sentinel:scan                   # Full SAST (Semgrep) + dependency audit
 /sentinel:audit-deps             # Focused dependency vulnerability scan
 /sentinel:headers                # HTTP security header analysis (context-aware grading)
+/sentinel:package-risk           # Analyze installed package source for suspicious behavior
 ```
 
 Sentinel also runs automatically via hooks:

@@ -170,4 +170,6 @@ The graph builds in ~15 seconds and persists across sessions. It's updated incre
 
 ---
 
+**Docs:** [composure-pro.com](https://composure-pro.com)
+
 *Composure v1.2.74 · Claude Opus 4.6 · Updated 2026-03-30*

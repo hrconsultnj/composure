@@ -195,4 +195,6 @@ This test validated three design decisions and corrected one:
 
 ---
 
+**Docs:** [composure-pro.com](https://composure-pro.com)
+
 *Composure v1.23.0 · Claude Opus 4.6 · Measured 2026-04-01*

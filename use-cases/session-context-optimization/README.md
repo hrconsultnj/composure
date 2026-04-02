@@ -148,4 +148,6 @@ The ideal plugin has:
 
 ---
 
+**Docs:** [composure-pro.com](https://composure-pro.com)
+
 *Composure v1.2.74 · Claude Opus 4.6*
