@@ -8,7 +8,6 @@
 import type { EdgeInfo, NodeInfo } from "./types.js";
 export declare function isParseable(filePath: string): boolean;
 export declare function isTreeSitterParseable(filePath: string): boolean;
-export declare function detectLanguage(filePath: string): string | null;
 export declare function fileHash(filePath: string): string;
 export declare class CodeParser {
     private languages;
@@ -35,6 +34,12 @@ export declare class CodeParser {
      * Only for exported functions — internal helpers don't need searchable summaries.
      */
     private extractJsDocSummary;
+    /**
+     * Split camelCase/PascalCase name into a lowercase search-friendly summary.
+     * Only for exported functions — internal helpers don't need indexing.
+     * Not documentation — a search index so "workspace" finds "getWorkspaceProvider".
+     */
+    private heuristicSummary;
     private handleClass;
     private handleType;
     private handleFunction;

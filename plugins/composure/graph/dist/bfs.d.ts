@@ -4,16 +4,6 @@
  */
 import type { GraphStore } from "./store.js";
 import type { GraphEdge, GraphNode, ImpactResult } from "./types.js";
-export interface AdjacencyList {
-    /** source → set of target qualified names */
-    forward: Map<string, Set<string>>;
-    /** target → set of source qualified names */
-    reverse: Map<string, Set<string>>;
-}
-/**
- * Build forward and reverse adjacency lists from edge records.
- */
-export declare function buildAdjacencyList(edges: GraphEdge[]): AdjacencyList;
 /**
  * BFS shortest path from one node to another.
  * Traverses forward edges only (follows dependency direction).

@@ -54,8 +54,8 @@ if [ "$EDIT_COUNT" -ge "$SIMPLIFY_THRESHOLD" ] && [ ! -f "$SIMPLIFY_SUGGESTED" ]
 fi
 
 LINE_COUNT=$(wc -l < "$FILE_PATH" 2>/dev/null | tr -d ' ')
-[ -z "$LINE_COUNT" ] || [ "$LINE_COUNT" -lt 200 ] && {
-  # File is small — no decomposition needed, but still check simplify suggestion
+[ -z "$LINE_COUNT" ] || [ "$LINE_COUNT" -lt 100 ] && {
+  # File is very small — no decomposition needed, but still check simplify suggestion
   if [ -n "$SUGGEST_SIMPLIFY" ]; then
     printf '{"systemMessage": "%s"}' "$SUGGEST_SIMPLIFY"
   fi
@@ -238,6 +238,24 @@ if [ -n "$SHARED_DIR" ] && [ -n "$TYPE_NAMES" ]; then
   fi
 fi
 
+# ── 3b. Multiple exported components in one file ──
+# Each component should be its own file. A screen with EditModal + CreateForm
+# + LoadingView all exported is a responsibility violation.
+MULTI_COMPONENT=""
+COMPONENT_COUNT=0
+case "$BASENAME" in
+  *.tsx)
+    COMPONENT_NAMES=$(grep -oE '^\s*export\s+(default\s+)?(function|const)\s+[A-Z][A-Za-z0-9_]*' "$FILE_PATH" 2>/dev/null | sed -E 's/.*(function|const)[[:space:]]+//' | head -10)
+    if [ -n "$COMPONENT_NAMES" ]; then
+      COMPONENT_COUNT=$(echo "$COMPONENT_NAMES" | wc -l | tr -d ' ')
+      if [ "$COMPONENT_COUNT" -gt 2 ]; then
+        COMP_LIST=$(echo "$COMPONENT_NAMES" | tr '\n' ', ' | sed 's/,$//' | sed 's/,/, /g')
+        MULTI_COMPONENT="  - SPLIT: ${COMPONENT_COUNT} exported components (\`${COMP_LIST}\`) — each component should be its own file"
+      fi
+    fi
+    ;;
+esac
+
 # ── 4. Other checks (StyleSheet, modals, route thickness) ──
 OTHER_ITEMS=""
 
@@ -283,19 +301,28 @@ if [ -n "$SUPPRESS_MATCHES" ]; then
 fi
 
 # ── Determine severity ──
+# Priority: RESPONSIBILITY violations first, line count escalates severity.
+# A 200-line file with mixed concerns is worse than a 500-line cohesive parser.
 SEVERITY=""
 EMOJI=""
+HAS_RESPONSIBILITY_VIOLATION=0
+[ -n "$INLINE_TYPES" ] || [ -n "$INLINE_DATA" ] || [ -n "$MULTI_COMPONENT" ] || [ -n "$OTHER_ITEMS" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ] && HAS_RESPONSIBILITY_VIOLATION=1
+
 if [ "$LINE_COUNT" -ge "$CRITICAL_LINES" ]; then
   SEVERITY="CRITICAL"
   EMOJI="🔴"
-elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ]; then
+elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] && [ "$HAS_RESPONSIBILITY_VIOLATION" -eq 1 ]; then
+  SEVERITY="CRITICAL"
+  EMOJI="🔴"
+elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] || { [ "$LARGE_FUNC_COUNT" -gt 0 ] && [ "$LINE_COUNT" -ge "$WARN_LINES" ]; }; then
   SEVERITY="HIGH"
   EMOJI="🟡"
-elif [ "$LINE_COUNT" -ge "$WARN_LINES" ] && { [ -n "$INLINE_TYPES" ] || [ -n "$INLINE_DATA" ] || [ -n "$OTHER_ITEMS" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ]; }; then
-  SEVERITY="MODERATE"
-  EMOJI="🟢"
-elif [ -n "$INLINE_DATA" ]; then
-  # Inline data alone triggers moderate — data constants belong in lib/
+elif [ "$LARGE_FUNC_COUNT" -gt 0 ]; then
+  # Large function in any file — responsibility violation regardless of file size
+  SEVERITY="HIGH"
+  EMOJI="🟡"
+elif [ "$HAS_RESPONSIBILITY_VIOLATION" -eq 1 ]; then
+  # Inline types, inline data, modals in routes, StyleSheet blocks — at any file size
   SEVERITY="MODERATE"
   EMOJI="🟢"
 fi
@@ -374,6 +401,7 @@ if [ -n "$SEVERITY" ]; then
   [ -n "$LARGE_FUNCS" ] && TASK_BLOCK="${TASK_BLOCK}\n${LARGE_FUNCS}"
   [ -n "$INLINE_TYPES" ] && TASK_BLOCK="${TASK_BLOCK}\n${INLINE_TYPES}"
   [ -n "$INLINE_DATA" ] && TASK_BLOCK="${TASK_BLOCK}\n${INLINE_DATA}"
+  [ -n "$MULTI_COMPONENT" ] && TASK_BLOCK="${TASK_BLOCK}\n${MULTI_COMPONENT}"
   [ -n "$OTHER_ITEMS" ] && TASK_BLOCK="${TASK_BLOCK}\n${OTHER_ITEMS}"
 
   case "$SEVERITY" in

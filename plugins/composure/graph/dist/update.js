@@ -4399,6 +4399,26 @@ var CodeParser = class _CodeParser {
     const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
     return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
   }
+  // ── Heuristic summary from name (fallback when no JSDoc) ─────────
+  /**
+   * Split camelCase/PascalCase name into a lowercase search-friendly summary.
+   * Only for exported functions — internal helpers don't need indexing.
+   * Not documentation — a search index so "workspace" finds "getWorkspaceProvider".
+   */
+  heuristicSummary(node, name2, params) {
+    const parent = node.parent;
+    const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+    if (!isExported)
+      return void 0;
+    const words = name2.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toLowerCase().split(/\s+/);
+    if (words.length <= 1)
+      return void 0;
+    let summary = words.join(" ");
+    if (words[0] === "use" && words.length <= 3) {
+      summary += " hook";
+    }
+    return summary;
+  }
   // ── Node handlers (called from extractFromTree) ──────────────────
   handleClass(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
     const name2 = getName(child, "class");
@@ -4463,7 +4483,8 @@ var CodeParser = class _CodeParser {
       return false;
     const isTest = isTestFunction(name2, filePath);
     const qualified = qualify(name2, filePath, enclosingClass);
-    const summary = isTest ? void 0 : this.extractJsDocSummary(child);
+    const params = getParams(child) ?? void 0;
+    const summary = isTest ? void 0 : this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name2, params);
     nodes.push({
       kind: isTest ? "Test" : "Function",
       name: name2,
@@ -4472,7 +4493,7 @@ var CodeParser = class _CodeParser {
       line_end: child.endPosition.row + 1,
       language,
       parent_name: enclosingClass ?? void 0,
-      params: getParams(child) ?? void 0,
+      params,
       return_type: getReturnType(child) ?? void 0,
       summary,
       is_test: isTest
@@ -4499,7 +4520,8 @@ var CodeParser = class _CodeParser {
       const name2 = getNodeText(nameNode);
       const isTest = isTestFunction(name2, filePath);
       const qualified = qualify(name2, filePath, enclosingClass);
-      const summary = isTest ? void 0 : this.extractJsDocSummary(child);
+      const arrowParams = getParams(valueNode) ?? void 0;
+      const summary = isTest ? void 0 : this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name2, arrowParams);
       nodes.push({
         kind: isTest ? "Test" : "Function",
         name: name2,
@@ -4508,7 +4530,7 @@ var CodeParser = class _CodeParser {
         line_end: valueNode.endPosition.row + 1,
         language,
         parent_name: enclosingClass ?? void 0,
-        params: getParams(valueNode) ?? void 0,
+        params: arrowParams,
         return_type: getReturnType(valueNode) ?? void 0,
         summary,
         is_test: isTest

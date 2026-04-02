@@ -3595,49 +3595,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative8, options, skipNormalization) {
+    function resolveComponent(base, relative10, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse3(serialize(base, options), options);
-        relative8 = parse3(serialize(relative8, options), options);
+        relative10 = parse3(serialize(relative10, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative8.scheme) {
-        target.scheme = relative8.scheme;
-        target.userinfo = relative8.userinfo;
-        target.host = relative8.host;
-        target.port = relative8.port;
-        target.path = removeDotSegments(relative8.path || "");
-        target.query = relative8.query;
+      if (!options.tolerant && relative10.scheme) {
+        target.scheme = relative10.scheme;
+        target.userinfo = relative10.userinfo;
+        target.host = relative10.host;
+        target.port = relative10.port;
+        target.path = removeDotSegments(relative10.path || "");
+        target.query = relative10.query;
       } else {
-        if (relative8.userinfo !== void 0 || relative8.host !== void 0 || relative8.port !== void 0) {
-          target.userinfo = relative8.userinfo;
-          target.host = relative8.host;
-          target.port = relative8.port;
-          target.path = removeDotSegments(relative8.path || "");
-          target.query = relative8.query;
+        if (relative10.userinfo !== void 0 || relative10.host !== void 0 || relative10.port !== void 0) {
+          target.userinfo = relative10.userinfo;
+          target.host = relative10.host;
+          target.port = relative10.port;
+          target.path = removeDotSegments(relative10.path || "");
+          target.query = relative10.query;
         } else {
-          if (!relative8.path) {
+          if (!relative10.path) {
             target.path = base.path;
-            if (relative8.query !== void 0) {
-              target.query = relative8.query;
+            if (relative10.query !== void 0) {
+              target.query = relative10.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative8.path[0] === "/") {
-              target.path = removeDotSegments(relative8.path);
+            if (relative10.path[0] === "/") {
+              target.path = removeDotSegments(relative10.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative8.path;
+                target.path = "/" + relative10.path;
               } else if (!base.path) {
-                target.path = relative8.path;
+                target.path = relative10.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative8.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative10.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative8.query;
+            target.query = relative10.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3645,7 +3645,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative8.fragment;
+      target.fragment = relative10.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -25834,6 +25834,26 @@ var CodeParser = class _CodeParser {
     const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
     return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
   }
+  // ── Heuristic summary from name (fallback when no JSDoc) ─────────
+  /**
+   * Split camelCase/PascalCase name into a lowercase search-friendly summary.
+   * Only for exported functions — internal helpers don't need indexing.
+   * Not documentation — a search index so "workspace" finds "getWorkspaceProvider".
+   */
+  heuristicSummary(node, name2, params) {
+    const parent = node.parent;
+    const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+    if (!isExported)
+      return void 0;
+    const words = name2.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toLowerCase().split(/\s+/);
+    if (words.length <= 1)
+      return void 0;
+    let summary = words.join(" ");
+    if (words[0] === "use" && words.length <= 3) {
+      summary += " hook";
+    }
+    return summary;
+  }
   // ── Node handlers (called from extractFromTree) ──────────────────
   handleClass(child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
     const name2 = getName(child, "class");
@@ -25898,7 +25918,8 @@ var CodeParser = class _CodeParser {
       return false;
     const isTest = isTestFunction(name2, filePath);
     const qualified = qualify(name2, filePath, enclosingClass);
-    const summary = isTest ? void 0 : this.extractJsDocSummary(child);
+    const params = getParams(child) ?? void 0;
+    const summary = isTest ? void 0 : this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name2, params);
     nodes.push({
       kind: isTest ? "Test" : "Function",
       name: name2,
@@ -25907,7 +25928,7 @@ var CodeParser = class _CodeParser {
       line_end: child.endPosition.row + 1,
       language,
       parent_name: enclosingClass ?? void 0,
-      params: getParams(child) ?? void 0,
+      params,
       return_type: getReturnType(child) ?? void 0,
       summary,
       is_test: isTest
@@ -25934,7 +25955,8 @@ var CodeParser = class _CodeParser {
       const name2 = getNodeText(nameNode);
       const isTest = isTestFunction(name2, filePath);
       const qualified = qualify(name2, filePath, enclosingClass);
-      const summary = isTest ? void 0 : this.extractJsDocSummary(child);
+      const arrowParams = getParams(valueNode) ?? void 0;
+      const summary = isTest ? void 0 : this.extractJsDocSummary(child) ?? this.heuristicSummary(child, name2, arrowParams);
       nodes.push({
         kind: isTest ? "Test" : "Function",
         name: name2,
@@ -25943,7 +25965,7 @@ var CodeParser = class _CodeParser {
         line_end: valueNode.endPosition.row + 1,
         language,
         parent_name: enclosingClass ?? void 0,
-        params: getParams(valueNode) ?? void 0,
+        params: arrowParams,
         return_type: getReturnType(valueNode) ?? void 0,
         summary,
         is_test: isTest
@@ -30136,9 +30158,8 @@ function entityScope(params) {
 }
 
 // dist/tools/run-audit.js
-import { execFileSync as execFileSync2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync10 } from "node:fs";
-import { join as join5, relative as relative7 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync11 } from "node:fs";
+import { join as join6, relative as relative9 } from "node:path";
 
 // dist/audit-store.js
 function insertFinding(store, f) {
@@ -30261,7 +30282,10 @@ function rowToScore(row) {
   };
 }
 
-// dist/tools/run-audit.js
+// dist/tools/audit-analyzers.js
+import { execFileSync as execFileSync2 } from "node:child_process";
+import { existsSync as existsSync5, readFileSync as readFileSync10 } from "node:fs";
+import { join as join5, relative as relative7 } from "node:path";
 var IMPACTS = {
   FILE_400: 5,
   FILE_600: 15,
@@ -30283,12 +30307,6 @@ var IMPACTS = {
   INLINE_CANDIDATE: 2,
   COLOCATE_CANDIDATE: 2,
   MISPLACED_APP_CONTENT: 5
-};
-var CATEGORY_WEIGHTS = {
-  "code-quality": 0.3,
-  security: 0.25,
-  testing: 0.25,
-  deployment: 0.2
 };
 function execSafe(cmd, args2, cwd) {
   try {
@@ -30320,62 +30338,6 @@ function toSeverity(raw) {
   }
   return "moderate";
 }
-function recommendAction(findingType, lines, cohesionRatio, funcCount, fanOut) {
-  if (findingType === "grab-bag") {
-    if (lines > 500 && cohesionRatio < 0.1) {
-      return {
-        action: "split",
-        reason: `${lines} lines with ${Math.round(cohesionRatio * 100)}% cohesion \u2014 functions are unrelated. Split into domain-specific modules.`,
-        severity: "high",
-        impact: IMPACTS.GRAB_BAG
-      };
-    }
-    if (lines > 300) {
-      return {
-        action: "split-on-next-touch",
-        reason: `Over 300 lines with low cohesion. Split when you're already editing this file.`,
-        severity: "moderate",
-        impact: IMPACTS.GRAB_BAG
-      };
-    }
-    return {
-      action: "monitor",
-      reason: `${funcCount} functions but only ${lines} lines \u2014 small utility file. Monitor for growth.`,
-      severity: "low",
-      impact: Math.round(IMPACTS.GRAB_BAG / 2)
-    };
-  }
-  if (findingType === "mixed-concerns") {
-    if (lines > 400 && (fanOut ?? 0) >= 6) {
-      return {
-        action: "split",
-        reason: `${lines} lines reaching into ${fanOut} different files \u2014 too many responsibilities. Extract focused modules.`,
-        severity: "moderate",
-        impact: IMPACTS.MIXED_CONCERNS
-      };
-    }
-    if (funcCount <= 3) {
-      return {
-        action: "ignore",
-        reason: `Only ${funcCount} functions \u2014 this is a pipeline/orchestrator, high fan-out is expected.`,
-        severity: "info",
-        impact: 0
-      };
-    }
-    return {
-      action: "monitor",
-      reason: `Moderate fan-out. Not urgent \u2014 revisit if the file keeps growing.`,
-      severity: "low",
-      impact: Math.round(IMPACTS.MIXED_CONCERNS / 2)
-    };
-  }
-  return {
-    action: "monitor",
-    reason: "Review manually.",
-    severity: "info",
-    impact: 0
-  };
-}
 function recommendForSize(lines, threshold, kind) {
   const ratio = lines / threshold;
   if (ratio > 2.5) {
@@ -30394,255 +30356,6 @@ function recommendForSize(lines, threshold, kind) {
     recommendation: "monitor",
     reason: `Just over the ${threshold}-line limit. Not urgent \u2014 watch for growth.`
   };
-}
-function analyzeCohesion(store, db, runId, repoRoot) {
-  let findingCount = 0;
-  const filesWithManyFunctions = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn, COUNT(n.id) as func_count
-       FROM nodes f
-       JOIN nodes n ON n.file_path = f.file_path AND n.kind IN ('Function', 'Test')
-       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
-       GROUP BY f.file_path
-       HAVING func_count >= 8
-       ORDER BY func_count DESC`).all();
-  for (const file of filesWithManyFunctions) {
-    const funcQns = db.prepare(`SELECT qualified_name FROM nodes
-         WHERE file_path = ? AND kind IN ('Function', 'Test')`).all(file.file_path);
-    const qnSet = new Set(funcQns.map((r) => r.qualified_name));
-    const internalCalls = db.prepare(`SELECT COUNT(*) as cnt FROM edges
-         WHERE kind = 'CALLS'
-           AND source_qualified IN (${funcQns.map(() => "?").join(",")})
-           AND target_qualified IN (${funcQns.map(() => "?").join(",")})`).get(...funcQns.map((r) => r.qualified_name), ...funcQns.map((r) => r.qualified_name));
-    const cohesionRatio = file.func_count > 0 ? internalCalls.cnt / file.func_count : 0;
-    if (cohesionRatio < 0.3) {
-      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(file.file_qn);
-      const lines = fileSize?.lines ?? 0;
-      const rec = recommendAction("grab-bag", lines, cohesionRatio, file.func_count);
-      insertFinding(store, {
-        audit_run_id: runId,
-        category: "code-quality",
-        finding_type: "grab-bag",
-        severity: rec.severity,
-        node_qualified_name: file.file_qn,
-        file_path: relative7(repoRoot, file.file_path),
-        title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
-        detail: {
-          function_count: file.func_count,
-          internal_calls: internalCalls.cnt,
-          cohesion_ratio: Math.round(cohesionRatio * 100) / 100,
-          lines,
-          recommendation: rec.action,
-          reason: rec.reason
-        },
-        score_impact: rec.impact
-      });
-      findingCount++;
-    }
-  }
-  const fanOutRows = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn,
-              COUNT(DISTINCT e.file_path) as call_files
-       FROM nodes f
-       JOIN nodes n ON n.file_path = f.file_path AND n.kind = 'Function'
-       JOIN edges e ON e.source_qualified = n.qualified_name AND e.kind = 'CALLS'
-         AND e.target_qualified NOT LIKE (f.file_path || '%')
-       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
-       GROUP BY f.file_path
-       HAVING call_files >= 4
-       ORDER BY call_files DESC`).all();
-  for (const row of fanOutRows) {
-    const funcCount = db.prepare(`SELECT COUNT(*) as cnt FROM nodes
-         WHERE file_path = ? AND kind = 'Function'`).get(row.file_path);
-    if (funcCount.cnt >= 5) {
-      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(row.file_qn);
-      const lines = fileSize?.lines ?? 0;
-      const rec = recommendAction("mixed-concerns", lines, 0, funcCount.cnt, row.call_files);
-      insertFinding(store, {
-        audit_run_id: runId,
-        category: "code-quality",
-        finding_type: "mixed-concerns",
-        severity: rec.severity,
-        node_qualified_name: row.file_qn,
-        file_path: relative7(repoRoot, row.file_path),
-        title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
-        detail: {
-          function_count: funcCount.cnt,
-          external_file_targets: row.call_files,
-          lines,
-          recommendation: rec.action,
-          reason: rec.reason
-        },
-        score_impact: rec.impact
-      });
-      findingCount++;
-    }
-  }
-  const singleCallerRows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
-              COUNT(DISTINCT e.file_path) as caller_files,
-              MIN(e.file_path) as sole_caller_file
-       FROM nodes n
-       JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'CALLS'
-       WHERE n.kind = 'Function' AND n.is_test = 0
-         AND n.language IN ('typescript', 'tsx', 'javascript', 'jsx')
-       GROUP BY n.qualified_name
-       HAVING caller_files = 1
-         AND sole_caller_file != n.file_path`).all();
-  const singleCallerByFile = /* @__PURE__ */ new Map();
-  for (const row of singleCallerRows) {
-    const existing = singleCallerByFile.get(row.file_path) ?? [];
-    existing.push(row);
-    singleCallerByFile.set(row.file_path, existing);
-  }
-  for (const [filePath, funcs] of singleCallerByFile) {
-    if (funcs.length >= 3) {
-      for (const f of funcs) {
-        insertFinding(store, {
-          audit_run_id: runId,
-          category: "code-quality",
-          finding_type: "inline-candidate",
-          severity: "info",
-          node_qualified_name: f.qualified_name,
-          file_path: relative7(repoRoot, f.file_path),
-          title: `"${f.name}" only called from ${relative7(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
-          detail: {
-            function_name: f.name,
-            sole_caller: relative7(repoRoot, f.sole_caller_file),
-            recommendation: "move-on-next-touch",
-            reason: "Function has a single consumer. Co-locate when you're already editing either file \u2014 not worth a dedicated refactor."
-          },
-          score_impact: IMPACTS.INLINE_CANDIDATE
-        });
-        findingCount++;
-      }
-    }
-  }
-  const singleImporterTypes = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
-              COUNT(DISTINCT e.file_path) as importer_files,
-              MIN(e.file_path) as sole_importer
-       FROM nodes n
-       JOIN edges e ON e.target_qualified LIKE ('%' || n.name || '%')
-         AND e.kind = 'IMPORTS_FROM'
-       WHERE n.kind = 'Type'
-         AND n.language IN ('typescript', 'tsx')
-       GROUP BY n.qualified_name
-       HAVING importer_files = 1
-         AND sole_importer != n.file_path`).all();
-  const typesByFile = /* @__PURE__ */ new Map();
-  for (const row of singleImporterTypes) {
-    const existing = typesByFile.get(row.file_path) ?? [];
-    existing.push(row);
-    typesByFile.set(row.file_path, existing);
-  }
-  for (const [filePath, types] of typesByFile) {
-    if (types.length >= 3) {
-      insertFinding(store, {
-        audit_run_id: runId,
-        category: "code-quality",
-        finding_type: "colocate-types",
-        severity: "info",
-        file_path: relative7(repoRoot, filePath),
-        title: `${types.length} types each only imported by one file \u2014 co-locate with consumers?`,
-        detail: {
-          type_count: types.length,
-          types: types.slice(0, 5).map((t) => ({
-            name: t.name,
-            sole_importer: relative7(repoRoot, t.sole_importer)
-          })),
-          recommendation: "move-on-next-touch",
-          reason: "Types have single consumers. Move them when you're already editing the consumer file."
-        },
-        score_impact: IMPACTS.COLOCATE_CANDIDATE
-      });
-      findingCount++;
-    }
-  }
-  return findingCount;
-}
-function analyzeCodeQuality(store, runId, repoRoot) {
-  const db = store.getDb();
-  let findingCount = 0;
-  const fileRows = db.prepare(`SELECT qualified_name, file_path, (line_end - line_start + 1) as lines
-       FROM nodes WHERE kind = 'File' AND (line_end - line_start + 1) > 400
-       ORDER BY lines DESC`).all();
-  for (const f of fileRows) {
-    let impact;
-    let severity;
-    let findingType;
-    if (f.lines > 800) {
-      impact = IMPACTS.FILE_800;
-      severity = "critical";
-      findingType = "oversized-file-800";
-    } else if (f.lines > 600) {
-      impact = IMPACTS.FILE_600;
-      severity = "high";
-      findingType = "oversized-file-600";
-    } else {
-      impact = IMPACTS.FILE_400;
-      severity = "moderate";
-      findingType = "oversized-file-400";
-    }
-    const sizeRec = recommendForSize(f.lines, f.lines > 800 ? 800 : f.lines > 600 ? 600 : 400, "file");
-    insertFinding(store, {
-      audit_run_id: runId,
-      category: "code-quality",
-      finding_type: findingType,
-      severity,
-      node_qualified_name: f.qualified_name,
-      file_path: relative7(repoRoot, f.file_path),
-      title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
-      detail: {
-        lines: f.lines,
-        recommendation: sizeRec.recommendation,
-        reason: sizeRec.reason
-      },
-      score_impact: impact
-    });
-    findingCount++;
-  }
-  findingCount += analyzeCohesion(store, db, runId, repoRoot);
-  const funcRows = db.prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
-       FROM nodes WHERE kind = 'Function' AND (line_end - line_start + 1) > 150
-       ORDER BY lines DESC`).all();
-  for (const f of funcRows) {
-    const funcRec = recommendForSize(f.lines, 150, "function");
-    insertFinding(store, {
-      audit_run_id: runId,
-      category: "code-quality",
-      finding_type: "oversized-function",
-      severity: "moderate",
-      node_qualified_name: f.qualified_name,
-      file_path: relative7(repoRoot, f.file_path),
-      title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
-      detail: {
-        lines: f.lines,
-        name: f.name,
-        recommendation: funcRec.recommendation,
-        reason: funcRec.reason
-      },
-      score_impact: IMPACTS.FUNC_150
-    });
-    findingCount++;
-  }
-  const tasksPath = join5(repoRoot, "tasks-plans", "tasks.md");
-  if (existsSync5(tasksPath)) {
-    try {
-      const content = readFileSync10(tasksPath, "utf-8");
-      const openCount = (content.match(/^- \[ \]/gm) || []).length;
-      if (openCount > 0) {
-        const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
-        insertFinding(store, {
-          audit_run_id: runId,
-          category: "code-quality",
-          finding_type: "open-tasks",
-          severity: "low",
-          title: `${openCount} open quality tasks in task queue`,
-          detail: { open_count: openCount },
-          score_impact: impact
-        });
-        findingCount++;
-      }
-    } catch {
-    }
-  }
-  return findingCount;
 }
 var NEXTJS_CONVENTION_FILES = /* @__PURE__ */ new Set([
   "page.tsx",
@@ -30771,6 +30484,234 @@ function analyzeSecurityCLI(store, runId, repoRoot) {
   }
   return findingCount;
 }
+
+// dist/tools/audit-cohesion.js
+import { relative as relative8 } from "node:path";
+function recommendAction(findingType, lines, cohesionRatio, funcCount, fanOut) {
+  if (findingType === "grab-bag") {
+    if (lines > 500 && cohesionRatio < 0.1) {
+      return {
+        action: "split",
+        reason: `${lines} lines with ${Math.round(cohesionRatio * 100)}% cohesion \u2014 functions are unrelated. Split into domain-specific modules.`,
+        severity: "high",
+        impact: IMPACTS.GRAB_BAG
+      };
+    }
+    if (lines > 300) {
+      return {
+        action: "split-on-next-touch",
+        reason: `Over 300 lines with low cohesion. Split when you're already editing this file.`,
+        severity: "moderate",
+        impact: IMPACTS.GRAB_BAG
+      };
+    }
+    return {
+      action: "monitor",
+      reason: `${funcCount} functions but only ${lines} lines \u2014 small utility file. Monitor for growth.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.GRAB_BAG / 2)
+    };
+  }
+  if (findingType === "mixed-concerns") {
+    if (lines > 400 && (fanOut ?? 0) >= 6) {
+      return {
+        action: "split",
+        reason: `${lines} lines reaching into ${fanOut} different files \u2014 too many responsibilities. Extract focused modules.`,
+        severity: "moderate",
+        impact: IMPACTS.MIXED_CONCERNS
+      };
+    }
+    if (funcCount <= 3) {
+      return {
+        action: "ignore",
+        reason: `Only ${funcCount} functions \u2014 this is a pipeline/orchestrator, high fan-out is expected.`,
+        severity: "info",
+        impact: 0
+      };
+    }
+    return {
+      action: "monitor",
+      reason: `Moderate fan-out. Not urgent \u2014 revisit if the file keeps growing.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.MIXED_CONCERNS / 2)
+    };
+  }
+  return {
+    action: "monitor",
+    reason: "Review manually.",
+    severity: "info",
+    impact: 0
+  };
+}
+function analyzeCohesion(store, db, runId, repoRoot) {
+  let findingCount = 0;
+  const filesWithManyFunctions = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn, COUNT(n.id) as func_count
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind IN ('Function', 'Test')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING func_count >= 8
+       ORDER BY func_count DESC`).all();
+  for (const file of filesWithManyFunctions) {
+    const funcQns = db.prepare(`SELECT qualified_name FROM nodes
+         WHERE file_path = ? AND kind IN ('Function', 'Test')`).all(file.file_path);
+    const qnSet = new Set(funcQns.map((r) => r.qualified_name));
+    const internalCalls = db.prepare(`SELECT COUNT(*) as cnt FROM edges
+         WHERE kind = 'CALLS'
+           AND source_qualified IN (${funcQns.map(() => "?").join(",")})
+           AND target_qualified IN (${funcQns.map(() => "?").join(",")})`).get(...funcQns.map((r) => r.qualified_name), ...funcQns.map((r) => r.qualified_name));
+    const cohesionRatio = file.func_count > 0 ? internalCalls.cnt / file.func_count : 0;
+    if (cohesionRatio < 0.3) {
+      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(file.file_qn);
+      const lines = fileSize?.lines ?? 0;
+      const rec = recommendAction("grab-bag", lines, cohesionRatio, file.func_count);
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "grab-bag",
+        severity: rec.severity,
+        node_qualified_name: file.file_qn,
+        file_path: relative8(repoRoot, file.file_path),
+        title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
+        detail: {
+          function_count: file.func_count,
+          internal_calls: internalCalls.cnt,
+          cohesion_ratio: Math.round(cohesionRatio * 100) / 100,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason
+        },
+        score_impact: rec.impact
+      });
+      findingCount++;
+    }
+  }
+  const fanOutRows = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn,
+              COUNT(DISTINCT e.file_path) as call_files
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind = 'Function'
+       JOIN edges e ON e.source_qualified = n.qualified_name AND e.kind = 'CALLS'
+         AND e.target_qualified NOT LIKE (f.file_path || '%')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING call_files >= 4
+       ORDER BY call_files DESC`).all();
+  for (const row of fanOutRows) {
+    const funcCount = db.prepare(`SELECT COUNT(*) as cnt FROM nodes
+         WHERE file_path = ? AND kind = 'Function'`).get(row.file_path);
+    if (funcCount.cnt >= 5) {
+      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(row.file_qn);
+      const lines = fileSize?.lines ?? 0;
+      const rec = recommendAction("mixed-concerns", lines, 0, funcCount.cnt, row.call_files);
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "mixed-concerns",
+        severity: rec.severity,
+        node_qualified_name: row.file_qn,
+        file_path: relative8(repoRoot, row.file_path),
+        title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
+        detail: {
+          function_count: funcCount.cnt,
+          external_file_targets: row.call_files,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason
+        },
+        score_impact: rec.impact
+      });
+      findingCount++;
+    }
+  }
+  const singleCallerRows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as caller_files,
+              MIN(e.file_path) as sole_caller_file
+       FROM nodes n
+       JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'CALLS'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+         AND n.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY n.qualified_name
+       HAVING caller_files = 1
+         AND sole_caller_file != n.file_path`).all();
+  const singleCallerByFile = /* @__PURE__ */ new Map();
+  for (const row of singleCallerRows) {
+    const existing = singleCallerByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    singleCallerByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, funcs] of singleCallerByFile) {
+    if (funcs.length >= 3) {
+      for (const f of funcs) {
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "inline-candidate",
+          severity: "info",
+          node_qualified_name: f.qualified_name,
+          file_path: relative8(repoRoot, f.file_path),
+          title: `"${f.name}" only called from ${relative8(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
+          detail: {
+            function_name: f.name,
+            sole_caller: relative8(repoRoot, f.sole_caller_file),
+            recommendation: "move-on-next-touch",
+            reason: "Function has a single consumer. Co-locate when you're already editing either file \u2014 not worth a dedicated refactor."
+          },
+          score_impact: IMPACTS.INLINE_CANDIDATE
+        });
+        findingCount++;
+      }
+    }
+  }
+  const singleImporterTypes = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as importer_files,
+              MIN(e.file_path) as sole_importer
+       FROM nodes n
+       JOIN edges e ON e.target_qualified LIKE ('%' || n.name || '%')
+         AND e.kind = 'IMPORTS_FROM'
+       WHERE n.kind = 'Type'
+         AND n.language IN ('typescript', 'tsx')
+       GROUP BY n.qualified_name
+       HAVING importer_files = 1
+         AND sole_importer != n.file_path`).all();
+  const typesByFile = /* @__PURE__ */ new Map();
+  for (const row of singleImporterTypes) {
+    const existing = typesByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    typesByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, types] of typesByFile) {
+    if (types.length >= 3) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "colocate-types",
+        severity: "info",
+        file_path: relative8(repoRoot, filePath),
+        title: `${types.length} types each only imported by one file \u2014 co-locate with consumers?`,
+        detail: {
+          type_count: types.length,
+          types: types.slice(0, 5).map((t) => ({
+            name: t.name,
+            sole_importer: relative8(repoRoot, t.sole_importer)
+          })),
+          recommendation: "move-on-next-touch",
+          reason: "Types have single consumers. Move them when you're already editing the consumer file."
+        },
+        score_impact: IMPACTS.COLOCATE_CANDIDATE
+      });
+      findingCount++;
+    }
+  }
+  return findingCount;
+}
+
+// dist/tools/audit-scoring.js
+var CATEGORY_WEIGHTS = {
+  "code-quality": 0.3,
+  security: 0.25,
+  testing: 0.25,
+  deployment: 0.2
+};
 function computeScores(store, runId, availableCategories) {
   const db = store.getDb();
   const totalWeight = [...availableCategories].reduce((sum, cat) => sum + CATEGORY_WEIGHTS[cat], 0);
@@ -30803,6 +30744,96 @@ function computeScores(store, runId, availableCategories) {
       finding_count: row.cnt
     });
   }
+}
+
+// dist/tools/run-audit.js
+function analyzeCodeQuality(store, runId, repoRoot) {
+  const db = store.getDb();
+  let findingCount = 0;
+  const fileRows = db.prepare(`SELECT qualified_name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'File' AND (line_end - line_start + 1) > 400
+       ORDER BY lines DESC`).all();
+  for (const f of fileRows) {
+    let impact;
+    let severity;
+    let findingType;
+    if (f.lines > 800) {
+      impact = IMPACTS.FILE_800;
+      severity = "critical";
+      findingType = "oversized-file-800";
+    } else if (f.lines > 600) {
+      impact = IMPACTS.FILE_600;
+      severity = "high";
+      findingType = "oversized-file-600";
+    } else {
+      impact = IMPACTS.FILE_400;
+      severity = "moderate";
+      findingType = "oversized-file-400";
+    }
+    const sizeRec = recommendForSize(f.lines, f.lines > 800 ? 800 : f.lines > 600 ? 600 : 400, "file");
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: findingType,
+      severity,
+      node_qualified_name: f.qualified_name,
+      file_path: relative9(repoRoot, f.file_path),
+      title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
+      detail: {
+        lines: f.lines,
+        recommendation: sizeRec.recommendation,
+        reason: sizeRec.reason
+      },
+      score_impact: impact
+    });
+    findingCount++;
+  }
+  findingCount += analyzeCohesion(store, db, runId, repoRoot);
+  const funcRows = db.prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'Function' AND (line_end - line_start + 1) > 150
+       ORDER BY lines DESC`).all();
+  for (const f of funcRows) {
+    const funcRec = recommendForSize(f.lines, 150, "function");
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: "oversized-function",
+      severity: "moderate",
+      node_qualified_name: f.qualified_name,
+      file_path: relative9(repoRoot, f.file_path),
+      title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
+      detail: {
+        lines: f.lines,
+        name: f.name,
+        recommendation: funcRec.recommendation,
+        reason: funcRec.reason
+      },
+      score_impact: IMPACTS.FUNC_150
+    });
+    findingCount++;
+  }
+  const tasksPath = join6(repoRoot, "tasks-plans", "tasks.md");
+  if (existsSync6(tasksPath)) {
+    try {
+      const content = readFileSync11(tasksPath, "utf-8");
+      const openCount = (content.match(/^- \[ \]/gm) || []).length;
+      if (openCount > 0) {
+        const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "open-tasks",
+          severity: "low",
+          title: `${openCount} open quality tasks in task queue`,
+          detail: { open_count: openCount },
+          score_impact: impact
+        });
+        findingCount++;
+      }
+    } catch {
+    }
+  }
+  return findingCount;
 }
 async function runAudit(params) {
   const root = findProjectRoot(params.repo_root);
@@ -30885,22 +30916,22 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync6, readFileSync as readFileSync11, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
-import { basename as basename8, dirname as dirname9, join as join6 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync12, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename8, dirname as dirname9, join as join7 } from "node:path";
 function findTemplateDir() {
   const candidates = [
-    join6(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
+    join7(dirname9(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
     // Fallback: check CLAUDE_PLUGIN_ROOT
-    process.env.CLAUDE_PLUGIN_ROOT ? join6(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
+    process.env.CLAUDE_PLUGIN_ROOT ? join7(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
   ].filter(Boolean);
   for (const dir of candidates) {
-    if (existsSync6(join6(dir, "audit-header.html")))
+    if (existsSync7(join7(dir, "audit-header.html")))
       return dir;
   }
   return null;
 }
 function readTemplate(dir, name2) {
-  return readFileSync11(join6(dir, name2), "utf-8");
+  return readFileSync12(join7(dir, name2), "utf-8");
 }
 function coverageColor(pct) {
   if (pct >= 80)
@@ -31009,11 +31040,11 @@ function generateAuditHtml(params) {
     for (const [placeholder, value] of Object.entries(replacements)) {
       html = html.replaceAll(placeholder, value);
     }
-    const outputDir = join6(root, "tasks-plans", "audits");
-    if (!existsSync6(outputDir))
+    const outputDir = join7(root, "tasks-plans", "audits");
+    if (!existsSync7(outputDir))
       mkdirSync2(outputDir, { recursive: true });
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
-    const outputPath = params.output_path ?? join6(outputDir, `audit-${timestamp}.html`);
+    const outputPath = params.output_path ?? join7(outputDir, `audit-${timestamp}.html`);
     writeFileSync3(outputPath, html, "utf-8");
     const overall = getOverallScore(store, runId);
     return {

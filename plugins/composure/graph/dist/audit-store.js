@@ -92,20 +92,6 @@ export function getOverallScore(store, runId) {
     return { score: Math.round(overall * 10) / 10, grade, color };
 }
 // ── Run management ────────────────────────────────────────────────
-export function clearAuditRun(store, runId) {
-    const db = store.getDb();
-    db.exec("BEGIN");
-    try {
-        db.prepare("DELETE FROM audit_findings WHERE audit_run_id = ?").run(runId);
-        db.prepare("DELETE FROM test_coverage WHERE audit_run_id = ?").run(runId);
-        db.prepare("DELETE FROM audit_scores WHERE audit_run_id = ?").run(runId);
-        db.exec("COMMIT");
-    }
-    catch (err) {
-        db.exec("ROLLBACK");
-        throw err;
-    }
-}
 export function getLatestRunId(store) {
     const db = store.getDb();
     const row = db

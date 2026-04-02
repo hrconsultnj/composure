@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { relative } from "node:path";
 // ── Name normalization ────────────────────────────────────────────
 const STRIP_PREFIXES = new Set(["user_", "admin_", "public_", "auth_"]);
-export function normalizeEntityName(raw) {
+function normalizeEntityName(raw) {
     let name = raw.toLowerCase().trim();
     // Strip common prefixes
     for (const prefix of STRIP_PREFIXES) {

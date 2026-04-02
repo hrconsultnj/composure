@@ -6,7 +6,6 @@
  * phase, reading from the nodes table (fast — no file I/O).
  */
 import type { GraphStore } from "./store.js";
-export declare function normalizeEntityName(raw: string): string;
 export declare function detectAndStoreEntities(store: GraphStore, repoRoot: string): {
     entityCount: number;
     memberCount: number;

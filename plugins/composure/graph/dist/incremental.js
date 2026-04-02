@@ -33,7 +33,7 @@ function shouldIgnore(filePath) {
     return parts.some((p) => DEFAULT_IGNORES.has(p));
 }
 // ── Git helpers (using execFileSync for safety) ────────────────────
-export function findRepoRoot(start) {
+function findRepoRoot(start) {
     let dir = start ? resolve(start) : process.cwd();
     while (true) {
         if (existsSync(join(dir, ".git")))
@@ -88,7 +88,7 @@ export function getStagedAndUnstaged(repoRoot) {
         .map((f) => resolve(repoRoot, f));
 }
 // ── File collection ────────────────────────────────────────────────
-export function collectAllFiles(repoRoot) {
+function collectAllFiles(repoRoot) {
     const output = execGit(["ls-files"], repoRoot);
     if (!output)
         return [];
@@ -128,7 +128,7 @@ function loadIgnorePatterns(repoRoot) {
     }
 }
 // ── Dependent file discovery ───────────────────────────────────────
-export function findDependents(store, filePath) {
+function findDependents(store, filePath) {
     const edges = store.getEdgesByTarget(filePath);
     const dependents = new Set();
     for (const e of edges) {

@@ -5,7 +5,7 @@
 /**
  * Build forward and reverse adjacency lists from edge records.
  */
-export function buildAdjacencyList(edges) {
+function buildAdjacencyList(edges) {
     const forward = new Map();
     const reverse = new Map();
     for (const e of edges) {

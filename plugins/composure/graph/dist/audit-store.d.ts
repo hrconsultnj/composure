@@ -20,7 +20,6 @@ export declare function getOverallScore(store: GraphStore, runId: string): {
     grade: string;
     color: string;
 };
-export declare function clearAuditRun(store: GraphStore, runId: string): void;
 export declare function getLatestRunId(store: GraphStore): string | null;
 export declare function gradeFor(score: number): {
     grade: string;
