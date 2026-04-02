@@ -61,14 +61,11 @@ fi
 # If stale, suggest /composure:update-project to pick up new defaults + docs.
 STALE_ITEMS=()
 
-# 1. Plugin version stamp — written by initialize, checked here
-PLUGIN_VERSION_DIR=$(basename "$(dirname "$CLAUDE_PLUGIN_ROOT")" 2>/dev/null)
-# Fallback: extract from the path (e.g., .../composure/1.5.1/...)
-[ -z "$PLUGIN_VERSION_DIR" ] && PLUGIN_VERSION_DIR=$(echo "$CLAUDE_PLUGIN_ROOT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
-
+# 1. Plugin version stamp — read from plugin.json (reliable across all install paths)
+PLUGIN_VERSION=$(jq -r '.version // ""' "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
 PROJECT_VERSION=$(jq -r '.composureVersion // ""' .claude/no-bandaids.json 2>/dev/null)
-if [ -n "$PLUGIN_VERSION_DIR" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION_DIR" != "$PROJECT_VERSION" ]; then
-  STALE_ITEMS+=("Plugin updated (project: v${PROJECT_VERSION}, plugin: v${PLUGIN_VERSION_DIR}) — new defaults and rules available")
+if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
+  STALE_ITEMS+=("Plugin updated (project: v${PROJECT_VERSION}, plugin: v${PLUGIN_VERSION}) — new defaults and rules available")
 fi
 
 # 2. Framework docs freshness — flag if any generated doc is >14 days old

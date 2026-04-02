@@ -37,10 +37,10 @@ Updates `.claude/no-bandaids.json` to sync with the current plugin version and r
 
 **2a. Stamp `composureVersion`**
 
-Extract the plugin version from `$CLAUDE_PLUGIN_ROOT` path and write it to the config:
+Read the plugin version from the plugin manifest:
 
 ```bash
-PLUGIN_VERSION=$(echo "$CLAUDE_PLUGIN_ROOT" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
+PLUGIN_VERSION=$(jq -r '.version // ""' "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
 ```
 
 Update `composureVersion` in `.claude/no-bandaids.json`. If it doesn't exist, add it. This enables the `init-check.sh` freshness check to detect when the project config is stale.
