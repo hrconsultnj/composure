@@ -1,5 +1,5 @@
 ---
-name: review-tasks
+name: backlog
 description: Review and process accumulated code quality tasks from tasks-plans/tasks.md, tasks-plans/audits/, and tasks-plans/blueprints/. Tasks are auto-logged by the PostToolUse hook, decomposition audits, and blueprints. Supports batch processing, delegation to sub-agents, verification, and archiving.
 argument-hint: "[add <description>|batch|delegate|clean|summary|sync|verify|archive]"
 ---
@@ -12,7 +12,7 @@ Process the task queue from `tasks-plans/tasks.md` (hook-generated), `tasks-plan
 
 Tasks come from three sources:
 1. **`tasks-plans/tasks.md`** — Auto-logged by the PostToolUse hook as you work (mechanical: EXTRACT, MOVE, REFACTOR)
-2. **`tasks-plans/audits/*.md`** — Written by `/decomposition-audit` with detailed decomposition guidance
+2. **`tasks-plans/audits/*.md`** — Written by `/audit` with detailed decomposition guidance
 3. **`tasks-plans/blueprints/*.md`** — Written by `/blueprint` with pre-work assessment checklists
 
 This skill processes both, creates `TaskCreate` entries for visibility, and dispatches work.
@@ -76,7 +76,7 @@ Persist a work item to `tasks-plans/tasks.md` so it survives across sessions. Us
 
 Multiple tasks can be added at once — pass them as a list:
 ```
-/review-tasks add Update README skill counts; Add composure-pro.com to init report; Clean up global skills directory
+/backlog add Update README skill counts; Add composure-pro.com to init report; Clean up global skills directory
 ```
 Splits on `;` and adds each as a separate `- [ ]` entry.
 
@@ -109,10 +109,10 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 #### `delegate` — Dispatch sub-agents in parallel
 
 **Prerequisites:**
-- **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/audits/*.md` or `tasks-plans/blueprints/*.md` files have open items, stop: "No tasks to delegate. Run `/composure:decomposition-audit` or `/composure:blueprint` first."
-- **The code graph is NOT required for dispatching.** The analysis was already done (by decomposition-audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching.
+- **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/audits/*.md` or `tasks-plans/blueprints/*.md` files have open items, stop: "No tasks to delegate. Run `/composure:audit` or `/composure:blueprint` first."
+- **The code graph is NOT required for dispatching.** The analysis was already done (by audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching.
 
-**Dependency chain:** `/decomposition-audit` (analyzes, creates tasks) → `/review-tasks delegate` (executes tasks) → `/review-tasks verify` (confirms results)
+**Dependency chain:** `/audit` (analyzes, creates tasks) → `/backlog delegate` (executes tasks) → `/backlog verify` (confirms results)
 
 1. Create TaskCreate entries first (sync step)
 2. Group tasks by independence (files that don't import each other can be done in parallel)
@@ -132,7 +132,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 5. **After all sub-agents complete and changes are merged back** (especially from worktrees):
    - If the graph MCP is available: call `build_or_update_graph({ full_rebuild: true })` — worktrees don't have the graph database (it's gitignored), so per-file hooks didn't update it during the sub-agents' work. A full rebuild re-indexes all the new/moved/split files at once.
    - If the graph MCP is NOT available: remind the user that the graph will auto-register on next restart, and suggest running `/composure:build-graph` then
-   - Run `/composure:review-delta` to verify the merged changes (if graph available)
+   - Run `/composure:review` to verify the merged changes (if graph available)
    - This is the parent agent's responsibility, not the sub-agents'
 
 #### `verify` — Check file sizes against audit items, mark done
@@ -144,7 +144,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 3. For each EXTRACT task, check if the target file exists (e.g., `types.ts`, `serialization.ts`)
 4. Update both `tasks-plans/tasks.md` AND matching audit/blueprint files
 5. Report: verified N items, M completed, K remaining
-6. If all items in an audit file are `[x]` → suggest running `/review-tasks archive`
+6. If all items in an audit file are `[x]` → suggest running `/backlog archive`
 
 **Spawn as sub-agent**: This mode should use an Agent (subagent_type: "general-purpose") to run the verification in parallel if there are 5+ open items. The agent reads each file, checks sizes, and returns a verification report.
 
@@ -176,7 +176,7 @@ When the same file appears in both `tasks-plans/tasks.md` and `tasks-plans/audit
 ## Notes
 
 - Tasks are logged by the PostToolUse hook automatically during development
-- Audit files are created by `/decomposition-audit` in `tasks-plans/audits/` with rich decomposition context
+- Audit files are created by `/audit` in `tasks-plans/audits/` with rich decomposition context
 - Blueprint files are created by `/blueprint` in `tasks-plans/blueprints/` with pre-work assessment checklists
 - All task files persist across sessions — another session can pick up where you left off
 - Use `delegate` mode for maximum parallelism when you have many independent tasks
@@ -191,7 +191,7 @@ Based on what was done, suggest the natural next step:
 
 | After mode | Suggest |
 |---|---|
-| `batch` or `delegate` (tasks were fixed) | "`/composure:review-delta` — review all changes before committing" |
-| `verify` (all tasks verified complete) | "`/composure:review-tasks archive` — archive completed audits and clear queue" |
+| `batch` or `delegate` (tasks were fixed) | "`/composure:review` — review all changes before committing" |
+| `verify` (all tasks verified complete) | "`/composure:backlog archive` — archive completed audits and clear queue" |
 | `summary` (tasks exist but untouched) | "`batch` to process sequentially, or `delegate` to dispatch sub-agents in parallel" |
 | `archive` (everything cleaned up) | "Task queue clean. Use `/composure:blueprint` to plan your next feature." |

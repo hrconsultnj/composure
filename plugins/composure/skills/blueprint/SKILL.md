@@ -91,8 +91,8 @@ The `04b-blueprint-document.md` template is the most critical. Key sections:
 
 ## Integration Notes
 
-- **Blueprint files persist across sessions** -- another session can pick them up via `/review-tasks`
-- **Checklist items use `- [ ]` format** -- compatible with `/review-tasks verify` and `/commit` gate
+- **Blueprint files persist across sessions** -- another session can pick them up via `/backlog`
+- **Checklist items use `- [ ]` format** -- compatible with `/backlog verify` and `/commit` gate
 - **The commit skill scans `tasks-plans/blueprints/*.md`** -- open blueprint items are visible during commits
 - **After blueprint, the architecture docs are already loaded** -- no need to invoke `/app-architecture` separately
 - **Phase 0 delegates scaffolding to Initialize** -- Initialize runs in delegated mode (skips Q&A, uses Blueprint's confirmed choices)

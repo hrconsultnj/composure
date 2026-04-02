@@ -41,5 +41,5 @@ Restructure a disorganized project into a clean, conventional file layout. Detec
 - **Run `/composure:initialize` first** if you haven't — code-organizer needs the stack detection config
 - **Start with `--dry-run`** to preview what would change before committing to it
 - **Use `--preserve`** for directories you've intentionally organized differently
-- **After organizing**, `/decomposition-audit` can catch remaining size violations within the now-properly-placed files
+- **After organizing**, `/audit` can catch remaining size violations within the now-properly-placed files
 - **For new features going forward**, `/app-architecture` will guide you to put things in the right place from the start

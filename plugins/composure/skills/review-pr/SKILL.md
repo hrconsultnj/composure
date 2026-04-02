@@ -43,4 +43,4 @@ Tell user to restart Claude Code (Ctrl+C then `claude`) after registering. **STO
 - For large PRs, the deep-dive prioritizes high-risk files first (most dependents in the graph)
 - The verification discipline requires every structural claim to be backed by a graph query — no unverified assertions
 - Quality metrics come from `run_audit`, providing objective measurements (function is 147 lines) not subjective opinions (function seems long)
-- For quick, token-efficient reviews of local changes, use `/composure:review-delta` instead
+- For quick, token-efficient reviews of local changes, use `/composure:review` instead

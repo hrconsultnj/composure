@@ -1,5 +1,5 @@
 ---
-name: decomposition-audit
+name: audit
 description: Full codebase health audit — architecture, security, code quality, dependencies, test coverage. Produces a scored report with letter grades and prioritized remediation. Use when walking into an existing codebase or before major releases.
 argument-hint: "[path or glob pattern] [--threshold N] [--quick]"
 ---
@@ -43,7 +43,7 @@ Comprehensive codebase assessment that produces a scored health report with lett
 
 ## Integration Notes
 
-- **Plan files persist across sessions** — another session can pick them up via `/review-tasks`
+- **Plan files persist across sessions** — another session can pick them up via `/backlog`
 - **HTML report**: After the audit, call `generate_audit_html()` for a shareable visual report
 - **Combines with other skills**: Sentinel `/scan` for deeper security, `/shipyard:deps-check` for CVE details
 - **Audit files go in `tasks-plans/audits/`** — gitignored or tracked, your choice

@@ -168,10 +168,10 @@ Phase 7: Navigation   → fullstack/nextjs/ | frontend/vite/ | mobile/expo/
 | Tool | How to use | When | Output |
 |------|-----------|------|--------|
 | **Automatic hook** | Fires on Read/Edit/Write | Logs tasks to `tasks-plans/tasks.md` silently | `tasks-plans/tasks.md` |
-| `/decomposition-audit` | Invoke manually | Full codebase audit for size violations | `tasks-plans/decomposition-audit-{date}.md` |
-| `/review-tasks` | Invoke manually | Process tasks from both sources | TaskCreate entries |
-| `/review-tasks sync` | Invoke at session start | Load pending tasks into current session | TaskCreate entries |
-| `/review-tasks delegate` | Invoke to execute | Dispatch parallel sub-agents to fix | Completed tasks |
+| `/audit` | Invoke manually | Full codebase audit for size violations | `tasks-plans/audit-{date}.md` |
+| `/backlog` | Invoke manually | Process tasks from both sources | TaskCreate entries |
+| `/backlog sync` | Invoke at session start | Load pending tasks into current session | TaskCreate entries |
+| `/backlog delegate` | Invoke to execute | Dispatch parallel sub-agents to fix | Completed tasks |
 | `find_large_functions_tool` | MCP tool (code-review-graph) | Query AST graph for oversized functions | Direct query results |
 
 ### /simplify Integration

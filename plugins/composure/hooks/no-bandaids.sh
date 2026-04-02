@@ -262,6 +262,26 @@ process_fv_groups() {
   done
 }
 
+# ─── Next.js: Block content components in app/ directory ─────
+# Only Next.js convention files belong in app/. All other .tsx
+# files should live in components/, not co-located with routes.
+# Disableable via: "disabledRules": ["nextjs-app-content"]
+if is_rule_enabled "nextjs-app-content" && \
+   printf '%s' "$CONFIG" | jq -e '[.frameworks[].frontend // empty] | index("nextjs")' >/dev/null 2>&1; then
+  case "$REL_PATH" in
+    app/*.tsx|src/app/*.tsx)
+      case "$BASENAME" in
+        page.tsx|layout.tsx|loading.tsx|error.tsx|not-found.tsx|global-error.tsx|template.tsx|default.tsx) ;;
+        # Image/metadata convention files (OG images, icons, sitemaps)
+        opengraph-image.tsx|twitter-image.tsx|icon.tsx|apple-icon.tsx|sitemap.tsx|robots.tsx|manifest.tsx) ;;
+        *)
+          VIOLATIONS="${VIOLATIONS}\n- [nextjs-app-content] Content component '${BASENAME}' belongs in components/, not app/. Route directories should only contain Next.js convention files (page/layout/loading/error/not-found/template/default). Move to components/pages/ or components/features/ and import from the route's page.tsx."
+          ;;
+      esac
+      ;;
+  esac
+fi
+
 # Layer 1: Plugin-level rules (immutable, always applied first)
 # Loads: shared.json (always) + category files based on detected stack
 PLUGIN_DEFAULTS="${CLAUDE_PLUGIN_ROOT:-/dev/null}/defaults"

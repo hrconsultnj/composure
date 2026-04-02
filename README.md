@@ -216,10 +216,10 @@ Every graph tool accepts a `repo_root` parameter. From a parent directory like `
 /composure:initialize            # Detect stack, build graph, generate config
 /composure:app-architecture      # Feature-building guide — framework-specific refs
 /composure:commit                # Commit with auto task queue hygiene + graph update
-/composure:decomposition-audit   # Full codebase scan for size violations + ghost duplicates
-/composure:review-tasks          # Process task queue (verify, delegate, archive)
+/composure:audit                 # Full codebase scan for size violations + ghost duplicates
+/composure:backlog               # Process task queue (verify, delegate, archive)
 /composure:review-pr             # PR review with blast-radius analysis
-/composure:review-delta          # Review changes since last commit
+/composure:review                # Review changes since last commit
 /composure:build-graph           # Build/update code review knowledge graph
 /composure:code-organizer        # Restructure project layout to framework conventions
 /composure:update-project        # Refresh config, hooks, or docs without full re-init

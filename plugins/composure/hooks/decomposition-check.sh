@@ -186,6 +186,25 @@ if [ -n "$TYPE_NAMES" ]; then
   fi
 fi
 
+# ── 2b. Find inline data constants in component files ──
+# Detects data arrays/objects defined directly in .tsx files instead of in lib/.
+# The agent tends to inline data when no shared constants file exists yet.
+INLINE_DATA=""
+INLINE_DATA_COUNT=0
+case "$BASENAME" in
+  *.tsx)
+    # Count top-level const declarations with array or typed-array literals
+    DATA_CONSTS=$(grep -nE '^\s*(export\s+)?const\s+[A-Za-z_]\w*\s*(:\s*\w+(\[\]|<).*)?=\s*\[' "$FILE_PATH" 2>/dev/null | head -20)
+    if [ -n "$DATA_CONSTS" ]; then
+      INLINE_DATA_COUNT=$(echo "$DATA_CONSTS" | wc -l | tr -d ' ')
+      if [ "$INLINE_DATA_COUNT" -gt 2 ]; then
+        DATA_NAMES=$(echo "$DATA_CONSTS" | sed -E 's/.*const[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/' | tr '\n' ', ' | sed 's/,$//' | sed 's/,/, /g')
+        INLINE_DATA="  - MOVE: ${INLINE_DATA_COUNT} inline data constants (\`${DATA_NAMES}\`) to \`lib/constants.ts\` or \`lib/{feature}-data.ts\`"
+      fi
+    fi
+    ;;
+esac
+
 # ── 3. Shared-type duplication check (NEW in v3) ──
 # Auto-detect shared package in monorepos (packages/shared, packages/common, etc.)
 SHARED_TASK=""
@@ -272,7 +291,11 @@ if [ "$LINE_COUNT" -ge "$CRITICAL_LINES" ]; then
 elif [ "$LINE_COUNT" -ge "$ALERT_LINES" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ]; then
   SEVERITY="HIGH"
   EMOJI="🟡"
-elif [ "$LINE_COUNT" -ge "$WARN_LINES" ] && { [ -n "$INLINE_TYPES" ] || [ -n "$OTHER_ITEMS" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ]; }; then
+elif [ "$LINE_COUNT" -ge "$WARN_LINES" ] && { [ -n "$INLINE_TYPES" ] || [ -n "$INLINE_DATA" ] || [ -n "$OTHER_ITEMS" ] || [ "$LARGE_FUNC_COUNT" -gt 0 ]; }; then
+  SEVERITY="MODERATE"
+  EMOJI="🟢"
+elif [ -n "$INLINE_DATA" ]; then
+  # Inline data alone triggers moderate — data constants belong in lib/
   SEVERITY="MODERATE"
   EMOJI="🟢"
 fi
@@ -293,7 +316,7 @@ SECTION_MODERATE="## 🟢 Moderate"
 if [ ! -f "$TASK_FILE" ]; then
   cat > "$TASK_FILE" << HEADER
 # Code Quality Tasks
-<!-- Auto-detected by code quality hooks. Process with /review-tasks or delegate to a sub-agent. -->
+<!-- Auto-detected by code quality hooks. Process with /backlog or delegate to a sub-agent. -->
 <!-- Mark [x] when resolved. Delete resolved entries periodically. -->
 
 ${SECTION_CRITICAL}
@@ -350,6 +373,7 @@ if [ -n "$SEVERITY" ]; then
   TASK_BLOCK="- [ ] ${EMOJI} **DECOMPOSE** \`${RELATIVE_PATH}\` (${LINE_COUNT} lines) [${TODAY}]"
   [ -n "$LARGE_FUNCS" ] && TASK_BLOCK="${TASK_BLOCK}\n${LARGE_FUNCS}"
   [ -n "$INLINE_TYPES" ] && TASK_BLOCK="${TASK_BLOCK}\n${INLINE_TYPES}"
+  [ -n "$INLINE_DATA" ] && TASK_BLOCK="${TASK_BLOCK}\n${INLINE_DATA}"
   [ -n "$OTHER_ITEMS" ] && TASK_BLOCK="${TASK_BLOCK}\n${OTHER_ITEMS}"
 
   case "$SEVERITY" in

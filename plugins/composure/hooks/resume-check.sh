@@ -32,7 +32,7 @@ if [ -f "$TASKS_FILE" ]; then
   [ -z "$DONE" ] && DONE=0
 
   if [ "$OPEN" -gt 0 ]; then
-    PARTS+=("Tasks: ${OPEN} open, ${DONE} done. Run /composure:review-tasks to process.")
+    PARTS+=("Tasks: ${OPEN} open, ${DONE} done. Run /composure:backlog to process.")
   fi
 fi
 

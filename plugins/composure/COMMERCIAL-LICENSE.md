@@ -24,7 +24,7 @@ The Plugin is available under the [PolyForm Noncommercial License 1.0.0](LICENSE
 
 - All hooks (no-bandaids, decomposition check, architecture trigger, graph update)
 - Code review graph MCP server
-- All skills (`/review-pr`, `/review-delta`, `/decomposition-audit`, `/review-tasks`, `/build-graph`, `/initialize`)
+- All skills (`/review-pr`, `/review`, `/audit`, `/backlog`, `/build-graph`, `/initialize`)
 - Universal reference documents (query key conventions, component patterns, SSR hydration, decomposition, route groups, tabs/views, TanStack Query guides, hook patterns, icon patterns, bottom sheet sizing, custom UI components)
 - Conceptual architecture guidance in SKILL.md (7-phase workflow, decision trees, anti-patterns, size limits)
 
