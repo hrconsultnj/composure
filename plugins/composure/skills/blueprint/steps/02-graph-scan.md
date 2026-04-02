@@ -57,8 +57,12 @@ If graph is unavailable: mention "Code graph not available — run `/composure:b
 **Do NOT stop at graph results.** The graph tells you WHERE — now Read the files to understand WHAT and WHY.
 
 1. From the graph results, identify the **key files** (typically 3-8 files most relevant to the task)
-2. **Read them directly** — don't spawn agents. If the graph found <10 files, Read them in the main context. This is faster, cheaper, and gives you the full content (domain details, comments, implementation patterns) that structural queries miss.
-3. Only spawn agents if the graph identified 10+ relevant files that can't all fit in context. In that case, give agents EXACT file paths from the graph — never "search broadly for X."
+2. **Read them directly** — don't spawn agents. Reading costs $0.005/file (~1K tokens). An agent spawn costs $0.15 minimum (30x more). At 10 files that's $0.05 vs $0.15 — Read always wins.
+3. **Thresholds**:
+   - **<10 files**: ALWAYS Read directly. No exceptions.
+   - **10-30 files**: Read directly unless context is already >50% full. 30 files = ~31K tokens = only 3% of context.
+   - **30+ files**: Read directly if you need content for implementation. Agents only if you need parallel summaries you won't reference again.
+4. When agents ARE needed (30+ files, parallel summaries): give agents EXACT file paths from the graph — never "search broadly for X."
 
 ## 2d. Present Findings and Confirm Scope
 

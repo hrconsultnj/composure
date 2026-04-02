@@ -108,10 +108,11 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 
 #### `delegate` — Dispatch sub-agents in parallel
 
-**When to use agents vs batch (direct reads):**
-- **<5 tasks touching <10 files total** → use `batch` mode instead. Read files directly, process sequentially. Faster, cheaper, no agent overhead.
-- **5+ independent tasks** → use `delegate`. Sub-agents run in parallel, each with specific file paths and instructions.
-- **Rule**: agents are for PARALLELISM on independent work, not for reading files. If tasks are sequential (each depends on the previous), use `batch`.
+**When to use agents vs batch:**
+Agents cost $0.15+ per spawn (startup overhead). Direct Read costs $0.005/file. Use this to decide:
+- **<10 tasks**: use `batch` mode. Read files directly, process sequentially. 30x cheaper per file, no context duplication, no agent overhead.
+- **10+ independent tasks**: use `delegate`. The value is PARALLEL WRITES (modifying independent files simultaneously), not parallel reads.
+- **Rule**: agents are for parallelism on independent WRITE operations. Never spawn an agent just to read files — Read them directly.
 
 **Prerequisites:**
 - **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/audits/*.md` or `tasks-plans/blueprints/*.md` files have open items, stop: "No tasks to delegate. Run `/composure:audit` or `/composure:blueprint` first."

@@ -69,6 +69,32 @@ Claude spawned an Explore agent that searched the codebase broadly:
 | Implementation readiness | 5 | 3 | Graph — could modify the system from this description alone |
 | **Total** | **24/25** | **17.5/25** | **Graph: 37% higher quality** |
 
+### Why Direct Read Beats Agents at Every File Count
+
+Post-test cost analysis using current Claude pricing (April 2026):
+
+| Model | Input/1M tokens | Output/1M tokens |
+|---|---|---|
+| Opus 4.6 (main window) | $5.00 | $25.00 |
+| Haiku 4.5 (Explore agent default) | $1.00 | $5.00 |
+
+| Operation | Cost | What you get |
+|---|---|---|
+| **Read 1 file** (Opus, ~1K tokens) | **$0.005** | Full content in main context, cross-referenceable |
+| **Spawn 1 Explore agent** (Haiku, 34 calls) | **$0.15** | Summary only, context duplication, startup overhead |
+
+The agent costs 30x more than reading a single file. The break-even point is ~30 files — but even at 30 files, Read consumes only 3% of the 1M context window.
+
+| Files | Read (Opus) | Agent (Haiku) | Context used |
+|---|---|---|---|
+| 3 | $0.015 | $0.15 | 0.3% |
+| 5 | $0.025 | $0.15 | 0.5% |
+| 10 | $0.05 | $0.15 | 1% |
+| 20 | $0.10 | $0.15 | 2% |
+| 30 | $0.15 | $0.15 | 3% |
+
+**Agents are for parallel WRITES (modifying independent files), not for reading.** The Cipher test would have scored 25/25 if the graph-first approach had simply Read the 3 files it missed instead of stopping at the structural summary.
+
 ---
 
 ## What the Graph Found That Explore Didn't
