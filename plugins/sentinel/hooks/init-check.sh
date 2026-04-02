@@ -9,7 +9,7 @@
 
 # Standalone mode (Sentinel without Composure)
 if [ "$COMPOSURE" -eq 0 ] && [ ! -f ".claude/sentinel.json" ]; then
-  printf '[sentinel] Not initialized in this project. Run /sentinel:initialize to detect your stack and set up security scanning.\n'
+  printf '[sentinel] Not assessed in this project. Run /sentinel:assess to detect your stack and set up security scanning.\n'
 fi
 
 # Semgrep availability check — runs regardless of Composure

@@ -37,7 +37,7 @@ Both write to the same `tasks-plans/tasks.md` and use the same CVE prefix format
 
 ## Notes
 
-- This skill does NOT require `/shipyard:initialize` -- it auto-detects the package manager if no config exists
+- This skill does NOT require `/shipyard:configure` -- it auto-detects the package manager if no config exists
 - The "highest safe version" logic prevents upgrading from one vulnerability into another
 - Major version upgrades are never automatic -- they require manual review of breaking changes
 - Transitive dependency vulnerabilities are reported but cannot be directly fixed with `--fix` (the parent dependency must be upgraded)

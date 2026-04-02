@@ -9,7 +9,7 @@
 
 # Standalone mode (Testbench without Composure)
 if [ ! -f ".claude/testbench.json" ]; then
-  printf '[testbench] Not initialized in this project. Run /testbench:initialize to detect your test framework and conventions.\n'
+  printf '[testbench] Not calibrated in this project. Run /testbench:calibrate to detect your test framework and conventions.\n'
 fi
 
 exit 0

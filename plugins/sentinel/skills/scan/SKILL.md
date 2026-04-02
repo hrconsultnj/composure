@@ -16,7 +16,7 @@ Run a comprehensive security scan combining static analysis (Semgrep), dependenc
 
 ## Prerequisites
 
-- `.claude/sentinel.json` — **REQUIRED.** If missing, run `/sentinel:initialize` first.
+- `.claude/sentinel.json` — **REQUIRED.** If missing, run `/sentinel:assess` first.
 - Composure code graph — **REQUIRED.** The graph MCP tools must be available for exposure analysis. Run `/composure:build-graph` if not initialized.
 
 ## Workflow

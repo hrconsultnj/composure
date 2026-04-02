@@ -1,12 +1,12 @@
 ---
-name: initialize
-description: Detect test framework, read existing test conventions, generate .claude/testbench.json config. Query Context7 for test framework reference docs. Run once per project.
+name: calibrate
+description: Calibrate test bench — detect test framework, read existing test conventions, generate .claude/testbench.json config. Query Context7 for test framework reference docs. Run once per project.
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 
-# Testbench Initialize
+# Testbench Calibrate
 
-Bootstrap Testbench project-level configuration by detecting the test framework, learning conventions from existing tests, querying up-to-date test framework docs, and generating the config.
+Calibrate the test bench by detecting the test framework, learning conventions from existing tests, querying up-to-date test framework docs, and generating the config.
 
 ## Arguments
 
