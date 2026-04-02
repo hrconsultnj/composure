@@ -93,7 +93,7 @@ Also creates TaskCreate entries for Critical/High items so they're visible.
 
 #### `batch` — Process tasks sequentially
 
-**Requires the code graph.** Batch mode moves files and updates imports across the codebase — the graph provides exact importer data to do this safely. If the graph MCP is unavailable, run the auto-fix from `/composure:initialize` Step 0a (check Node version, find plugin path, register via `claude mcp add`). If it still can't connect, **stop** — tell the user to restart Claude Code and re-run.
+**Requires the code graph.** Batch mode moves files and updates imports across the codebase — the graph provides exact importer data to do this safely. If the graph MCP is unavailable, run the diagnostic chain from `/composure:initialize` Step 2. If it still can't connect, **stop** — tell the user to restart Claude Code and re-run.
 
 1. Start with Critical tasks first
 2. For each task, read the file, check `tasks-plans/audits/` for detailed guidance, apply the decomposition pattern:
@@ -116,7 +116,7 @@ Agents cost $0.15+ per spawn (startup overhead). Direct Read costs $0.005/file. 
 
 **Prerequisites:**
 - **Tasks must exist.** Delegate executes pre-analyzed work — it does not analyze. If `tasks-plans/tasks.md` has no open items (`- [ ]`) and no `tasks-plans/audits/*.md` or `tasks-plans/blueprints/*.md` files have open items, stop: "No tasks to delegate. Run `/composure:audit` or `/composure:blueprint` first."
-- **The code graph is NOT required for dispatching.** The analysis was already done (by audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, register it for future sessions (run the auto-fix from `/composure:initialize` Step 0a) but **do NOT stop**. Continue dispatching.
+- **The code graph is NOT required for dispatching.** The analysis was already done (by audit, which used the graph). Sub-agents receive specific instructions, not analysis queries. If the graph MCP is unavailable, note it for the user but **do NOT stop**. Continue dispatching.
 
 **Dependency chain:** `/audit` (analyzes, creates tasks) → `/backlog delegate` (executes tasks) → `/backlog verify` (confirms results)
 
