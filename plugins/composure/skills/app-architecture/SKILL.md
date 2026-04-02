@@ -32,6 +32,16 @@ Based on the detected `frontend` value, load the matching INDEX.md which tells y
 | `"expo"` | [mobile/INDEX.md](mobile/INDEX.md) | `frontend/core.md` + `mobile/expo/expo.md` + curated docs |
 | `null` or other | [frontend/INDEX.md](frontend/INDEX.md) | `frontend/core.md` only |
 
+Based on the detected `infra` value, also load the matching infrastructure docs:
+
+| `infra` value | Load this INDEX | Then follow its MUST READ instructions |
+|---|---|---|
+| `"kubernetes"` or `"helm"` | [infra/INDEX.md](infra/INDEX.md) | `infra/core.md` + `infra/kubernetes/kubernetes.md` |
+| `"terraform"` | [infra/INDEX.md](infra/INDEX.md) | `infra/core.md` + `infra/terraform/terraform.md` |
+| `"docker"` or `"docker-compose"` | [infra/INDEX.md](infra/INDEX.md) | `infra/core.md` + `infra/docker/docker.md` |
+| `"ansible"` or `"pulumi"` | [infra/INDEX.md](infra/INDEX.md) | `infra/core.md` only (tool-specific docs TBD) |
+| `null` | Skip | No infrastructure patterns needed |
+
 **Always also load:**
 - [frontend/core.md](frontend/core.md) — Points to curated reference docs (query patterns, hooks, decomposition)
 - [backend/INDEX.md](backend/INDEX.md) → [backend/core.md](backend/core.md) — Database, RLS, auth model (if building data layer)
@@ -121,6 +131,13 @@ skills/app-architecture/                  ← PLUGIN (curated, battle-tested)
 │   ├── rust/SKILL.md
 │   └── c-cpp/SKILL.md
 │
+├── infra/                                ← Infrastructure & IaC patterns
+│   ├── INDEX.md
+│   ├── core.md                           ← GitOps, secret management, environment promotion
+│   ├── kubernetes/kubernetes.md          ← K8s/K3s manifest patterns
+│   ├── terraform/terraform.md            ← Terraform module structure
+│   └── docker/docker.md                  ← Docker/Compose patterns
+│
 ├── sdks/                                 ← Cross-cutting libraries
 │   └── INDEX.md
 │
@@ -159,6 +176,9 @@ Phase 4: Query Hooks  → frontend/core.md → frontend/typescript/
 Phase 5: App Shell    → fullstack/nextjs/ | frontend/vite/ | mobile/expo/
 Phase 6: Page         → frontend/core.md → frontend/typescript/
 Phase 7: Navigation   → fullstack/nextjs/ | frontend/vite/ | mobile/expo/
+
+Infra projects:        → infra/core.md (GitOps, secrets, env promotion)
+                       → infra/{tool}/ (tool-specific patterns)
 ```
 
 ---
