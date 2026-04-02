@@ -3,7 +3,8 @@
  *
  * Produces a single .html file with all CSS + JS inlined.
  * No external dependencies — opens offline in any browser.
- * Supports light/dark themes via CSS custom properties.
+ *
+ * CSS lives in html-styles.ts, JS scripts in html-scripts.ts.
  */
 export interface VisNode {
     id: string;
@@ -37,10 +38,11 @@ export interface GraphHtmlData {
         filesCount: number;
     };
 }
-export declare function generateGraphHtml(data: GraphHtmlData): string;
-declare const CATEGORY_META: Record<string, {
+export declare const CATEGORY_META: Record<string, {
     label: string;
     color: string;
 }>;
-declare const DEFAULT_CAT_ORDER: string[];
-export { CATEGORY_META, DEFAULT_CAT_ORDER };
+export declare const DEFAULT_CAT_ORDER: string[];
+export declare function esc(s: string): string;
+export declare function jsonInject(data: unknown): string;
+export declare function generateGraphHtml(data: GraphHtmlData): string;
