@@ -12,26 +12,46 @@ Use **AskUserQuestion**:
 
 **BLOCKING** — wait for response.
 
-## 4b. Initialize Package
+## 4b. Detect Package Manager and Initialize
+
+Detect the user's package manager before running any install commands. Check in order:
+
+1. `pnpm-lock.yaml` or `pnpm-workspace.yaml` exists → **pnpm**
+2. `bun.lockb` or `bun.lock` exists → **bun**
+3. `yarn.lock` exists → **yarn**
+4. `package-lock.json` exists → **npm**
+5. None found → ask the user which to use
+
+Use the detected package manager for ALL commands below. The examples use `{pm}` as a placeholder:
 
 ```bash
 # Create directory
 mkdir -p {target-path}
 cd {target-path}
 
-# Initialize npm package
-npm init -y
+# Initialize package
+{pm} init    # pnpm init, bun init, yarn init -y, npm init -y
 
 # Install MCP SDK + Zod (required)
-npm install @modelcontextprotocol/sdk zod
+{pm} add @modelcontextprotocol/sdk zod
 
 # Install TypeScript (dev)
-npm install -D typescript @types/node
+{pm} add -D typescript @types/node
 
 # Install target service SDK (if available from Step 2)
-# e.g., npm install airtable
-# e.g., npm install @notionhq/client
+# e.g., {pm} add airtable
+# e.g., {pm} add @notionhq/client
 ```
+
+**Package manager command mapping:**
+
+| Action | pnpm | bun | yarn | npm |
+|--------|------|-----|------|-----|
+| Init | `pnpm init` | `bun init` | `yarn init -y` | `npm init -y` |
+| Add dep | `pnpm add` | `bun add` | `yarn add` | `npm install` |
+| Add dev dep | `pnpm add -D` | `bun add -D` | `yarn add -D` | `npm install -D` |
+| Run script | `pnpm run` | `bun run` | `yarn run` | `npm run` |
+| Execute | `pnpm dlx` | `bunx` | `yarn dlx` | `npx` |
 
 ## 4c. Configure TypeScript
 
@@ -128,9 +148,9 @@ Connects Claude Code to [Service Name] via the Model Context Protocol.
 
 ## Setup
 
-1. Install dependencies: `npm install`
+1. Install dependencies: `{pm} install`
 2. Copy `.env.example` to `.env` and fill in your credentials
-3. Build: `npm run build`
+3. Build: `{pm} run build`
 
 ## Usage with Claude Code
 

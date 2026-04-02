@@ -8,7 +8,7 @@ For each server the user selected in Step 1:
 2. Collect configuration requirements:
    - Required env vars (must be set for the server to work)
    - Optional env vars (enhance functionality but not required)
-   - Install command (npx vs npm install -g vs other)
+   - Install command (npx/pnpm dlx/bunx vs global install)
 
 ## 2b. Prompt for Environment Variables
 

@@ -42,7 +42,7 @@ Guided workflow for building custom MCP servers that connect external services t
 ## Key Constraints
 
 - **Always pull latest MCP SDK docs** — Context7 for `@modelcontextprotocol/server` current API (v2 uses `registerTool`, not `tool`)
-- **Scaffold from packages** — `npm init -y` + `npm install`, never write package.json from scratch
+- **Scaffold from packages** — use the project's detected package manager to init and install, never write package.json from scratch
 - **TypeScript only** (v1) — MCP SDK is TypeScript-native
 - **Reuse integration-builder references** — auth patterns, error handling, webhook patterns are directly applicable
 - **One tool per file** — keeps handlers focused and testable

@@ -23,7 +23,7 @@ Before building a custom server, check if a community MCP server already exists 
 
 Search for an existing server:
 1. Check if `mcp-setup` has a curated registry: read `../mcp-setup/data/mcp-registry.json` if it exists
-2. Quick npm search: `npm search mcp ${serviceName} --json 2>/dev/null | head -20`
+2. Quick registry search: search the npm registry for `mcp ${serviceName}` (use `npx -y npm-search` or WebSearch if available)
 3. Quick GitHub search (if WebSearch available): search for `"mcp server ${serviceName}"`
 
 **If an existing server is found:**

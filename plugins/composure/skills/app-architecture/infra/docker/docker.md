@@ -53,6 +53,12 @@ CMD ["node", "dist/server.js"]
 Use `--mount=type=cache` to cache package manager downloads across builds:
 
 ```dockerfile
+# pnpm
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked pnpm install --frozen-lockfile
+
+# bun
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked bun install --frozen-lockfile
+
 # npm
 RUN --mount=type=cache,target=/root/.npm,sharing=locked npm ci
 

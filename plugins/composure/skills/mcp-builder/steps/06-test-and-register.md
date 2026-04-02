@@ -4,7 +4,7 @@
 
 ```bash
 cd {project-path}
-npm run build
+{pm} run build
 ```
 
 **If build fails:**
@@ -108,9 +108,9 @@ MCP Server: [Service Name]
   Tools: N registered
   Config: [project-level / global]
 
-Build:   npm run build
-Start:   npm run start
-Dev:     npm run dev (watch mode)
+Build:   {pm} run build
+Start:   {pm} run start
+Dev:     {pm} run dev (watch mode)
 
 Tools available:
   - list_records — List records from a table
@@ -124,7 +124,7 @@ Next steps:
   3. Try: "Use the [service] MCP to list my records"
 
 To publish to npm (optional):
-  npm publish
+  {pm} publish
 ```
 
 ---
