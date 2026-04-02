@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Curated registry of vetted MCP servers for Claude Code. Maintained by the Composure plugin.",
+  "lastUpdated": "2026-04-01",
+  "servers": [
+    {
+      "name": "context7",
+      "displayName": "Context7 — Library Documentation",
+      "description": "Fetch current documentation for any library, framework, or SDK. Resolves library IDs and queries up-to-date docs with code examples.",
+      "package": "@upstash/context7-mcp",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "requiredEnvVars": [],
+      "optionalEnvVars": [
+        { "name": "CONTEXT7_API_KEY", "description": "API key for higher rate limits (get from context7.com)" }
+      ],
+      "compatibleStacks": ["*"],
+      "tags": ["docs", "reference", "documentation", "libraries"],
+      "category": "development"
+    },
+    {
+      "name": "sequential-thinking",
+      "displayName": "Sequential Thinking",
+      "description": "Dynamic problem-solving through structured, revisable thought chains. Helps break down complex problems into steps.",
+      "package": "@modelcontextprotocol/server-sequential-thinking",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "requiredEnvVars": [],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["reasoning", "planning", "problem-solving"],
+      "category": "development"
+    },
+    {
+      "name": "filesystem",
+      "displayName": "Filesystem Access",
+      "description": "Read, write, search, and manage files and directories. Provides file system operations as MCP tools.",
+      "package": "@modelcontextprotocol/server-filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "requiredEnvVars": [],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["files", "filesystem", "io"],
+      "category": "development"
+    },
+    {
+      "name": "notion",
+      "displayName": "Notion — Official",
+      "description": "Official Notion MCP server. Search, read, create, and update pages, databases, and blocks in Notion workspaces.",
+      "package": "@notionhq/notion-mcp-server",
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "requiredEnvVars": [
+        { "name": "NOTION_API_KEY", "description": "Notion integration token (create at notion.so/my-integrations)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["notion", "wiki", "database", "docs", "project-management"],
+      "category": "productivity"
+    },
+    {
+      "name": "supabase",
+      "displayName": "Supabase — Official",
+      "description": "Official Supabase MCP server. Manage projects, run SQL, manage database schemas, and interact with Supabase services.",
+      "package": "@supabase/mcp-server-supabase",
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase"],
+      "requiredEnvVars": [
+        { "name": "SUPABASE_ACCESS_TOKEN", "description": "Supabase personal access token (from supabase.com/dashboard/account/tokens)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["supabase", "nextjs", "vite", "expo"],
+      "tags": ["database", "postgres", "auth", "realtime", "supabase"],
+      "category": "database"
+    },
+    {
+      "name": "kubernetes",
+      "displayName": "Kubernetes",
+      "description": "Interact with Kubernetes clusters via kubectl. List pods, services, deployments, read logs, and manage resources.",
+      "package": "mcp-server-kubernetes",
+      "command": "npx",
+      "args": ["-y", "mcp-server-kubernetes"],
+      "requiredEnvVars": [],
+      "optionalEnvVars": [
+        { "name": "KUBECONFIG", "description": "Path to kubeconfig file (defaults to ~/.kube/config)" }
+      ],
+      "compatibleStacks": ["kubernetes", "helm", "docker", "docker-compose"],
+      "tags": ["kubernetes", "k8s", "k3s", "containers", "devops", "infrastructure"],
+      "category": "infrastructure"
+    },
+    {
+      "name": "sentry",
+      "displayName": "Sentry — Official",
+      "description": "Official Sentry MCP server. Search issues, view error details, analyze stack traces, and manage error monitoring.",
+      "package": "@sentry/mcp-server",
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server"],
+      "requiredEnvVars": [
+        { "name": "SENTRY_AUTH_TOKEN", "description": "Sentry auth token (from sentry.io/settings/auth-tokens)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["monitoring", "errors", "debugging", "sentry"],
+      "category": "observability"
+    },
+    {
+      "name": "heroku",
+      "displayName": "Heroku — Official",
+      "description": "Official Heroku MCP server. Manage apps, deployments, dynos, add-ons, and view logs on Heroku.",
+      "package": "@heroku/mcp-server",
+      "command": "npx",
+      "args": ["-y", "@heroku/mcp-server"],
+      "requiredEnvVars": [
+        { "name": "HEROKU_API_KEY", "description": "Heroku API key (from dashboard.heroku.com/account)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["deployment", "hosting", "heroku", "paas"],
+      "category": "infrastructure"
+    },
+    {
+      "name": "railway",
+      "displayName": "Railway — Official",
+      "description": "Official Railway MCP server. Deploy services, manage projects, view logs, and interact with Railway infrastructure.",
+      "package": "@railway/mcp-server",
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"],
+      "requiredEnvVars": [
+        { "name": "RAILWAY_API_TOKEN", "description": "Railway API token (from railway.com/account/tokens)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["deployment", "hosting", "railway", "paas"],
+      "category": "infrastructure"
+    },
+    {
+      "name": "datadog",
+      "displayName": "Datadog",
+      "description": "Interact with Datadog API. Query metrics, view dashboards, search logs, and manage monitors.",
+      "package": "@winor30/mcp-server-datadog",
+      "command": "npx",
+      "args": ["-y", "@winor30/mcp-server-datadog"],
+      "requiredEnvVars": [
+        { "name": "DD_API_KEY", "description": "Datadog API key" },
+        { "name": "DD_APP_KEY", "description": "Datadog application key" }
+      ],
+      "optionalEnvVars": [
+        { "name": "DD_SITE", "description": "Datadog site (e.g., datadoghq.eu, defaults to datadoghq.com)" }
+      ],
+      "compatibleStacks": ["*"],
+      "tags": ["monitoring", "metrics", "logs", "datadog", "observability"],
+      "category": "observability"
+    },
+    {
+      "name": "dynatrace",
+      "displayName": "Dynatrace — Official",
+      "description": "Official Dynatrace MCP server. Query metrics, analyze problems, and interact with Dynatrace monitoring.",
+      "package": "@dynatrace-oss/dynatrace-mcp-server",
+      "command": "npx",
+      "args": ["-y", "@dynatrace-oss/dynatrace-mcp-server"],
+      "requiredEnvVars": [
+        { "name": "DT_ENVIRONMENT_URL", "description": "Dynatrace environment URL" },
+        { "name": "DT_API_TOKEN", "description": "Dynatrace API token" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["monitoring", "apm", "dynatrace", "observability"],
+      "category": "observability"
+    },
+    {
+      "name": "hubspot",
+      "displayName": "HubSpot — Official",
+      "description": "Official HubSpot MCP server. Manage contacts, deals, companies, and CRM data in HubSpot.",
+      "package": "@hubspot/mcp-server",
+      "command": "npx",
+      "args": ["-y", "@hubspot/mcp-server"],
+      "requiredEnvVars": [
+        { "name": "HUBSPOT_ACCESS_TOKEN", "description": "HubSpot private app access token" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["crm", "hubspot", "contacts", "sales"],
+      "category": "productivity"
+    },
+    {
+      "name": "asana",
+      "displayName": "Asana",
+      "description": "Interact with Asana project management. List projects, tasks, search, create and update work items.",
+      "package": "@roychri/mcp-server-asana",
+      "command": "npx",
+      "args": ["-y", "@roychri/mcp-server-asana"],
+      "requiredEnvVars": [
+        { "name": "ASANA_ACCESS_TOKEN", "description": "Asana personal access token (from app.asana.com/0/developer-console)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["project-management", "asana", "tasks"],
+      "category": "productivity"
+    },
+    {
+      "name": "mapbox",
+      "displayName": "Mapbox — Official",
+      "description": "Official Mapbox MCP server. Geocoding, directions, static maps, and location-based services.",
+      "package": "@mapbox/mcp-server",
+      "command": "npx",
+      "args": ["-y", "@mapbox/mcp-server"],
+      "requiredEnvVars": [
+        { "name": "MAPBOX_ACCESS_TOKEN", "description": "Mapbox access token (from mapbox.com/account)" }
+      ],
+      "optionalEnvVars": [],
+      "compatibleStacks": ["*"],
+      "tags": ["maps", "geocoding", "location", "mapbox"],
+      "category": "services"
+    },
+    {
+      "name": "openapi",
+      "displayName": "OpenAPI — Generic Connector",
+      "description": "Expose any OpenAPI/Swagger spec as MCP tools. Automatically generates tools from API endpoints.",
+      "package": "@ivotoby/openapi-mcp-server",
+      "command": "npx",
+      "args": ["-y", "@ivotoby/openapi-mcp-server"],
+      "requiredEnvVars": [
+        { "name": "OPENAPI_SPEC_URL", "description": "URL or file path to the OpenAPI spec (JSON or YAML)" }
+      ],
+      "optionalEnvVars": [
+        { "name": "API_BASE_URL", "description": "Override base URL from the spec" },
+        { "name": "API_KEY", "description": "API key for authenticated endpoints" }
+      ],
+      "compatibleStacks": ["*"],
+      "tags": ["openapi", "swagger", "rest", "api", "generic"],
+      "category": "development"
+    }
+  ]
+}
