@@ -32,9 +32,10 @@ if [ -f "$INTEGRITY_FILE" ]; then
     expected=$(echo "$line" | sed -n 's/.*": *"\([a-f0-9]*\)".*/\1/p')
     [ -z "$file" ] || [ -z "$expected" ] && continue
 
-    hook_path="${HOOKS_DIR}/${file}"
+    # Find the hook in any subdirectory (session/, enforcement/, quality/, graph/)
+    hook_path=$(find "$HOOKS_DIR" -name "$file" -type f 2>/dev/null | head -1)
 
-    if [ ! -f "$hook_path" ]; then
+    if [ -z "$hook_path" ] || [ ! -f "$hook_path" ]; then
       MISSING=$((MISSING + 1))
       continue
     fi
@@ -64,7 +65,7 @@ fi
 # ── Auth Status Check ─────────────────────────────────────────
 
 if [ ! -f "$CREDS" ]; then
-  printf '[composure] Not authenticated. Run /composure:auth login to enable Pro features.\n'
+  printf '[composure] Not authenticated. Run /composure:auth login to connect your account.\n'
   exit 0
 fi
 

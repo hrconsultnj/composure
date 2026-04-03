@@ -37,7 +37,7 @@ composure-auth {subcommand}
 ### For `logout`
 
 1. Run `composure-auth logout`
-2. Confirm: "Logged out. Pro features will be unavailable until you log in again."
+2. Confirm: "Logged out. Sign back in anytime with `/composure:auth login`."
 
 ### For `status`
 

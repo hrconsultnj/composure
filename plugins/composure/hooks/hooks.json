@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/init-check.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/init-check.sh\" 2>&1 || exit 0",
             "timeout": 5,
             "statusMessage": "Checking Composure setup..."
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/auth-check.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/auth-check.sh\" 2>&1 || exit 0",
             "timeout": 8,
             "statusMessage": "Checking authentication..."
           }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/content-protection.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/content-protection.sh\" 2>&1 || exit 0",
             "timeout": 3,
             "statusMessage": ""
           }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-stack-note.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-stack-note.sh\" 2>&1 || exit 0",
             "timeout": 5,
             "statusMessage": "Detecting stack..."
           }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/resume-check.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/resume-check.sh\" 2>&1 || exit 0",
             "timeout": 10,
             "statusMessage": "Checking tasks & graph..."
           }
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-read-clear.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph/graph-read-clear.sh\" 2>&1 || exit 0",
             "timeout": 2,
             "statusMessage": ""
           }
@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/architecture-skill-trigger.sh\" 2>&1 || { echo '[composure:pre:arch-trigger] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/architecture-skill-trigger.sh\" 2>&1 || { echo '[composure:pre:arch-trigger] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Checking architecture..."
           }
@@ -85,19 +85,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-guide.sh\" 2>&1 || { echo '[composure:pre:decomp-guide] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/decomposition-guide.sh\" 2>&1 || { echo '[composure:pre:decomp-guide] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Checking decomposition..."
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Checking for band-aid fixes..."
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/framework-validation.sh\" 2>&1 || { echo '[composure:pre:framework-validation] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/framework-validation.sh\" 2>&1 || { echo '[composure:pre:framework-validation] hook failed' >&2; exit 0; }",
             "timeout": 5,
             "statusMessage": "Validating framework rules..."
           }
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-read-reminder.sh\" 2>&1 || exit 0",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph/graph-read-reminder.sh\" 2>&1 || exit 0",
             "timeout": 3,
             "statusMessage": ""
           }
@@ -121,7 +121,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/decomposition-check.sh\" 2>&1 || { echo '[composure:post:decomp-check] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quality/decomposition-check.sh\" 2>&1 || { echo '[composure:post:decomp-check] hook failed' >&2; exit 0; }",
             "timeout": 10,
             "statusMessage": "Checking code quality..."
           }
@@ -132,7 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph-update.sh\" 2>&1 || { echo '[composure:post:graph-update] hook failed' >&2; exit 0; }",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/graph/graph-update.sh\" 2>&1 || { echo '[composure:post:graph-update] hook failed' >&2; exit 0; }",
             "timeout": 15,
             "statusMessage": "Updating code graph..."
           }
