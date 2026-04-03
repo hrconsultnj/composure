@@ -1,0 +1,20 @@
+{
+  "version": "1.37.0",
+  "generated": "2026-04-03T04:06:27.549Z",
+  "files": {
+    "architecture-skill-trigger.sh": "75e173ca0a0cc24c1e1c54ee862ab6c38415f39429ab95d5ddd547ce7dda4f36",
+    "auth-check.sh": "e0cc0f9bdd1997ed43da0d1a981d931967867b6d73d4767aaac4e3f796041358",
+    "content-protection.sh": "74f9e7e5491c9c1f992388f82abb68b6329f1527b563418404738afe0b4c820d",
+    "decomposition-check.sh": "d1f925bc6f9fa4f2597443d24ec1d3d8494598426e125d3cac46ac352697aafb",
+    "decomposition-guide.sh": "a0952ac22ce7e11f7634d7b0df9b118da77a1ee9968fe1b5f84ddd196135bd0e",
+    "framework-validation.sh": "80636d7c9605f2200547890623b28bf41177ccefa6dbee98e7c5d2a86ccb2be3",
+    "graph-read-clear.sh": "97d4379fe4d276ba2414402fcf18ab4c51a1e4b1316002d66cafc15bb738a940",
+    "graph-read-reminder.sh": "1d9a8d40d752f2dc13836d5bf7d09234c3857f06481191d4ee1fc97fbfb48416",
+    "graph-update.sh": "3c215c1b01132ceb5bcf849709b63c9b10b4ecb84f435126c7e934eefd2794c8",
+    "init-check.sh": "70daead1099933ac524d42bce58ac19db19e12f504145517eca3cc45e6bd1983",
+    "no-bandaids.sh": "b72f1e1c472f08735ea47403951aba662e43a739e365253dbdc7aa35636221d0",
+    "resume-check.sh": "b1cd4de6055fc052a2f912c05631aa8b3672267ab891d4b3c1e159010759dd14",
+    "session-stack-note.sh": "b4ed165ef06604b7c864d6137afe6523a4fe067b1c14a36bd5bb0313bd6eb401",
+    "task-writer.sh": "ce5b915900ad4cb650a4d1ba153adc168de22fb822801b25271e982100245a5e"
+  }
+}
