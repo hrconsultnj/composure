@@ -5,10 +5,10 @@
 # Non-blocking (exit 0 always). Runs on startup only.
 
 # If Composure is installed, it handles the unified init message — skip init check
-[ -f ".claude/no-bandaids.json" ] && COMPOSURE=1 || COMPOSURE=0
+([ -f ".composure/no-bandaids.json" ] || [ -f ".claude/no-bandaids.json" ]) && COMPOSURE=1 || COMPOSURE=0
 
 # Standalone mode (Sentinel without Composure)
-if [ "$COMPOSURE" -eq 0 ] && [ ! -f ".claude/sentinel.json" ]; then
+if [ "$COMPOSURE" -eq 0 ] && [ ! -f ".composure/sentinel.json" ] && [ ! -f ".claude/sentinel.json" ]; then
   printf '[sentinel] Not assessed in this project. Run /sentinel:assess to detect your stack and set up security scanning.\n'
 fi
 

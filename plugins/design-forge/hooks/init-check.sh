@@ -6,7 +6,7 @@
 # Non-blocking (exit 0 always). Runs on startup only.
 
 # If Composure is installed, it handles the unified init message — skip verbose output
-if [ -f ".claude/no-bandaids.json" ]; then
+if [ -f ".composure/no-bandaids.json" ] || [ -f ".claude/no-bandaids.json" ]; then
   exit 0
 fi
 

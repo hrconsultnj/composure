@@ -26,12 +26,13 @@ Cached content is at `~/.composure/cache/composure/skills/blueprint/`. If cached
 | 4 | `00d-stack-options.md` |
 | 5 | `00e-requirements-confirm.md` |
 | 6 | `00f-scaffold.md` |
-| 7 | `01-classify.md` |
-| 8 | `02-graph-scan.md` |
-| 9 | `03-impact-analysis.md` |
-| 10 | `04a-load-docs.md` |
-| 11 | `04b-write-blueprint.md` |
-| 12 | `04c-handoff.md` |
+| 7 | `00g-auto-initialize.md` |
+| 8 | `01-classify.md` |
+| 9 | `02-graph-scan.md` |
+| 10 | `03-impact-analysis.md` |
+| 11 | `04a-load-docs.md` |
+| 12 | `04b-write-blueprint.md` |
+| 13 | `04c-handoff.md` |
 
 ## Templates
 

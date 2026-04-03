@@ -10,22 +10,37 @@
 # output and context-window awareness that bash can't provide.
 
 # ── Not initialized at all ──────────────────────────────────
-if [ ! -f ".claude/no-bandaids.json" ]; then
+if [ ! -f ".composure/no-bandaids.json" ] && [ ! -f ".claude/no-bandaids.json" ]; then
   printf '[composure] Not initialized in this project. Run /composure:initialize to detect your stack, build the code graph, and set up all plugins.\n'
   exit 0
 fi
 
+# Resolve active config path (.composure/ preferred)
+if [ -f ".composure/no-bandaids.json" ]; then
+  ACTIVE_CONFIG=".composure/no-bandaids.json"
+else
+  ACTIVE_CONFIG=".claude/no-bandaids.json"
+fi
+
+# ── Resolve plugin root with cache fallback ─────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
+
 # ── Composure initialized — check companions ────────────────
-PLUGIN_CACHE="${CLAUDE_PLUGIN_ROOT%/*}"
+if [ -n "$COMPOSURE_ROOT" ]; then
+  PLUGIN_CACHE="${COMPOSURE_ROOT%/*}"
+else
+  PLUGIN_CACHE=""
+fi
 MISSING=()
 
 for plugin in sentinel shipyard testbench; do
   for d in "${PLUGIN_CACHE}"/${plugin}/*/; do
     if [ -d "$d" ]; then
       case "$plugin" in
-        sentinel)  [ ! -f ".claude/sentinel.json" ]  && MISSING+=("Sentinel (security scanning)") ;;
-        shipyard)  [ ! -f ".claude/shipyard.json" ]  && MISSING+=("Shipyard (CI/CD & deployment)") ;;
-        testbench) [ ! -f ".claude/testbench.json" ] && MISSING+=("Testbench (test generation)") ;;
+        sentinel)  [ ! -f ".composure/sentinel.json" ] && [ ! -f ".claude/sentinel.json" ]  && MISSING+=("Sentinel (security scanning)") ;;
+        shipyard)  [ ! -f ".composure/shipyard.json" ] && [ ! -f ".claude/shipyard.json" ]  && MISSING+=("Shipyard (CI/CD & deployment)") ;;
+        testbench) [ ! -f ".composure/testbench.json" ] && [ ! -f ".claude/testbench.json" ] && MISSING+=("Testbench (test generation)") ;;
       esac
       break
     fi
@@ -36,7 +51,7 @@ done
 # Detection is via .claude/composure-pro.json (created by /composure-pro:initialize)
 # License validation is handled by composure-pro's own pro-license-check.sh hook
 if [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ]; then
-  if [ ! -f ".claude/composure-pro.json" ]; then
+  if [ ! -f ".composure/composure-pro.json" ] && [ ! -f ".claude/composure-pro.json" ]; then
     # Check if plugin is installed but not initialized
     for d in "${PLUGIN_CACHE}"/composure-pro/*/; do
       if [ -d "$d" ]; then
@@ -56,17 +71,22 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   printf '[composure] Run /composure:initialize to set up everything in one step.\n'
 fi
 
+# ── Upgrade notification (legacy .claude/ → .composure/) ────
+if [ -f ".claude/no-bandaids.json" ] && [ ! -f ".composure/no-bandaids.json" ]; then
+  printf '[composure:upgrade] Project configs in legacy .claude/ location. Run `composure-auth upgrade` in your terminal to migrate to .composure/ for cleaner management.\n'
+fi
+
 # ── Config freshness check ──────────────────────────────────
 # Compare plugin version against what the project was last initialized with.
 # If stale, suggest /composure:update-project to pick up new defaults + docs.
 STALE_ITEMS=()
 
 # 1. Plugin version stamp — auto-sync on every session start
-PLUGIN_VERSION=$(jq -r '.version // ""' "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
-PROJECT_VERSION=$(jq -r '.composureVersion // ""' .claude/no-bandaids.json 2>/dev/null)
+PLUGIN_VERSION=$(jq -r '.version // ""' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
+PROJECT_VERSION=$(jq -r '.composureVersion // ""' "$ACTIVE_CONFIG" 2>/dev/null)
 if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' .claude/no-bandaids.json > .claude/no-bandaids.json.tmp \
-    && mv .claude/no-bandaids.json.tmp .claude/no-bandaids.json 2>/dev/null
+  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' "$ACTIVE_CONFIG" > "${ACTIVE_CONFIG}.tmp" \
+    && mv "${ACTIVE_CONFIG}.tmp" "$ACTIVE_CONFIG" 2>/dev/null
   printf '[composure] Config synced: composureVersion %s → %s\n' "$PROJECT_VERSION" "$PLUGIN_VERSION"
 fi
 
@@ -74,7 +94,9 @@ fi
 OLDEST_DOC=""
 if [ -d ".claude/frameworks" ]; then
   NOW=$(date +%s)
-  for doc in $(find .claude/frameworks -name "*.md" -path "*/generated/*" 2>/dev/null); do
+  FRAMEWORKS_DIR=".composure/frameworks"
+  [ ! -d "$FRAMEWORKS_DIR" ] && FRAMEWORKS_DIR=".claude/frameworks"
+  for doc in $(find "$FRAMEWORKS_DIR" -name "*.md" -path "*/generated/*" 2>/dev/null); do
     DOC_MOD=$(stat -f %m "$doc" 2>/dev/null || stat -c %Y "$doc" 2>/dev/null)
     if [ -n "$DOC_MOD" ]; then
       AGE_DAYS=$(( (NOW - DOC_MOD) / 86400 ))
@@ -88,7 +110,7 @@ fi
 [ -n "$OLDEST_DOC" ] && STALE_ITEMS+=("Framework docs stale: ${OLDEST_DOC}")
 
 # 3. Stack drift — check if package.json changed since config was generated
-CONFIG_MOD=$(stat -f %m .claude/no-bandaids.json 2>/dev/null || stat -c %Y .claude/no-bandaids.json 2>/dev/null)
+CONFIG_MOD=$(stat -f %m "$ACTIVE_CONFIG" 2>/dev/null || stat -c %Y "$ACTIVE_CONFIG" 2>/dev/null)
 for pkg in package.json apps/*/package.json; do
   [ ! -f "$pkg" ] && continue
   PKG_MOD=$(stat -f %m "$pkg" 2>/dev/null || stat -c %Y "$pkg" 2>/dev/null)

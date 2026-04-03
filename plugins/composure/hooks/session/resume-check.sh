@@ -15,14 +15,25 @@
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
 # Skip entirely if Composure not initialized — init-check already tells them
-[ ! -f "$PROJECT_DIR/.claude/no-bandaids.json" ] && exit 0
+# Dual-read: .composure/ first, .claude/ fallback
+if [ -f "$PROJECT_DIR/.composure/no-bandaids.json" ]; then
+  ACTIVE_CONFIG="$PROJECT_DIR/.composure/no-bandaids.json"
+elif [ -f "$PROJECT_DIR/.claude/no-bandaids.json" ]; then
+  ACTIVE_CONFIG="$PROJECT_DIR/.claude/no-bandaids.json"
+else
+  exit 0
+fi
+
+# Resolve plugin root with cache fallback (sub-agents may not have CLAUDE_PLUGIN_ROOT)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
 
 # ── Auto-sync composureVersion on every resume ──
-PLUGIN_VERSION=$(jq -r '.version // ""' "${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
-PROJECT_VERSION=$(jq -r '.composureVersion // ""' "$PROJECT_DIR/.claude/no-bandaids.json" 2>/dev/null)
+PLUGIN_VERSION=$(jq -r '.version // ""' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
+PROJECT_VERSION=$(jq -r '.composureVersion // ""' "$ACTIVE_CONFIG" 2>/dev/null)
 if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' "$PROJECT_DIR/.claude/no-bandaids.json" > "$PROJECT_DIR/.claude/no-bandaids.json.tmp" \
-    && mv "$PROJECT_DIR/.claude/no-bandaids.json.tmp" "$PROJECT_DIR/.claude/no-bandaids.json" 2>/dev/null
+  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' "$ACTIVE_CONFIG" > "${ACTIVE_CONFIG}.tmp" \
+    && mv "${ACTIVE_CONFIG}.tmp" "$ACTIVE_CONFIG" 2>/dev/null
   printf '[composure] Config synced: composureVersion %s → %s\n' "$PROJECT_VERSION" "$PLUGIN_VERSION"
 fi
 
@@ -80,9 +91,9 @@ fi
 
 # Stale/missing graph: instruct Claude to build BEFORE any work
 if [ "$GRAPH_STALE" -eq 1 ]; then
-  GRAPH_SERVER_JS="${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"
+  GRAPH_SERVER_JS="${COMPOSURE_ROOT}/graph/dist/server.js"
   MCP_AVAILABLE=0
-  [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ] && MCP_AVAILABLE=1
+  [ -n "$COMPOSURE_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ] && MCP_AVAILABLE=1
 
   if [ "$MCP_AVAILABLE" -eq 1 ]; then
     cat <<'EOMSG'

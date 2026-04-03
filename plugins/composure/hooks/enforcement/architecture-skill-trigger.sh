@@ -72,7 +72,9 @@ fi
 touch "$DEDUP_FILE"
 
 # ── Detect framework from config ──
-CONFIG="${CLAUDE_PROJECT_DIR:-.}/.claude/no-bandaids.json"
+# Dual-read: .composure/ first, .claude/ fallback
+CONFIG="${CLAUDE_PROJECT_DIR:-.}/.composure/no-bandaids.json"
+[ ! -f "$CONFIG" ] && CONFIG="${CLAUDE_PROJECT_DIR:-.}/.claude/no-bandaids.json"
 FRONTEND="unknown"
 ARCH_HINT=""
 

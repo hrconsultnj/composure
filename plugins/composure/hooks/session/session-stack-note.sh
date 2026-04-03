@@ -24,6 +24,7 @@ EVENT=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
 [ -z "$EVENT" ] && EVENT="startup"
 
 CONFIG_CANDIDATES=(
+  "${CLAUDE_PROJECT_DIR:-.}/.composure/no-bandaids.json"
   "${CLAUDE_PROJECT_DIR:-.}/.claude/no-bandaids.json"
 )
 

@@ -1,6 +1,6 @@
 ---
 name: initialize
-description: Detect project stack and generate Composure config (.claude/no-bandaids.json, task queue, framework reference docs). Run once per project.
+description: Detect project stack and generate Composure config (.composure/no-bandaids.json, task queue, framework reference docs). Run once per project.
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 

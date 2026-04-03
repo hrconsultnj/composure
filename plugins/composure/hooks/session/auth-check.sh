@@ -15,11 +15,18 @@
 # ============================================================
 
 CREDS="$HOME/.composure/credentials.json"
-HOOKS_DIR="${CLAUDE_PLUGIN_ROOT}/hooks"
-INTEGRITY_FILE="${HOOKS_DIR}/.hooks-integrity.json"
 
-# Resolve bin path from plugin root (bare commands aren't on PATH)
-COMPOSURE_BIN="${CLAUDE_PLUGIN_ROOT}/bin"
+# Resolve plugin root with cache fallback (sub-agents may not have CLAUDE_PLUGIN_ROOT)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
+
+if [ -z "$COMPOSURE_ROOT" ]; then
+  printf '[composure] WARNING: Could not locate plugin root. Hook integrity and auth checks skipped.\n'
+  exit 0
+fi
+
+HOOKS_DIR="${COMPOSURE_ROOT}/hooks"
+INTEGRITY_FILE="${HOOKS_DIR}/.hooks-integrity.json"
 
 # ── Hook Integrity Check ──────────────────────────────────────
 # Runs first — if hooks are tampered, everything else is suspect

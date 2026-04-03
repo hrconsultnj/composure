@@ -3,7 +3,7 @@ name: app-architecture
 description: Complete architecture guide for building features from database to UI. Routes to frontend/, fullstack/, mobile/, backend/, or sdks/ based on detected stack. Covers decomposition, multi-tenant isolation, auth model, query patterns, and component patterns.
 ---
 
-Read `.claude/no-bandaids.json` and extract:
+Read `.composure/no-bandaids.json` (or `.claude/no-bandaids.json` for existing projects) and extract:
 - `frameworks` — which languages are in use
 - `frontend` — which frontend framework (`"vite"`, `"nextjs"`, `"angular"`, `"expo"`, or `null`)
 - `backend` — which backend framework (or `null`)

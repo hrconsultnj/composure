@@ -34,7 +34,7 @@ All data created by Composure stays on your machine:
 |------|----------|---------|
 | Code graph | `.code-review-graph/graph.db` | AST-based function/import/call relationships |
 | Task queue | `tasks-plans/tasks.md` | Code quality tasks logged by hooks |
-| Plugin config | `.claude/no-bandaids.json` | Per-project type-safety rules |
+| Plugin config | `.composure/no-bandaids.json` (or `.claude/no-bandaids.json`) | Per-project type-safety rules |
 
 All of these are local files in your project directory. Delete them at any time to remove all Composure data.
 

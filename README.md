@@ -119,7 +119,7 @@ Composure operates at three layers — each one doing a different job:
 
 ```
 Composure (foundation)
-  ├── .claude/no-bandaids.json      ← All plugins read this for stack detection
+  ├── .composure/no-bandaids.json    ← All plugins read this for stack detection (or .claude/ for legacy)
   ├── tasks-plans/tasks.md          ← All plugins write findings here
   ├── /composure:commit             ← Blocks on Critical findings from ANY plugin
   └── composure-graph MCP           ← 8 languages, 13 node types, cross-project queries

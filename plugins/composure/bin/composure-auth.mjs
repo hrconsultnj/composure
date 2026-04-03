@@ -4,13 +4,14 @@
  * composure-auth.mjs — CLI Authentication Orchestrator
  *
  * Handles OAuth 2.1 PKCE flow: CLI → browser → localhost callback → token storage.
- * Subcommands: login, logout, status, upgrade
+ * Subcommands: login, logout, status, upgrade, upgrade-plan
  *
  * Usage:
- *   composure-auth login     # Open browser, authenticate, store tokens
- *   composure-auth logout    # Clear stored credentials
- *   composure-auth status    # Show current auth status and plan
- *   composure-auth upgrade   # Open pricing page in browser
+ *   composure-auth login        # Open browser, authenticate, store tokens
+ *   composure-auth logout       # Clear stored credentials
+ *   composure-auth status       # Show current auth status and plan
+ *   composure-auth upgrade      # Migrate project configs (.claude/ → .composure/)
+ *   composure-auth upgrade-plan # Open pricing page in browser
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -296,13 +297,96 @@ async function status() {
   console.log(`Credentials: ${CREDENTIALS_PATH}`);
 }
 
-// ── Upgrade ──────────────────────────────────────────────────────────
+// ── Upgrade Plan ─────────────────────────────────────────────────────
 
-function upgrade() {
+function upgradePlan() {
   const url = `${API_BASE}/pricing`;
   console.log("Opening pricing page...");
   openBrowser(url);
   console.log(`Visit: ${url}`);
+}
+
+// ── Upgrade (migrate .claude/ → .composure/) ────────────────────────
+
+import { cpSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { execSync } from "node:child_process";
+
+async function upgradeProject() {
+  // Find project root
+  let projectDir;
+  try {
+    projectDir = execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+  } catch {
+    projectDir = process.cwd();
+  }
+
+  const claudeDir = join(projectDir, ".claude");
+  const composureDir = join(projectDir, ".composure");
+
+  console.log(`\nComposure Upgrade — Migrate configs to .composure/\n`);
+  console.log(`Project: ${projectDir}`);
+
+  // Check for legacy configs
+  const legacyConfig = join(claudeDir, "no-bandaids.json");
+  if (!existsSync(legacyConfig)) {
+    console.log("\nNo legacy .claude/no-bandaids.json found. Nothing to migrate.");
+    if (existsSync(join(composureDir, "no-bandaids.json"))) {
+      console.log("Already using .composure/ — you're up to date.");
+    } else {
+      console.log("Run /composure:initialize to set up this project.");
+    }
+    return;
+  }
+
+  if (existsSync(join(composureDir, "no-bandaids.json"))) {
+    console.log("\n.composure/no-bandaids.json already exists. Already migrated.");
+    return;
+  }
+
+  // Create .composure/ directory
+  if (!existsSync(composureDir)) {
+    mkdirSync(composureDir, { recursive: true });
+  }
+
+  let migrated = 0;
+
+  // Migrate no-bandaids.json
+  cpSync(legacyConfig, join(composureDir, "no-bandaids.json"));
+  migrated++;
+  console.log(`  Migrated: no-bandaids.json`);
+
+  // Migrate companion configs
+  for (const companion of ["sentinel", "shipyard", "testbench", "composure-pro"]) {
+    const src = join(claudeDir, `${companion}.json`);
+    if (existsSync(src)) {
+      cpSync(src, join(composureDir, `${companion}.json`));
+      migrated++;
+      console.log(`  Migrated: ${companion}.json`);
+    }
+  }
+
+  // Migrate frameworks/
+  const frameworksSrc = join(claudeDir, "frameworks");
+  if (existsSync(frameworksSrc)) {
+    cpSync(frameworksSrc, join(composureDir, "frameworks"), { recursive: true });
+    migrated++;
+    console.log(`  Migrated: frameworks/`);
+  }
+
+  // Add .composure/ to .gitignore
+  const gitignorePath = join(projectDir, ".gitignore");
+  if (existsSync(gitignorePath)) {
+    const content = readFileSync(gitignorePath, "utf8");
+    if (!content.includes(".composure/")) {
+      writeFileSync(gitignorePath, content.trimEnd() + "\n\n# Composure\n.composure/\n");
+      console.log(`  Updated: .gitignore`);
+    }
+  }
+
+  console.log(`\nMigrated ${migrated} item(s) to .composure/`);
+  console.log(`Legacy .claude/ files kept for backward compatibility.`);
+  console.log(`\nRestart Claude Code to pick up the new paths.`);
 }
 
 // ── HTML Response Page ───────────────────────────────────────────────
@@ -344,16 +428,21 @@ switch (subcommand) {
     break;
 
   case "upgrade":
-    upgrade();
+    await upgradeProject();
+    break;
+
+  case "upgrade-plan":
+    upgradePlan();
     break;
 
   default:
     console.log("composure-auth — Composure CLI Authentication\n");
     console.log("Usage:");
-    console.log("  composure-auth login     Authenticate via browser (OAuth 2.1 + PKCE)");
-    console.log("  composure-auth logout    Clear stored credentials");
-    console.log("  composure-auth status    Show auth status and plan info");
-    console.log("  composure-auth upgrade   Open pricing page to upgrade plan");
+    console.log("  composure-auth login        Authenticate via browser (OAuth 2.1 + PKCE)");
+    console.log("  composure-auth logout       Clear stored credentials");
+    console.log("  composure-auth status       Show auth status and plan info");
+    console.log("  composure-auth upgrade      Migrate project configs (.claude/ → .composure/)");
+    console.log("  composure-auth upgrade-plan Open pricing page to upgrade plan");
     console.log(`\nCredentials: ${CREDENTIALS_PATH}`);
     break;
 }

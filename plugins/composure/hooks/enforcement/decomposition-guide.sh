@@ -39,7 +39,11 @@ case "$FILE_PATH" in
 esac
 
 # ── Check if architecture patterns exist for this stack ──
-CONFIG_FILE="${CLAUDE_PROJECT_DIR}/.claude/no-bandaids.json"
+# Dual-read: .composure/ first, .claude/ fallback
+CONFIG_FILE="${CLAUDE_PROJECT_DIR}/.composure/no-bandaids.json"
+if [ ! -f "$CONFIG_FILE" ]; then
+  CONFIG_FILE="${CLAUDE_PROJECT_DIR}/.claude/no-bandaids.json"
+fi
 if [ ! -f "$CONFIG_FILE" ]; then
   # No config — can't determine stack, stay quiet
   exit 0

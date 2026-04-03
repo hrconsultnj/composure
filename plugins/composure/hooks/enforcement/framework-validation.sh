@@ -37,7 +37,7 @@ fi
 if [[ -z "$PROJECT_DIR" || ! -d "$PROJECT_DIR" ]]; then
   _dir=$(dirname "$FILE_PATH")
   while [[ "$_dir" != "/" && "$_dir" != "." ]]; do
-    if [[ -d "${_dir}/.git" || -f "${_dir}/.claude/no-bandaids.json" ]]; then
+    if [[ -d "${_dir}/.git" || -f "${_dir}/.composure/no-bandaids.json" || -f "${_dir}/.claude/no-bandaids.json" ]]; then
       PROJECT_DIR="$_dir"
       break
     fi
@@ -48,7 +48,11 @@ fi
 [[ -z "$PROJECT_DIR" ]] && exit 0
 
 # ── Load config ──────────────────────────────────────────────
-CONFIG_FILE="${PROJECT_DIR}/.claude/no-bandaids.json"
+# Dual-read: .composure/ first, .claude/ fallback
+CONFIG_FILE="${PROJECT_DIR}/.composure/no-bandaids.json"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  CONFIG_FILE="${PROJECT_DIR}/.claude/no-bandaids.json"
+fi
 if [[ -f "$CONFIG_FILE" ]]; then
   CONFIG=$(cat "$CONFIG_FILE")
 else
