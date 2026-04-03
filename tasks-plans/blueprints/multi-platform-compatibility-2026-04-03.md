@@ -27,8 +27,14 @@ Research: `composure-pro/docs/expansion.txt`
 | **Codex CLI** | In dev (lifecycle) | Full (STDIO/HTTP) | .codex/config.toml | TBD | Medium — MCP first |
 | **Cline** (VS Code) | Yes (.clinerules/hooks/) | Yes | .clinerules | No | Medium — hooks + MCP |
 | **Roo Code** (VS Code) | Via MCP only | Full | Custom modes | No | Easy — MCP-only integration |
+| **Windsurf** (Codeium) | Yes (Cascade Hooks) | Full | .windsurfrules | JSON config | High — hooks + MCP + rules |
+| **Replit** | No | Full | — | MCP only | Medium — MCP-only integration |
+| **Lovable** | No | Full (Personal Connectors) | — | MCP for context | Medium — MCP-only integration |
+| **Bolt.new** (StackBlitz) | No | Full (bolt.diy) | — | MCP config UI | Medium — MCP via community fork |
+| **Dyad.sh** (open source) | No | Full (v0.22+, stdio/HTTP) | — | MCP | Medium — MCP-only, self-hosted |
 | **Continue.dev** (VS Code) | No | No | .continue/rules/ | No | Low — rules-only, no runtime enforcement |
 | **Aider** | No | No | YAML config | No | Low — config-only |
+| **v0** (Vercel) | No | No | tailwind.config only | No | Not viable — no extensibility |
 | **Claude Code Web** | Via sandbox | Via sandbox | Same as CLI | Yes | Auto — same plugin system |
 | **Claude Code Mobile** | Monitor only | No local | Same as CLI | No | Monitor only — no local enforcement |
 | **Claude Desktop** | Full | Full | Same as CLI | Yes | Auto — same plugin system |
@@ -41,11 +47,11 @@ Research: `composure-pro/docs/expansion.txt`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 3: Platform Adapters (optional, for native hook integration) │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│  │  Claude   │ │  Cursor  │ │ Gemini   │ │  Cline   │ │   Git    │ │
-│  │ hooks.json│ │hooks.json│ │extension │ │.clinerules│ │pre-commit│ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
+│  Layer 3: Platform Adapters (optional, for native hook integration)       │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ Claude │ │ Cursor │ │Windsurf│ │ Gemini │ │  Cline   │ │   Git    │ │
+│  │hooks.js│ │hooks.js│ │Cascade │ │  ext   │ │.clinerule│ │pre-commit│ │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └──────────┘ └──────────┘ │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Layer 2: MCP Server (universal — works on all MCP-capable tools)  │
 │                                                                     │
