@@ -53,7 +53,8 @@ export function loadDefaultRules(
   try {
     const raw = readFileSync(filePath, "utf8");
     const parsed = JSON.parse(raw);
-    return (parsed.rules as Record<string, FrameworkRuleGroup>) ?? null;
+    const rules: Record<string, FrameworkRuleGroup> | undefined = parsed.rules;
+    return rules ?? null;
   } catch {
     return null;
   }

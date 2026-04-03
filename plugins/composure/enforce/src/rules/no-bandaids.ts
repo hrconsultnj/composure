@@ -5,7 +5,7 @@
  * Each rule maps 1:1 to the bash implementation.
  */
 
-import type { Rule } from "../types.js";
+import type { Rule, Language } from "../types.js";
 
 // ── TypeScript / JavaScript (13 rules) ─────────────────────────────
 
@@ -334,5 +334,7 @@ export const ALL_RULES: Rule[] = [
 
 /** Get rules for a specific language. */
 export function getRulesForLanguage(lang: string): Rule[] {
-  return ALL_RULES.filter((r) => r.languages.includes(lang as any));
+  return ALL_RULES.filter((r) =>
+    r.languages.includes(lang as Language),
+  );
 }
