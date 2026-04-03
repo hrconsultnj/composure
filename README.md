@@ -66,7 +66,13 @@ All plugins, all skills, all hooks — free for personal use, education, and non
 
 ## Installation
 
-You only need one install command. Composure is the foundation — when you run `/composure:initialize`, it detects your stack and automatically installs the companion plugins (Sentinel, Testbench, Shipyard).
+### Quick Install
+
+```bash
+curl -fsSL https://composure-pro.com/install.sh | sh
+```
+
+### Manual Install
 
 ```bash
 # Add the marketplace
@@ -74,16 +80,25 @@ claude plugin marketplace add hrconsultnj/claude-plugins
 
 # Install Composure
 claude plugin install composure@my-claude-plugins
+```
 
-# Initialize in your project (auto-installs companion plugins)
+### Authenticate
+
+After installing, restart Claude Code and authenticate:
+
+```
+/composure:auth login
+```
+
+This opens your browser for a one-time OAuth login. Your credentials are stored locally at `~/.composure/credentials.json`.
+
+### Initialize in Your Project
+
+```
 /composure:initialize
 ```
 
-Design Forge is the one optional install — add it if you're building frontend experiences:
-
-```bash
-claude plugin install design-forge@my-claude-plugins
-```
+This detects your stack, builds the code graph, and auto-installs companion plugins (Sentinel, Testbench, Shipyard, Design Forge) based on what your project needs.
 
 ## How It Works
 

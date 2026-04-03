@@ -20,6 +20,8 @@
   "commands": "./commands/",
   "bin": {
     "composure-auth": "./bin/composure-auth.mjs",
-    "composure-token": "./bin/composure-token.mjs"
+    "composure-token": "./bin/composure-token.mjs",
+    "composure-fetch": "./bin/composure-fetch.mjs",
+    "composure-cache": "./bin/composure-cache.mjs"
   }
 }
