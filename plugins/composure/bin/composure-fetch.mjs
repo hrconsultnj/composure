@@ -115,8 +115,8 @@ async function fetchWithCache(type, endpoint, cachePath) {
   }
 
   if (result.status === 403) {
-    console.error(`Plan upgrade required. ${result.error}`);
-    console.error("Run /composure:auth upgrade to see pricing.");
+    console.error(`This content requires a different plan. ${result.error}`);
+    console.error("Run /composure:auth upgrade to view available plans.");
     process.exit(1);
   }
 
