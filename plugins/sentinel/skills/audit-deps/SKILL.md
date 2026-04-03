@@ -11,7 +11,7 @@ Run a focused dependency vulnerability audit using the project's detected packag
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill sentinel audit-deps {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill sentinel audit-deps {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/sentinel/skills/audit-deps/`. If cached, read directly from there.
@@ -26,4 +26,3 @@ Cached content is at `~/.composure/cache/sentinel/skills/audit-deps/`. If cached
 | 4 | `04-propose-overrides.md` |
 | 5 | `05-summary.md` |
 | 6 | `06-auto-fix.md` |
-

@@ -11,7 +11,7 @@ Run a production readiness checklist before deploying. Checks environment variab
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill shipyard preflight {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill shipyard preflight {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/shipyard/skills/preflight/`. If cached, read directly from there.
@@ -26,4 +26,3 @@ Cached content is at `~/.composure/cache/shipyard/skills/preflight/`. If cached,
 | 4 | `02c-database-dns.md` |
 | 5 | `03-report.md` |
 | 6 | `04-write-tasks.md` |
-

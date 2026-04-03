@@ -11,8 +11,7 @@ Perform a focused, token-efficient code review of only the changed code and its 
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure review {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure review {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/review/`. If cached, read directly from there.
-

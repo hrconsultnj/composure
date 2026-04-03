@@ -11,7 +11,7 @@ Generate a professional, self-contained HTML audit report by orchestrating all i
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure report {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure report {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/report/`. If cached, read directly from there.
@@ -32,4 +32,3 @@ Cached content is at `~/.composure/cache/composure/skills/report/`. If cached, r
 - `audit-header.html`
 - `audit-tab-panels.html`
 - `audit-tabs.html`
-

@@ -2,7 +2,7 @@
   "version": "1.37.0",
   "generated": "2026-04-03T04:16:07.276Z",
   "files": {
-    "auth-check.sh": "05e084dd0543e77c6d5b6a057691c7ec520ddda5f79dc4374217c606204df463",
+    "auth-check.sh": "b2fdecb6bcfe6a43f955959047807696400ec5f768e095a711dd03593d46ca2f",
     "content-protection.sh": "74f9e7e5491c9c1f992388f82abb68b6329f1527b563418404738afe0b4c820d",
     "init-check.sh": "70daead1099933ac524d42bce58ac19db19e12f504145517eca3cc45e6bd1983",
     "resume-check.sh": "b1cd4de6055fc052a2f912c05631aa8b3672267ab891d4b3c1e159010759dd14",

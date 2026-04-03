@@ -10,7 +10,7 @@ Design Forge provides production-ready components AND design methodology for bui
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill design-forge design-forge {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill design-forge design-forge {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/design-forge/skills/design-forge/`. If cached, read directly from there.
@@ -45,4 +45,4 @@ This skill has category-specific content:
 
 - `taxonomy/` — 20 files
 
-Fetch category content: `composure-fetch skill design-forge design-forge {category}/{filename}`
+Fetch category content: `"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill design-forge design-forge {category}/{filename}`

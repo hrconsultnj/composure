@@ -10,8 +10,7 @@ Commit changes while enforcing task queue hygiene. Offers pre-commit verificatio
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure commit {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure commit {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/commit/`. If cached, read directly from there.
-

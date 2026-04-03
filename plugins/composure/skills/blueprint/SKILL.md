@@ -11,7 +11,7 @@ Structured "think before building" step — from requirements discovery through 
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure blueprint {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure blueprint {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/blueprint/`. If cached, read directly from there.
@@ -39,4 +39,3 @@ Cached content is at `~/.composure/cache/composure/skills/blueprint/`. If cached
 - `00d-stack-options.md`
 - `00e-requirements-summary.md`
 - `04b-blueprint-document.md`
-

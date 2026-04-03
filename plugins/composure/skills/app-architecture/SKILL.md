@@ -13,7 +13,7 @@ Read `.claude/no-bandaids.json` and extract:
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure app-architecture {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure app-architecture {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/app-architecture/`. If cached, read directly from there.
@@ -29,4 +29,4 @@ This skill has category-specific content:
 - `mobile/` — 7 files
 - `sdks/` — 2 files
 
-Fetch category content: `composure-fetch skill composure app-architecture {category}/{filename}`
+Fetch category content: `"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure app-architecture {category}/{filename}`

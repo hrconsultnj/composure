@@ -10,7 +10,7 @@ AI-powered design research agent that autonomously gathers intelligence through 
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill design-forge ux-researcher {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill design-forge ux-researcher {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/design-forge/skills/ux-researcher/`. If cached, read directly from there.
@@ -31,4 +31,3 @@ Cached content is at `~/.composure/cache/design-forge/skills/ux-researcher/`. If
 - `industry-research-template.md`
 - `report-templates.md`
 - `technology-matrix.md`
-

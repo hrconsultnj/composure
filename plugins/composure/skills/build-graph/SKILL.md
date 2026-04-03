@@ -11,8 +11,7 @@ Build or incrementally update the persistent code knowledge graph, generate a st
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure build-graph {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure build-graph {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/build-graph/`. If cached, read directly from there.
-

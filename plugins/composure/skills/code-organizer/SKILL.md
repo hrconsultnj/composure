@@ -11,7 +11,7 @@ Restructure a disorganized project into a clean, conventional file layout. Detec
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure code-organizer {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure code-organizer {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/code-organizer/`. If cached, read directly from there.
@@ -26,4 +26,3 @@ Cached content is at `~/.composure/cache/composure/skills/code-organizer/`. If c
 | 4 | `03-plan.md` |
 | 5 | `04-execute.md` |
 | 6 | `05-verify.md` |
-

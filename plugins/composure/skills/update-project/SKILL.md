@@ -11,8 +11,7 @@ Lightweight refresh for an already-initialized project. Unlike `/initialize`, th
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure update-project {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure update-project {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/update-project/`. If cached, read directly from there.
-

@@ -11,7 +11,7 @@ Validate CI/CD workflow files for syntax errors, common mistakes, and best pract
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill shipyard ci-validate {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill shipyard ci-validate {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/shipyard/skills/ci-validate/`. If cached, read directly from there.
@@ -25,4 +25,3 @@ Cached content is at `~/.composure/cache/shipyard/skills/ci-validate/`. If cache
 | 3 | `03a-heuristic-checks-1-6.md` |
 | 4 | `03b-heuristic-checks-7-12.md` |
 | 5 | `04-report-and-tasks.md` |
-

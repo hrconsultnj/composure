@@ -11,7 +11,7 @@ Generate a structured changelog from git history, enriched with code graph entit
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure changelog {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure changelog {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/changelog/`. If cached, read directly from there.
@@ -23,4 +23,3 @@ Cached content is at `~/.composure/cache/composure/skills/changelog/`. If cached
 | 1 | `01-gather-commits.md` |
 | 2 | `02-entity-mapping.md` |
 | 3 | `03-generate-output.md` |
-

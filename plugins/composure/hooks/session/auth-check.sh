@@ -18,6 +18,9 @@ CREDS="$HOME/.composure/credentials.json"
 HOOKS_DIR="${CLAUDE_PLUGIN_ROOT}/hooks"
 INTEGRITY_FILE="${HOOKS_DIR}/.hooks-integrity.json"
 
+# Resolve bin path from plugin root (bare commands aren't on PATH)
+COMPOSURE_BIN="${CLAUDE_PLUGIN_ROOT}/bin"
+
 # ── Hook Integrity Check ──────────────────────────────────────
 # Runs first — if hooks are tampered, everything else is suspect
 
@@ -70,7 +73,7 @@ if [ ! -f "$CREDS" ]; then
 fi
 
 # Validate token (quick, no network call)
-VALIDATE_RESULT=$(composure-token validate 2>/dev/null)
+VALIDATE_RESULT=$("${COMPOSURE_BIN}/composure-token.mjs" validate 2>/dev/null)
 VALIDATE_EXIT=$?
 
 if [ $VALIDATE_EXIT -eq 0 ]; then
@@ -82,7 +85,7 @@ fi
 
 if [ $VALIDATE_EXIT -eq 2 ]; then
   # Token expired — attempt silent refresh (background, non-blocking)
-  composure-token refresh >/dev/null 2>&1 &
+  "${COMPOSURE_BIN}/composure-token.mjs" refresh >/dev/null 2>&1 &
   PLAN=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$CREDS','utf8'));console.log(c.plan||'free')}catch{console.log('free')}" 2>/dev/null)
   printf '[composure] Session refreshing (%s plan). If this persists, run /composure:auth login.\n' "$PLAN"
   exit 0

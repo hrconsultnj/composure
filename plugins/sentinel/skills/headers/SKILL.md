@@ -11,7 +11,7 @@ Analyze HTTP security headers for a given URL. Grades based on actual exploitabl
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill sentinel headers {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill sentinel headers {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/sentinel/skills/headers/`. If cached, read directly from there.
@@ -24,4 +24,3 @@ Cached content is at `~/.composure/cache/sentinel/skills/headers/`. If cached, r
 | 2 | `02-analyze-headers.md` |
 | 3 | `03-overall-grade.md` |
 | 4 | `04-report.md` |
-

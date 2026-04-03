@@ -11,8 +11,7 @@ Process the task queue from `tasks-plans/tasks.md` (hook-generated), `tasks-plan
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure backlog {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure backlog {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/backlog/`. If cached, read directly from there.
-

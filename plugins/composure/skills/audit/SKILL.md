@@ -11,7 +11,7 @@ Comprehensive codebase assessment that produces a scored health report with lett
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure audit {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure audit {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/audit/`. If cached, read directly from there.
@@ -28,4 +28,3 @@ Cached content is at `~/.composure/cache/composure/skills/audit/`. If cached, re
 | 6 | `05-quality.md` |
 | 7 | `06-dependencies.md` |
 | 8 | `07-score-report.md` |
-

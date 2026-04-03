@@ -11,7 +11,7 @@ Bootstrap Composure project-level configuration by detecting the tech stack, que
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure initialize {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure initialize {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/initialize/`. If cached, read directly from there.
@@ -34,4 +34,3 @@ Cached content is at `~/.composure/cache/composure/skills/initialize/`. If cache
 | 12 | `10-task-queue.md` |
 | 13 | `11-report.md` |
 | 14 | `12-claude-md-offer.md` |
-

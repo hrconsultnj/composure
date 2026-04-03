@@ -11,7 +11,7 @@ Audit project dependencies for known vulnerabilities (CVEs), outdated packages, 
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill shipyard deps-check {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill shipyard deps-check {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/shipyard/skills/deps-check/`. If cached, read directly from there.
@@ -24,4 +24,3 @@ Cached content is at `~/.composure/cache/shipyard/skills/deps-check/`. If cached
 | 2 | `02-run-audit.md` |
 | 3 | `03-enrich-results.md` |
 | 4 | `04-fix-report-tasks.md` |
-

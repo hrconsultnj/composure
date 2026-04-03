@@ -11,7 +11,7 @@ Run tests and parse the output into actionable failure reports with source conte
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill testbench run {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill testbench run {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/testbench/skills/run/`. If cached, read directly from there.
@@ -26,4 +26,3 @@ Cached content is at `~/.composure/cache/testbench/skills/run/`. If cached, read
 | 4 | `04-parse-output.md` |
 | 5 | `05-report-and-store.md` |
 | 6 | `06-coverage.md` |
-

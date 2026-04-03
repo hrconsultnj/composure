@@ -11,7 +11,7 @@ Guided workflow for building custom MCP servers that connect external services t
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure mcp-builder {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure mcp-builder {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/mcp-builder/`. If cached, read directly from there.
@@ -31,4 +31,3 @@ Cached content is at `~/.composure/cache/composure/skills/mcp-builder/`. If cach
 
 - `server-template.ts`
 - `tool-template.ts`
-

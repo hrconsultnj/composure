@@ -11,7 +11,7 @@ Configure Shipyard by detecting CI/CD platforms, deployment targets, container c
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill shipyard configure {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill shipyard configure {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/shipyard/skills/configure/`. If cached, read directly from there.
@@ -25,4 +25,3 @@ Cached content is at `~/.composure/cache/shipyard/skills/configure/`. If cached,
 | 3 | `03-detect-tools.md` |
 | 4 | `04-context7-queries.md` |
 | 5 | `05-config-and-report.md` |
-

@@ -11,7 +11,7 @@ Inspect an installed package's source code for behavioral signals that indicate 
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill sentinel package-risk {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill sentinel package-risk {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/sentinel/skills/package-risk/`. If cached, read directly from there.
@@ -23,4 +23,3 @@ Cached content is at `~/.composure/cache/sentinel/skills/package-risk/`. If cach
 | 1 | `01-locate-package.md` |
 | 2 | `02-behavior-scan.md` |
 | 3 | `03-score-and-report.md` |
-

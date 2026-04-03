@@ -11,7 +11,7 @@ Generate a complete CI/CD workflow tailored to the project's detected stack. Sup
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill shipyard ci-generate {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill shipyard ci-generate {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/shipyard/skills/ci-generate/`. If cached, read directly from there.
@@ -24,4 +24,3 @@ Cached content is at `~/.composure/cache/shipyard/skills/ci-generate/`. If cache
 | 2 | `02a-platform-generation.md` |
 | 3 | `02b-deploy-templates-and-diff.md` |
 | 4 | `03-validate-and-report.md` |
-

@@ -11,7 +11,7 @@ Guided workflow for adding third-party service integrations. Detects your projec
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure integration-builder {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure integration-builder {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/integration-builder/`. If cached, read directly from there.
@@ -35,4 +35,3 @@ Cached content is at `~/.composure/cache/composure/skills/integration-builder/`.
 - `monorepo-patterns.md`
 - `testing-patterns.md`
 - `webhook-patterns.md`
-

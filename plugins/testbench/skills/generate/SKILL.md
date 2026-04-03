@@ -11,7 +11,7 @@ Generate a test file for a given source file. The generated test matches the pro
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill testbench generate {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill testbench generate {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/testbench/skills/generate/`. If cached, read directly from there.
@@ -25,4 +25,3 @@ Cached content is at `~/.composure/cache/testbench/skills/generate/`. If cached,
 | 3 | `03-read-existing-tests.md` |
 | 4 | `04-generate-test.md` |
 | 5 | `05-run-and-fix.md` |
-

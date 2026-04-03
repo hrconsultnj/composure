@@ -11,7 +11,7 @@ Calibrate the test bench by detecting the test framework, learning conventions f
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill testbench calibrate {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill testbench calibrate {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/testbench/skills/calibrate/`. If cached, read directly from there.
@@ -24,4 +24,3 @@ Cached content is at `~/.composure/cache/testbench/skills/calibrate/`. If cached
 | 2 | `02-detect-conventions.md` |
 | 3 | `03-context7-queries.md` |
 | 4 | `04-config-and-report.md` |
-

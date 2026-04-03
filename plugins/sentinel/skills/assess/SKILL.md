@@ -11,7 +11,7 @@ Assess the project's security surface and bootstrap Sentinel configuration by de
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill sentinel assess {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill sentinel assess {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/sentinel/skills/assess/`. If cached, read directly from there.
@@ -25,4 +25,3 @@ Cached content is at `~/.composure/cache/sentinel/skills/assess/`. If cached, re
 | 3 | `03-check-security-tools.md` |
 | 4 | `04-detect-integrations.md` |
 | 5 | `05-config-and-report.md` |
-

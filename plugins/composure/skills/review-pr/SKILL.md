@@ -11,7 +11,7 @@ Perform a comprehensive, graph-powered code review of a pull request. Uses verif
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure review-pr {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure review-pr {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/review-pr/`. If cached, read directly from there.
@@ -33,4 +33,3 @@ Cached content is at `~/.composure/cache/composure/skills/review-pr/`. If cached
 | 11 | `06-framework-checks.md` |
 | 12 | `07-security-crossover.md` |
 | 13 | `08-generate-output.md` |
-

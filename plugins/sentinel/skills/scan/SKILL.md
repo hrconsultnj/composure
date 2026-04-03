@@ -11,7 +11,7 @@ Run a comprehensive security scan combining static analysis (Semgrep), dependenc
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill sentinel scan {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill sentinel scan {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/sentinel/skills/scan/`. If cached, read directly from there.
@@ -28,4 +28,3 @@ Cached content is at `~/.composure/cache/sentinel/skills/scan/`. If cached, read
 | 6 | `06-known-cve-check.md` |
 | 7 | `07-write-to-tasks.md` |
 | 8 | `08-report-summary.md` |
-

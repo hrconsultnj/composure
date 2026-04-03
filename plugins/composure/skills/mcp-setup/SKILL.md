@@ -11,7 +11,7 @@ Discover and install MCP servers that enhance Claude Code for your project. Read
 This skill's content is served from the Composure API. Before reading a step, fetch it:
 
 ```bash
-composure-fetch skill composure mcp-setup {step-filename}
+"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure mcp-setup {step-filename}
 ```
 
 Cached content is at `~/.composure/cache/composure/skills/mcp-setup/`. If cached, read directly from there.
@@ -30,4 +30,4 @@ This skill has category-specific content:
 
 - `data/` — 0 files
 
-Fetch category content: `composure-fetch skill composure mcp-setup {category}/{filename}`
+Fetch category content: `"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure mcp-setup {category}/{filename}`
