@@ -22,6 +22,7 @@ import {
   validateAll,
   getRules,
 } from "./engine.js";
+import { runAdapter, type Platform } from "./adapters.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -122,6 +123,16 @@ async function main() {
       break;
     }
 
+    case "adapt": {
+      const platform = filePath as Platform;
+      if (!platform || !["cursor", "windsurf", "cline", "git", "all"].includes(platform)) {
+        console.error("Usage: composure-enforce adapt <cursor|windsurf|cline|git|all>");
+        process.exit(1);
+      }
+      runAdapter(platform);
+      break;
+    }
+
     default:
       console.log("composure-enforce — Composure Enforcement Engine\n");
       console.log("Usage:");
@@ -130,6 +141,8 @@ async function main() {
       console.log("  composure-enforce quality <file>      Check code quality metrics");
       console.log("  composure-enforce rules [--language]  List enforcement rules");
       console.log("  composure-enforce all <file>          Run all checks");
+      console.log("  composure-enforce adapt <platform>    Generate platform configs");
+      console.log("    Platforms: cursor, windsurf, cline, git, all");
       console.log("\nExit codes: 0 = passed, 2 = violations found");
       break;
   }

@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 
 // dist/cli.js
 import { readFileSync as readFileSync4 } from "node:fs";
@@ -723,6 +729,258 @@ function getRules(language) {
   };
 }
 
+// dist/adapters.js
+import { existsSync as existsSync4, mkdirSync, writeFileSync } from "node:fs";
+import { join as join3 } from "node:path";
+function getEnforcePath() {
+  if (process.env.CLAUDE_PLUGIN_ROOT) {
+    return join3(process.env.CLAUDE_PLUGIN_ROOT, "enforce", "dist", "cli.js");
+  }
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const cachePath = join3(home, ".claude", "plugins", "cache", "my-claude-plugins", "composure");
+  if (existsSync4(cachePath)) {
+    const entries = __require("fs").readdirSync(cachePath).filter((e) => !e.startsWith("."));
+    if (entries.length > 0) {
+      return join3(cachePath, entries[entries.length - 1], "enforce", "dist", "cli.js");
+    }
+  }
+  return "composure-enforce";
+}
+function getServerPath() {
+  if (process.env.CLAUDE_PLUGIN_ROOT) {
+    return join3(process.env.CLAUDE_PLUGIN_ROOT, "enforce", "dist", "server.js");
+  }
+  return "composure-enforce-server";
+}
+function ensureDir(dir) {
+  if (!existsSync4(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+}
+function adaptCursor(projectDir) {
+  const cursorDir = join3(projectDir, ".cursor");
+  ensureDir(cursorDir);
+  ensureDir(join3(cursorDir, "rules"));
+  const enforcePath = getEnforcePath();
+  const serverPath = getServerPath();
+  const created = [];
+  const hooksConfig = {
+    hooks: {
+      PreToolUse: {
+        command: "node",
+        args: [
+          enforcePath,
+          "all",
+          "${file_path}",
+          "--content",
+          "${content}"
+        ]
+      }
+    }
+  };
+  writeFileSync(join3(cursorDir, "hooks.json"), JSON.stringify(hooksConfig, null, 2) + "\n");
+  created.push(".cursor/hooks.json");
+  const mcpConfig = {
+    mcpServers: {
+      "composure-graph": {
+        command: "node",
+        args: ["--experimental-sqlite", serverPath.replace("enforce", "graph")]
+      },
+      "composure-enforce": {
+        command: "node",
+        args: [serverPath]
+      }
+    }
+  };
+  writeFileSync(join3(cursorDir, "mcp.json"), JSON.stringify(mcpConfig, null, 2) + "\n");
+  created.push(".cursor/mcp.json");
+  const rulesContent = `---
+description: Composure code quality enforcement
+globs: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.go', '**/*.rs']
+alwaysApply: true
+---
+
+# Composure Enforcement Rules
+
+This project uses Composure for code quality enforcement. The following rules are enforced automatically via hooks:
+
+## No Band-Aids
+- No \`as any\` \u2014 use type guards or satisfies
+- No \`@ts-ignore\` / \`@ts-nocheck\` \u2014 fix the type error
+- No non-null assertions (\`!\`) \u2014 use optional chaining
+- No \`any\` parameters or return types \u2014 define interfaces
+- No \`eval()\` \u2014 never
+- No bare \`except:\` (Python) \u2014 catch specific exceptions
+- No discarded errors (Go) \u2014 handle or return with context
+
+## Decomposition
+- Files over 400 lines get flagged, 800+ is critical
+- Functions over 150 lines must be extracted
+- 3+ inline types \u2192 move to types.ts
+- Route files should be under 50 lines
+
+## Framework Validation
+Stack-specific rules loaded from .composure/no-bandaids.json \u2014 covers Next.js, Tailwind, Supabase, React 19, TanStack Query, Zod, and more.
+
+Run \`composure-enforce rules\` to see all active rules.
+`;
+  writeFileSync(join3(cursorDir, "rules", "composure.mdc"), rulesContent);
+  created.push(".cursor/rules/composure.mdc");
+  return created;
+}
+function adaptWindsurf(projectDir) {
+  const windsurfDir = join3(projectDir, ".windsurf");
+  ensureDir(windsurfDir);
+  ensureDir(join3(windsurfDir, "rules"));
+  const enforcePath = getEnforcePath();
+  const created = [];
+  const hooksConfig = {
+    hooks: {
+      pre_write_code: [
+        {
+          command: `node ${enforcePath} all "\${file_path}" --content "\${content}"`,
+          show_output: true
+        }
+      ],
+      post_write_code: [
+        {
+          command: `node ${enforcePath} quality "\${file_path}"`,
+          show_output: false
+        }
+      ]
+    }
+  };
+  writeFileSync(join3(windsurfDir, "hooks.json"), JSON.stringify(hooksConfig, null, 2) + "\n");
+  created.push(".windsurf/hooks.json");
+  const rulesContent = `---
+trigger: always_on
+description: "Composure code quality enforcement \u2014 no band-aids, framework validation, decomposition limits"
+---
+
+# Composure Enforcement
+
+This project uses Composure for code quality enforcement.
+
+## Rules Summary
+- **No type shortcuts**: \`as any\`, \`@ts-ignore\`, non-null assertions, \`any\` params/returns
+- **No unsafe patterns**: \`eval()\`, bare \`except:\`, discarded errors, \`panic()\` in libraries
+- **Decomposition**: Files <400 lines, functions <150 lines, types in types.ts
+- **Framework-specific**: Stack rules from .composure/no-bandaids.json
+
+## Enforcement
+Pre-write hooks run automatically and block violations (exit code 2).
+Post-write hooks log quality metrics.
+
+Run \`node ${enforcePath} rules\` to see all active rules.
+`;
+  writeFileSync(join3(windsurfDir, "rules", "composure.md"), rulesContent);
+  created.push(".windsurf/rules/composure.md");
+  return created;
+}
+function adaptCline(projectDir) {
+  const created = [];
+  const enforcePath = getEnforcePath();
+  const rules = `# Composure Enforcement Rules
+
+This project uses Composure for code quality enforcement.
+
+## Mandatory Rules
+- Never use \`as any\` \u2014 use type guards, satisfies, or fix the type
+- Never use \`@ts-ignore\` or \`@ts-nocheck\` \u2014 fix the type error
+- Never use non-null assertions (\`!\`) \u2014 use optional chaining
+- Never type parameters as \`any\` \u2014 define an interface
+- Never use \`eval()\`
+- Files must stay under 400 lines (warn) / 800 lines (block)
+- Functions must stay under 150 lines
+- 3+ inline types \u2192 extract to types.ts
+- Route/page files should be under 50 lines
+
+## Framework Rules
+Loaded from .composure/no-bandaids.json based on detected stack.
+Run \`node ${enforcePath} rules\` to see all active rules.
+`;
+  writeFileSync(join3(projectDir, ".clinerules"), rules);
+  created.push(".clinerules");
+  return created;
+}
+function adaptGitHooks(projectDir) {
+  const gitHooksDir = join3(projectDir, ".git", "hooks");
+  if (!existsSync4(join3(projectDir, ".git"))) {
+    return [];
+  }
+  ensureDir(gitHooksDir);
+  const enforcePath = getEnforcePath();
+  const created = [];
+  const preCommit = `#!/bin/bash
+# Composure pre-commit hook \u2014 runs enforcement on staged files
+# Generated by: composure-enforce adapt git
+
+ENFORCE="node ${enforcePath}"
+FAILED=0
+
+for file in $(git diff --cached --name-only --diff-filter=ACM | grep -E '\\.(ts|tsx|js|jsx|py|go|rs|cpp|hpp|swift|kt)$'); do
+  if [ -f "$file" ]; then
+    CONTENT=$(cat "$file")
+    $ENFORCE validate "$file" --content "$CONTENT" 2>/dev/null
+    if [ $? -eq 2 ]; then
+      FAILED=1
+    fi
+  fi
+done
+
+if [ $FAILED -eq 1 ]; then
+  echo ""
+  echo "Composure: Fix violations above before committing."
+  exit 1
+fi
+exit 0
+`;
+  const hookPath = join3(gitHooksDir, "pre-commit");
+  writeFileSync(hookPath, preCommit, { mode: 493 });
+  created.push(".git/hooks/pre-commit");
+  return created;
+}
+function runAdapter(platform, projectDir) {
+  const dir = projectDir ?? findProjectRoot(process.cwd()) ?? process.cwd();
+  console.log(`
+Composure \u2014 Generate ${platform} adapter configs
+`);
+  console.log(`Project: ${dir}
+`);
+  let allCreated = [];
+  switch (platform) {
+    case "cursor":
+      allCreated = adaptCursor(dir);
+      break;
+    case "windsurf":
+      allCreated = adaptWindsurf(dir);
+      break;
+    case "cline":
+      allCreated = adaptCline(dir);
+      break;
+    case "git":
+      allCreated = adaptGitHooks(dir);
+      break;
+    case "all":
+      allCreated = [
+        ...adaptCursor(dir),
+        ...adaptWindsurf(dir),
+        ...adaptCline(dir),
+        ...adaptGitHooks(dir)
+      ];
+      break;
+  }
+  if (allCreated.length === 0) {
+    console.log("No files generated.");
+    return;
+  }
+  for (const f of allCreated) {
+    console.log(`  Created: ${f}`);
+  }
+  console.log(`
+${allCreated.length} file(s) generated.`);
+}
+
 // dist/cli.js
 var args = process.argv.slice(2);
 var command = args[0];
@@ -811,6 +1069,15 @@ async function main() {
       process.exit(result.passed ? 0 : 2);
       break;
     }
+    case "adapt": {
+      const platform = filePath;
+      if (!platform || !["cursor", "windsurf", "cline", "git", "all"].includes(platform)) {
+        console.error("Usage: composure-enforce adapt <cursor|windsurf|cline|git|all>");
+        process.exit(1);
+      }
+      runAdapter(platform);
+      break;
+    }
     default:
       console.log("composure-enforce \u2014 Composure Enforcement Engine\n");
       console.log("Usage:");
@@ -819,6 +1086,8 @@ async function main() {
       console.log("  composure-enforce quality <file>      Check code quality metrics");
       console.log("  composure-enforce rules [--language]  List enforcement rules");
       console.log("  composure-enforce all <file>          Run all checks");
+      console.log("  composure-enforce adapt <platform>    Generate platform configs");
+      console.log("    Platforms: cursor, windsurf, cline, git, all");
       console.log("\nExit codes: 0 = passed, 2 = violations found");
       break;
   }
