@@ -1,7 +1,7 @@
 {
   "name": "composure",
   "description": "Code quality enforcement, architecture skills, structural code graph, and impact-aware reviews.",
-  "version": "1.36.2",
+  "version": "1.37.0",
   "author": {
     "name": "Helder Rodrigues",
     "url": "https://github.com/hrconsultnj"
@@ -16,5 +16,10 @@
       ]
     }
   },
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "bin": {
+    "composure-auth": "./bin/composure-auth.mjs",
+    "composure-token": "./bin/composure-token.mjs"
+  }
 }

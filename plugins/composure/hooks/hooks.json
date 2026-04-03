@@ -13,6 +13,17 @@
         ]
       },
       {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/auth-check.sh\" 2>&1 || exit 0",
+            "timeout": 8,
+            "statusMessage": "Checking authentication..."
+          }
+        ]
+      },
+      {
         "matcher": "startup|resume|clear|compact",
         "hooks": [
           {

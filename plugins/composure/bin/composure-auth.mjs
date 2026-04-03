@@ -1,0 +1,359 @@
+#!/usr/bin/env node
+
+/**
+ * composure-auth.mjs — CLI Authentication Orchestrator
+ *
+ * Handles OAuth 2.1 PKCE flow: CLI → browser → localhost callback → token storage.
+ * Subcommands: login, logout, status, upgrade
+ *
+ * Usage:
+ *   composure-auth login     # Open browser, authenticate, store tokens
+ *   composure-auth logout    # Clear stored credentials
+ *   composure-auth status    # Show current auth status and plan
+ *   composure-auth upgrade   # Open pricing page in browser
+ */
+
+import { createHash, randomBytes } from "node:crypto";
+import { createServer } from "node:http";
+import { exec } from "node:child_process";
+import { platform } from "node:os";
+import {
+  readCredentials,
+  writeCredentials,
+  deleteCredentials,
+  isExpired,
+  refreshToken,
+  validateLicense,
+  getValidToken,
+  API_BASE,
+  COMPOSURE_DIR,
+  CREDENTIALS_PATH,
+} from "./composure-token.mjs";
+import { existsSync, mkdirSync } from "node:fs";
+
+// ── Constants ────────────────────────────────────────────────────────
+
+const CLIENT_ID = "composure-cli";
+const CALLBACK_PATH = "/callback";
+const LOGIN_TIMEOUT_MS = 120_000; // 2 minutes
+const PREFERRED_PORT = 19275;
+
+// ── PKCE Utilities ───────────────────────────────────────────────────
+
+function generateCodeVerifier() {
+  return randomBytes(64).toString("base64url");
+}
+
+function generateCodeChallenge(verifier) {
+  return createHash("sha256").update(verifier).digest("base64url");
+}
+
+function generateState() {
+  return randomBytes(32).toString("base64url");
+}
+
+// ── Browser Open ─────────────────────────────────────────────────────
+
+function openBrowser(url) {
+  const os = platform();
+  const cmd =
+    os === "darwin" ? "open" :
+    os === "win32" ? "start" :
+    "xdg-open";
+
+  exec(`${cmd} "${url}"`, (err) => {
+    if (err) {
+      console.error(`\nCould not open browser automatically.`);
+      console.error(`Open this URL manually:\n  ${url}\n`);
+    }
+  });
+}
+
+// ── Port Finding ─────────────────────────────────────────────────────
+
+function findFreePort(startPort) {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(startPort, "127.0.0.1", () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE" && startPort < PREFERRED_PORT + 10) {
+        resolve(findFreePort(startPort + 1));
+      } else {
+        reject(err);
+      }
+    });
+  });
+}
+
+// ── Login Flow ───────────────────────────────────────────────────────
+
+async function login() {
+  // Check if already authenticated
+  const existing = readCredentials();
+  if (existing && !isExpired(existing)) {
+    console.log(`Already authenticated as ${existing.email ?? "unknown"} (${existing.plan ?? "free"} plan).`);
+    console.log(`Run 'composure-auth logout' first to re-authenticate.`);
+    return;
+  }
+
+  // Generate PKCE parameters
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const state = generateState();
+
+  // Find a free port for the callback server
+  const port = await findFreePort(PREFERRED_PORT);
+  const redirectUri = `http://localhost:${port}${CALLBACK_PATH}`;
+
+  // Build authorization URL
+  const authParams = new URLSearchParams({
+    response_type: "code",
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+    state,
+    scope: "read",
+  });
+
+  // Use Supabase's OAuth endpoint (the consent redirect goes through our app)
+  const authUrl = `${API_BASE}/api/oauth/authorize?${authParams}`;
+
+  console.log("Opening browser for authentication...");
+  console.log("If the browser doesn't open, visit:");
+  console.log(`  ${authUrl}\n`);
+  console.log("Waiting for authentication...");
+
+  // Start callback server
+  const result = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      server.close();
+      reject(new Error("Authentication timed out after 2 minutes. Try again."));
+    }, LOGIN_TIMEOUT_MS);
+
+    const server = createServer(async (req, res) => {
+      const url = new URL(req.url, `http://localhost:${port}`);
+
+      if (url.pathname !== CALLBACK_PATH) {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+
+      const code = url.searchParams.get("code");
+      const returnedState = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+
+      // Respond to the browser immediately
+      res.writeHead(200, { "Content-Type": "text/html" });
+
+      if (error) {
+        res.end(authResultPage("Authentication Failed", `Error: ${error}. You can close this tab.`, false));
+        clearTimeout(timeout);
+        server.close();
+        reject(new Error(`Authentication failed: ${error}`));
+        return;
+      }
+
+      if (!code || returnedState !== state) {
+        res.end(authResultPage("Authentication Failed", "Invalid callback. Please try again.", false));
+        clearTimeout(timeout);
+        server.close();
+        reject(new Error("Invalid callback: state mismatch or missing code."));
+        return;
+      }
+
+      res.end(authResultPage("Authentication Successful", "You can close this tab and return to the terminal.", true));
+
+      clearTimeout(timeout);
+      server.close();
+      resolve({ code, redirectUri });
+    });
+
+    server.listen(port, "127.0.0.1", () => {
+      openBrowser(authUrl);
+    });
+  });
+
+  // Exchange code for tokens
+  console.log("Exchanging authorization code for tokens...");
+
+  const tokenBody = new URLSearchParams({
+    grant_type: "authorization_code",
+    code: result.code,
+    redirect_uri: result.redirectUri,
+    code_verifier: codeVerifier,
+    client_id: CLIENT_ID,
+  });
+
+  const tokenResponse = await fetch(`${API_BASE}/api/oauth/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: tokenBody.toString(),
+  });
+
+  if (!tokenResponse.ok) {
+    const err = await tokenResponse.json().catch(() => ({}));
+    console.error(`Token exchange failed: ${err.error_description ?? err.error ?? tokenResponse.statusText}`);
+    process.exit(1);
+  }
+
+  const tokenData = await tokenResponse.json();
+
+  if (!tokenData.access_token) {
+    console.error("Token exchange returned no access token.");
+    process.exit(1);
+  }
+
+  // Validate the token and get plan info
+  let plan = "free";
+  let email = "unknown";
+
+  try {
+    const licenseResponse = await fetch(`${API_BASE}/api/v1/license/validate`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    if (licenseResponse.ok) {
+      const license = await licenseResponse.json();
+      plan = license.plan ?? "free";
+      email = license.user?.email ?? "unknown";
+    }
+  } catch {
+    // License check failed — continue with defaults
+  }
+
+  // Store credentials
+  const credentials = {
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token,
+    expires_at: new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString(),
+    plan,
+    email,
+    authenticated_at: new Date().toISOString(),
+  };
+
+  writeCredentials(credentials);
+
+  console.log(`\nLogged in as ${email}. Plan: ${plan}.`);
+  console.log(`Credentials stored at ${CREDENTIALS_PATH}`);
+}
+
+// ── Logout ───────────────────────────────────────────────────────────
+
+function logout() {
+  const existed = deleteCredentials();
+  if (existed) {
+    console.log("Logged out. Run /composure:auth login to re-authenticate.");
+  } else {
+    console.log("No active session found.");
+  }
+}
+
+// ── Status ───────────────────────────────────────────────────────────
+
+async function status() {
+  const creds = readCredentials();
+
+  if (!creds) {
+    console.log("Not authenticated.");
+    console.log("Run /composure:auth login to authenticate.");
+    return;
+  }
+
+  if (isExpired(creds)) {
+    console.log("Session expired. Attempting refresh...");
+    const refreshed = await refreshToken(creds);
+    if (!refreshed) {
+      console.log("Refresh failed. Run /composure:auth login to re-authenticate.");
+      return;
+    }
+    console.log("Token refreshed.");
+  }
+
+  // Validate with server
+  const license = await validateLicense();
+  if (license) {
+    console.log(`Authenticated as ${license.user?.email ?? creds.email ?? "unknown"}`);
+    console.log(`Plan: ${license.plan}`);
+    console.log(`Features: ${license.features?.join(", ") ?? "basic"}`);
+
+    // Update stored plan if it changed
+    if (license.plan !== creds.plan) {
+      writeCredentials({ ...creds, plan: license.plan, email: license.user?.email ?? creds.email });
+    }
+  } else {
+    // Offline — show cached info
+    console.log(`Authenticated as ${creds.email ?? "unknown"} (offline — cached info)`);
+    console.log(`Plan: ${creds.plan ?? "free"}`);
+  }
+
+  const expiresAt = new Date(creds.expires_at);
+  console.log(`Token expires: ${expiresAt.toLocaleString()}`);
+  console.log(`Credentials: ${CREDENTIALS_PATH}`);
+}
+
+// ── Upgrade ──────────────────────────────────────────────────────────
+
+function upgrade() {
+  const url = `${API_BASE}/pricing`;
+  console.log("Opening pricing page...");
+  openBrowser(url);
+  console.log(`Visit: ${url}`);
+}
+
+// ── HTML Response Page ───────────────────────────────────────────────
+
+function authResultPage(title, message, success) {
+  const color = success ? "#22c55e" : "#ef4444";
+  const icon = success ? "&#10003;" : "&#10007;";
+  return `<!DOCTYPE html>
+<html>
+<head><title>${title}</title></head>
+<body style="font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0a0a0a; color: #fafafa;">
+  <div style="text-align: center; max-width: 400px;">
+    <div style="font-size: 48px; color: ${color}; margin-bottom: 16px;">${icon}</div>
+    <h1 style="font-size: 24px; margin: 0 0 8px;">${title}</h1>
+    <p style="color: #a1a1aa; margin: 0;">${message}</p>
+  </div>
+</body>
+</html>`;
+}
+
+// ── CLI Router ───────────────────────────────────────────────────────
+
+const subcommand = process.argv[2];
+
+switch (subcommand) {
+  case "login":
+    await login().catch((err) => {
+      console.error(err.message);
+      process.exit(1);
+    });
+    break;
+
+  case "logout":
+    logout();
+    break;
+
+  case "status":
+    await status();
+    break;
+
+  case "upgrade":
+    upgrade();
+    break;
+
+  default:
+    console.log("composure-auth — Composure CLI Authentication\n");
+    console.log("Usage:");
+    console.log("  composure-auth login     Authenticate via browser (OAuth 2.1 + PKCE)");
+    console.log("  composure-auth logout    Clear stored credentials");
+    console.log("  composure-auth status    Show auth status and plan info");
+    console.log("  composure-auth upgrade   Open pricing page to upgrade plan");
+    console.log(`\nCredentials: ${CREDENTIALS_PATH}`);
+    break;
+}

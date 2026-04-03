@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blueprint Cost Efficiency</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: #0a0a0a;
+    color: #fafafa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .card {
+    width: 900px;
+    background: linear-gradient(135deg, #111111 0%, #1a1a2e 50%, #111111 100%);
+    border: 1px solid #222;
+    border-radius: 20px;
+    padding: 48px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, #22c55e20, #3b82f620, #a855f720);
+    border-radius: 21px;
+    z-index: -1;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #22c55e15;
+    border: 1px solid #22c55e40;
+    color: #22c55e;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 100px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #fafafa 0%, #a1a1aa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 15px;
+    color: #71717a;
+    margin-bottom: 36px;
+    line-height: 1.5;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .metric {
+    background: #ffffff06;
+    border: 1px solid #ffffff10;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .metric-value {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .metric-value.green { color: #22c55e; }
+  .metric-value.blue { color: #3b82f6; }
+  .metric-value.purple { color: #a855f7; }
+  .metric-value.amber { color: #f59e0b; }
+
+  .metric-label {
+    font-size: 11px;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+
+  .comparison-box {
+    background: #ffffff06;
+    border: 1px solid #ffffff10;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .comparison-box.highlight {
+    border-color: #22c55e40;
+    background: #22c55e08;
+  }
+
+  .comparison-box .label {
+    font-size: 11px;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .comparison-box .value {
+    font-size: 24px;
+    font-weight: 800;
+  }
+
+  .comparison-box .detail {
+    font-size: 12px;
+    color: #52525b;
+    margin-top: 4px;
+  }
+
+  .comparison-box.highlight .value { color: #22c55e; }
+  .comparison-box:not(.highlight) .value { color: #ef4444; }
+
+  .arrow {
+    font-size: 24px;
+    color: #22c55e;
+    font-weight: 800;
+  }
+
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .bottom-box {
+    background: #ffffff06;
+    border: 1px solid #ffffff10;
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+
+  .bottom-box .title {
+    font-size: 12px;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .bar-label {
+    font-size: 11px;
+    color: #a1a1aa;
+    width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 8px;
+    background: #ffffff08;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .bar-fill.green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+  .bar-fill.red { background: linear-gradient(90deg, #ef4444, #dc2626); }
+  .bar-fill.blue { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+  .bar-fill.purple { background: linear-gradient(90deg, #a855f7, #9333ea); }
+  .bar-fill.amber { background: linear-gradient(90deg, #f59e0b, #d97706); }
+
+  .bar-value {
+    font-size: 11px;
+    color: #71717a;
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  .step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+
+  .step-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .step-dot.done { background: #22c55e20; color: #22c55e; }
+  .step-time { color: #52525b; width: 50px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .step-text { color: #a1a1aa; }
+
+  .watermark {
+    position: absolute;
+    bottom: 16px;
+    right: 24px;
+    font-size: 11px;
+    color: #333;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="badge">Use Case</div>
+
+  <h1>Blueprint + Implementation in 28 Minutes</h1>
+  <p class="subtitle">CLI auth system planned and built on Claude Opus with Composure — 97.7% prompt cache hit rate</p>
+
+  <div class="metrics-grid">
+    <div class="metric">
+      <div class="metric-value green">28m</div>
+      <div class="metric-label">Total Time</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value blue">807</div>
+      <div class="metric-label">Lines Written</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value purple">191</div>
+      <div class="metric-label">API Turns</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value amber">97.7%</div>
+      <div class="metric-label">Cache Hit Rate</div>
+    </div>
+  </div>
+
+  <div class="comparison">
+    <div class="comparison-box">
+      <div class="label">Without Caching</div>
+      <div class="value">$264</div>
+      <div class="detail">17.4M tokens at full price</div>
+    </div>
+    <div class="arrow">&rarr;</div>
+    <div class="comparison-box highlight">
+      <div class="label">With Composure + Caching</div>
+      <div class="value">$36</div>
+      <div class="detail">97.7% served from cache</div>
+    </div>
+  </div>
+
+  <div class="bottom-row">
+    <div class="bottom-box">
+      <div class="title">Token Distribution</div>
+      <div class="bar-row">
+        <div class="bar-label">Cache Read</div>
+        <div class="bar-track"><div class="bar-fill green" style="width: 97.7%"></div></div>
+        <div class="bar-value">17.0M</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Cache Write</div>
+        <div class="bar-track"><div class="bar-fill purple" style="width: 2.3%"></div></div>
+        <div class="bar-value">401K</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Output</div>
+        <div class="bar-track"><div class="bar-fill blue" style="width: 0.3%"></div></div>
+        <div class="bar-value">47K</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Uncached</div>
+        <div class="bar-track"><div class="bar-fill red" style="width: 0.01%"></div></div>
+        <div class="bar-value">295</div>
+      </div>
+    </div>
+
+    <div class="bottom-box">
+      <div class="title">What Was Done</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-dot done">&#10003;</div>
+          <div class="step-time">8m 36s</div>
+          <div class="step-text">Graph scan + 15 files read</div>
+        </div>
+        <div class="step">
+          <div class="step-dot done">&#10003;</div>
+          <div class="step-time">12m 51s</div>
+          <div class="step-text">Impact analysis + scope decisions</div>
+        </div>
+        <div class="step">
+          <div class="step-dot done">&#10003;</div>
+          <div class="step-time">17m 45s</div>
+          <div class="step-text">500-line blueprint written</div>
+        </div>
+        <div class="step">
+          <div class="step-dot done">&#10003;</div>
+          <div class="step-time">22m 26s</div>
+          <div class="step-text">2 refinements applied</div>
+        </div>
+        <div class="step">
+          <div class="step-dot done">&#10003;</div>
+          <div class="step-time">28m 08s</div>
+          <div class="step-text">8 files created + verified</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="watermark">composure-pro.com</div>
+</div>
+
+</body>
+</html>
