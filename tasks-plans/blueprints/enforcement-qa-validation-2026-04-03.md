@@ -175,7 +175,18 @@ const SELF_SKIP_PATTERNS = [
 ### Self-Review Skip
 - [ ] Add skipPaths to engine.ts for enforcement source files
 
+### Windows VM Testing (VMware)
+- [ ] Spin up Windows VM in VMware
+- [ ] Install Node.js 22.5+ on Windows
+- [ ] Test `composure-enforce validate` on Windows — verify path handling (backslash vs /)
+- [ ] Test `composure-enforce adapt git` — verify pre-commit hook works with Windows git
+- [ ] Test `composure-enforce adapt cursor` — verify .cursor/ configs generate correctly
+- [ ] Test install.sh via WSL — verify detection + PATH setup
+- [ ] Test all 35+ rules produce same results on Windows vs macOS
+- [ ] Document any Windows-specific path or shell issues
+
 ### Verification
 - [ ] Framework validation fires on macOS (POSIX fix)
 - [ ] Parity tests pass
 - [ ] Self-review false positives eliminated
+- [ ] Windows VM: enforce CLI works identically

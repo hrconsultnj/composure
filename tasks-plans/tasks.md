@@ -4,7 +4,7 @@
 
 ## 🔴 Critical
 
-- [ ] 🔴 **BUG** `no-bandaids.sh` — Two issues preventing `frameworkValidation` from working [2026-04-02]
+- [x] 🔴 **BUG** `framework-validation.sh` — Two issues preventing `frameworkValidation` from working [2026-04-02] FIXED 2026-04-03
   - **Issue 1: `\s` silently fails on macOS `grep -E` (POSIX ERE)**
     - macOS `grep -E` does NOT support `\s` (Perl/PCRE only). Every pattern using `\s` silently fails to match.
     - Affects ALL rules in both plugin `defaults/*.json` AND project `no-bandaids.json` frameworkValidation.
