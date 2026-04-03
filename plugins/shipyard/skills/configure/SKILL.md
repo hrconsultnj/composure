@@ -4,36 +4,25 @@ description: Configure deployment pipeline — detect CI/CD platforms, deploymen
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 
-# Shipyard Configure
-
 Configure Shipyard by detecting CI/CD platforms, deployment targets, container configs, and available DevOps tooling.
 
-## Arguments
+## Content Loading
 
-- `--force` -- Overwrite existing `.claude/shipyard.json`, regenerate CI docs older than 7 days
-- `--dry-run` -- Show what would be generated without writing files
-- `--skip-context7` -- Skip Context7 queries (for offline/CI use)
+This skill's content is served from the Composure API. Before reading a step, fetch it:
 
-## Workflow
+```bash
+composure-fetch skill shipyard configure {step-filename}
+```
 
-**Read each step file in order. Do NOT skip steps. Each step ends with "Next: read step X."**
+Cached content is at `~/.composure/cache/shipyard/skills/configure/`. If cached, read directly from there.
 
-| Step | File | What it does |
-|------|------|-------------|
-| 1 | `steps/01-detect-stack.md` | Read Composure config or detect stack manually |
-| 2 | `steps/02-detect-platform.md` | CI platform detection, deployment target detection |
-| 3 | `steps/03-detect-tools.md` | Check CLI tools, system installer detection, suggest missing |
-| 4 | `steps/04-context7-queries.md` | Freshness check, .claude/ci/ structure, query plan, sequential query+write |
-| 5 | `steps/05-config-and-report.md` | Generate shipyard.json, ensure task queue, print report |
+## Steps
 
-**Start by reading:** `steps/01-detect-stack.md`
+| # | File | 
+|---|------|
+| 1 | `01-detect-stack.md` |
+| 2 | `02-detect-platform.md` |
+| 3 | `03-detect-tools.md` |
+| 4 | `04-context7-queries.md` |
+| 5 | `05-config-and-report.md` |
 
-## Notes
-
-- This skill is idempotent -- running it again updates detection results
-- With `--force`, it overwrites the existing config and regenerates stale CI docs
-- With `--dry-run`, it prints what would be generated without writing
-- With `--skip-context7`, it skips Context7 queries (CI docs not generated)
-- Composure and Sentinel configs are read but never modified -- Shipyard is a consumer, not a producer
-- `.claude/ci/project/` is for team-written CI/CD conventions -- never auto-generated
-- Tool suggestions are platform-aware: only suggest tools relevant to detected CI/deployment targets

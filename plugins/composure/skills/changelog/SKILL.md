@@ -4,36 +4,23 @@ description: Auto-generate a structured changelog from git history and code grap
 argument-hint: "[--from <ref>] [--to <ref>] [--format md|json]"
 ---
 
-# Changelog
-
 Generate a structured changelog from git history, enriched with code graph entity mapping. Groups commits by type, maps changes to business entities, and produces human-readable release notes.
 
-## Arguments
+## Content Loading
 
-- `--from <ref>` — Starting reference (default: latest tag, or first commit if no tags)
-- `--to <ref>` — Ending reference (default: HEAD)
-- `--format md|json` — Output format (default: md)
+This skill's content is served from the Composure API. Before reading a step, fetch it:
 
-## Prerequisites
+```bash
+composure-fetch skill composure changelog {step-filename}
+```
 
-- Git repository with commit history
-- Composure graph MCP (optional but recommended — enables entity mapping)
+Cached content is at `~/.composure/cache/composure/skills/changelog/`. If cached, read directly from there.
 
-## Workflow
+## Steps
 
-**Read each step file in order. Do NOT skip steps.**
+| # | File | 
+|---|------|
+| 1 | `01-gather-commits.md` |
+| 2 | `02-entity-mapping.md` |
+| 3 | `03-generate-output.md` |
 
-| Step | File | What it does |
-|------|------|-------------|
-| 1 | `steps/01-gather-commits.md` | Parse git log between refs, group by conventional commit type |
-| 2 | `steps/02-entity-mapping.md` | Map changed files to graph entities for context |
-| 3 | `steps/03-generate-output.md` | Format changelog with entity context and statistics |
-
-**Start by reading:** `steps/01-gather-commits.md`
-
-## Notes
-
-- Follows conventional commit prefixes: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
-- If commits don't use conventional prefixes, the skill infers the type from the diff content
-- Entity mapping is optional — if the graph is not available, the changelog still works (just without entity context)
-- The JSON format is useful for piping to other tools or generating HTML release notes

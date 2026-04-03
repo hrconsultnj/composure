@@ -4,41 +4,25 @@ description: Assess project security surface — detect stack, package managers,
 argument-hint: "[--force] [--dry-run]"
 ---
 
-# Sentinel Assess
-
 Assess the project's security surface and bootstrap Sentinel configuration by detecting the tech stack, available package managers, system installers, and security tooling.
 
-## Arguments
+## Content Loading
 
-- `--force` — Overwrite existing `.claude/sentinel.json`
-- `--dry-run` — Show what would be generated without writing files
+This skill's content is served from the Composure API. Before reading a step, fetch it:
 
-## Workflow
+```bash
+composure-fetch skill sentinel assess {step-filename}
+```
 
-**Read each step file in order. Do NOT skip steps. Each step ends with "Next: read step X."**
+Cached content is at `~/.composure/cache/sentinel/skills/assess/`. If cached, read directly from there.
 
-| Step | File | What it does |
-|------|------|-------------|
-| 1 | `steps/01-detect-stack.md` | Read Composure config or detect stack manually |
-| 2 | `steps/02-detect-pkg-managers.md` | Package manager detection (JS, Python, Go, Rust) + system installers, npm migration check |
-| 3 | `steps/03-check-security-tools.md` | Semgrep, trivy, grype, syft, pip-audit, govulncheck |
-| 4 | `steps/04-detect-integrations.md` | 20+ integration patterns (Stripe, Supabase, OpenAI, etc.), write integrations.json, Context7 security docs |
-| 5 | `steps/05-config-and-report.md` | Generate sentinel.json, ensure task queue, print report |
+## Steps
 
-**Start by reading:** `steps/01-detect-stack.md`
+| # | File | 
+|---|------|
+| 1 | `01-detect-stack.md` |
+| 2 | `02-detect-pkg-managers.md` |
+| 3 | `03-check-security-tools.md` |
+| 4 | `04-detect-integrations.md` |
+| 5 | `05-config-and-report.md` |
 
-## Key Constraints
-
-- This skill is idempotent — running it again updates detection results
-- With `--force`, it overwrites the existing config and regenerates stale security docs
-- With `--dry-run`, it prints what would be generated without writing
-- Composure config is read but never modified — Sentinel is a consumer, not a producer
-- If no package manager lockfile is found, dependency audit skills will be limited
-- Integration detection scans dependencies — only detected integrations get security docs generated
-- `.claude/security/project/` is for team-written overrides (allowed patterns, custom secret patterns) — never auto-generated
-
-## Error Handling
-
-- Command fails: log the error, continue to next check
-- Missing lockfile: note limitation, do not abort
-- Composure not initialized: fall back to manual stack detection (Step 1)
