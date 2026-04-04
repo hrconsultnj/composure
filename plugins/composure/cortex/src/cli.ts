@@ -52,6 +52,7 @@ const commands: Record<string, CommandHandler> = {
   search_memory_semantic: (a, args) => memory.searchSemantic(a, args as any),
   search_memory_text: (a, args) => memory.searchWithText(a, args as any),
   traverse_memory_graph: (a, args) => memory.traverseGraph(a, args as any),
+  generate_memory_html: (a, args) => memory.generateMemoryHtml(a, args as any),
 
   // Sync
   sync_up: async (_a, args) => {

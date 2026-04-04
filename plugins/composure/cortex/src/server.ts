@@ -234,6 +234,19 @@ server.tool(
 );
 
 server.tool(
+  "generate_memory_html",
+  "Generate an interactive HTML visualization of the memory knowledge graph. D3.js force-directed graph with nodes colored by type, edges by relationship.",
+  {
+    agent_id: z.string().describe("Agent ID to visualize."),
+    output_path: z.string().optional().describe("File path to write HTML. If omitted, returns HTML in response."),
+  },
+  async (params) => {
+    const result = await memory.generateMemoryHtml(adapter, params);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  },
+);
+
+server.tool(
   "delete_memory_node",
   "Delete a memory node and all its edges (CASCADE).",
   {
