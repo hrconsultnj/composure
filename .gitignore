@@ -3,6 +3,20 @@ node_modules/
 tasks-plans/
 docs/
 *.DS_Store
+.vercel
+
+# Build artifacts — only final bundles are committed (*.bundle.js)
+# tsc intermediate output is build noise
+plugins/composure/*/dist/*.d.ts
+plugins/composure/*/dist/*.js.map
+plugins/composure/*/dist/**/*.d.ts
+plugins/composure/*/dist/**/*.js.map
+
+# tsc output leaked into enforce src/
+plugins/composure/enforce/src/**/*.js
+plugins/composure/enforce/src/**/*.js.map
+
+# Plugin-specific ignores
 plugins/composure/app/dist/
 plugins/composure/graph/src/
 plugins/composure/graph/pnpm-workspace.yaml
