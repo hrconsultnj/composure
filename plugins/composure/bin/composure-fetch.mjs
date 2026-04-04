@@ -12,10 +12,11 @@
  *   composure-fetch ref   {plugin} {path}            # Fetch a reference doc
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
-import { getValidToken, API_BASE, COMPOSURE_DIR } from "./composure-token.mjs";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { getValidToken, getCacheKey, API_BASE, COMPOSURE_DIR } from "./composure-token.mjs";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -27,7 +28,36 @@ const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 1000;     // 1s → 2s → 4s
 const REQUEST_TIMEOUT_MS = 10_000;   // 10 seconds per attempt
 
-// ── Cache Utilities ──────────────────────────────────────────────────
+// ── Encryption Utilities ─────────────────────────────────────────────
+
+const ALGO = "aes-256-gcm";
+const IV_LEN = 12;       // 96-bit IV for GCM
+const TAG_LEN = 16;      // 128-bit auth tag
+
+function encrypt(plaintext, key) {
+  const iv = randomBytes(IV_LEN);
+  const cipher = createCipheriv(ALGO, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // Format: [IV (12)] [AuthTag (16)] [Ciphertext (...)]
+  return Buffer.concat([iv, tag, encrypted]);
+}
+
+function decrypt(buffer, key) {
+  if (buffer.length < IV_LEN + TAG_LEN + 1) return null;
+  const iv = buffer.subarray(0, IV_LEN);
+  const tag = buffer.subarray(IV_LEN, IV_LEN + TAG_LEN);
+  const ciphertext = buffer.subarray(IV_LEN + TAG_LEN);
+  try {
+    const decipher = createDecipheriv(ALGO, key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  } catch {
+    return null; // Wrong key, corrupted, or tampered — treat as cache miss
+  }
+}
+
+// ── Cache Utilities (encrypted at rest) ─────────────────────────────
 
 function getCachePath(type, plugin, ...parts) {
   return join(CACHE_DIR, plugin, type, ...parts);
@@ -37,30 +67,57 @@ function getMetaPath(cachePath) {
   return cachePath + ".meta.json";
 }
 
+function isPlaintext(buffer) {
+  // Plaintext markdown starts with readable ASCII: #, -, space, letter
+  if (buffer.length < 2) return false;
+  const first = buffer[0];
+  // Common markdown/text file first bytes: #(35) -(45) space(32) A-Z(65-90) a-z(97-122)
+  return first === 35 || first === 45 || first === 32 || (first >= 65 && first <= 122);
+}
+
 function readCache(cachePath) {
   try {
     const metaPath = getMetaPath(cachePath);
     if (!existsSync(cachePath) || !existsSync(metaPath)) return null;
 
-    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
-    const fetchedAt = new Date(meta.fetched_at).getTime();
+    const raw = readFileSync(cachePath); // Read as Buffer (binary)
 
-    if (Date.now() - fetchedAt > CACHE_TTL_MS) {
-      return { content: readFileSync(cachePath, "utf8"), stale: true, meta };
+    // Auto-clean legacy plaintext cache files
+    if (isPlaintext(raw)) {
+      try { unlinkSync(cachePath); } catch {}
+      try { unlinkSync(metaPath); } catch {}
+      return null; // Force re-fetch with encryption
     }
 
-    return { content: readFileSync(cachePath, "utf8"), stale: false, meta };
+    const key = getCacheKey();
+    if (!key) return null; // No key = can't decrypt
+
+    const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+    const fetchedAt = new Date(meta.fetched_at).getTime();
+    const content = decrypt(raw, key);
+
+    if (!content) return null; // Decryption failed (wrong key, corrupted)
+
+    if (Date.now() - fetchedAt > CACHE_TTL_MS) {
+      return { content, stale: true, meta };
+    }
+
+    return { content, stale: false, meta };
   } catch {
     return null;
   }
 }
 
 function writeCache(cachePath, content, meta) {
+  const key = getCacheKey();
+  if (!key) return; // No key = can't encrypt, skip caching
+
   const dir = dirname(cachePath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
-  writeFileSync(cachePath, content, { mode: 0o600 });
+  const encrypted = encrypt(content, key);
+  writeFileSync(cachePath, encrypted, { mode: 0o600 }); // Binary
   writeFileSync(getMetaPath(cachePath), JSON.stringify({
     ...meta,
     fetched_at: new Date().toISOString(),

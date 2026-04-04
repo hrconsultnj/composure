@@ -13,10 +13,11 @@
  */
 
 import {
-  readdirSync, readFileSync, rmSync, existsSync, statSync,
+  readdirSync, readFileSync, writeFileSync, rmSync, existsSync, statSync, mkdirSync,
 } from "node:fs";
-import { join } from "node:path";
-import { getValidToken, validateLicense, API_BASE, COMPOSURE_DIR } from "./composure-token.mjs";
+import { join, dirname } from "node:path";
+import { createCipheriv, randomBytes } from "node:crypto";
+import { getValidToken, validateLicense, getCacheKey, API_BASE, COMPOSURE_DIR } from "./composure-token.mjs";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -164,14 +165,23 @@ async function sync() {
   console.log(`Synced: ${fetched} items. ${errors ? errors + " errors." : "No errors."}`);
 }
 
+function encryptContent(plaintext, key) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]);
+}
+
 async function getCacheWriter() {
-  const { mkdirSync, writeFileSync } = await import("node:fs");
-  const { dirname } = await import("node:path");
+  const key = getCacheKey();
+  if (!key) throw new Error("No cache key — run /composure:auth login first");
   return {
     writeCache(cachePath, content, meta) {
       const dir = dirname(cachePath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-      writeFileSync(cachePath, content, { mode: 0o600 });
+      const encrypted = encryptContent(content, key);
+      writeFileSync(cachePath, encrypted, { mode: 0o600 }); // Binary
       writeFileSync(cachePath + ".meta.json", JSON.stringify({
         ...meta,
         fetched_at: new Date().toISOString(),

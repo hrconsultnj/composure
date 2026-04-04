@@ -8,13 +8,13 @@ Restructure a disorganized project into a clean, conventional file layout. Detec
 
 ## Content Loading
 
-This skill's content is cached locally. Read steps from cache first, fetch only if missing:
+Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
 "~/.composure/bin/composure-fetch.mjs" skill composure code-organizer {step-filename}
 ```
 
-**Read from `~/.composure/cache/composure/skills/code-organizer/` first.** Only run the fetch command above if the cached file is missing.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
 
 ## Steps
 

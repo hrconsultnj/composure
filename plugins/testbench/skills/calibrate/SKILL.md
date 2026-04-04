@@ -8,13 +8,13 @@ Calibrate the test bench by detecting the test framework, learning conventions f
 
 ## Content Loading
 
-This skill's content is cached locally. Read steps from cache first, fetch only if missing:
+Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
 "~/.composure/bin/composure-fetch.mjs" skill testbench calibrate {step-filename}
 ```
 
-**Read from `~/.composure/cache/testbench/skills/calibrate/` first.** Only run the fetch command above if the cached file is missing.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
 
 ## Steps
 

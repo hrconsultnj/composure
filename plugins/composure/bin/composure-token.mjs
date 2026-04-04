@@ -6,7 +6,7 @@
  * Manages ~/.composure/credentials.json for CLI authentication.
  * Uses Node 22.5+ built-ins only (no external dependencies).
  *
- * Exports: readCredentials, writeCredentials, isExpired, refreshToken, getValidToken
+ * Exports: readCredentials, writeCredentials, isExpired, refreshToken, getValidToken, getCacheKey
  * CLI:     composure-token validate | refresh
  */
 
@@ -66,6 +66,18 @@ export function deleteCredentials() {
   } catch {
     return false;
   }
+}
+
+// ── Cache Encryption Key ─────────────────────────────────────────────
+
+/**
+ * Get the cache encryption key from credentials.
+ * @returns {Buffer|null} 32-byte key or null if not authenticated
+ */
+export function getCacheKey() {
+  const creds = readCredentials();
+  if (!creds?.cache_key) return null;
+  return Buffer.from(creds.cache_key, "hex");
 }
 
 // ── Token Validation ─────────────────────────────────────────────────

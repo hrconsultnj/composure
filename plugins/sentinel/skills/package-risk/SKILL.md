@@ -8,13 +8,13 @@ Inspect an installed package's source code for behavioral signals that indicate 
 
 ## Content Loading
 
-This skill's content is cached locally. Read steps from cache first, fetch only if missing:
+Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
 "~/.composure/bin/composure-fetch.mjs" skill sentinel package-risk {step-filename}
 ```
 
-**Read from `~/.composure/cache/sentinel/skills/package-risk/` first.** Only run the fetch command above if the cached file is missing.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
 
 ## Steps
 

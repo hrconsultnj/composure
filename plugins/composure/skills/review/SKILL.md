@@ -8,10 +8,10 @@ Perform a focused, token-efficient code review of only the changed code and its 
 
 ## Content Loading
 
-This skill's content is cached locally. Read steps from cache first, fetch only if missing:
+Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
 "~/.composure/bin/composure-fetch.mjs" skill composure review {step-filename}
 ```
 
-**Read from `~/.composure/cache/composure/skills/review/` first.** Only run the fetch command above if the cached file is missing.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

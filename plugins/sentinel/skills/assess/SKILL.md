@@ -8,13 +8,13 @@ Assess the project's security surface and bootstrap Sentinel configuration by de
 
 ## Content Loading
 
-This skill's content is cached locally. Read steps from cache first, fetch only if missing:
+Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
 "~/.composure/bin/composure-fetch.mjs" skill sentinel assess {step-filename}
 ```
 
-**Read from `~/.composure/cache/sentinel/skills/assess/` first.** Only run the fetch command above if the cached file is missing.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
 
 ## Steps
 

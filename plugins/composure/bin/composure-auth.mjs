@@ -30,7 +30,7 @@ import {
   COMPOSURE_DIR,
   CREDENTIALS_PATH,
 } from "./composure-token.mjs";
-import { existsSync, mkdirSync, symlinkSync, lstatSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, lstatSync, rmSync } from "node:fs";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -227,11 +227,12 @@ async function login() {
     // License check failed — continue with defaults
   }
 
-  // Store credentials
+  // Store credentials (with cache encryption key)
   const credentials = {
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token,
     expires_at: new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString(),
+    cache_key: randomBytes(32).toString("hex"),
     plan,
     email,
     authenticated_at: new Date().toISOString(),
@@ -239,11 +240,23 @@ async function login() {
 
   writeCredentials(credentials);
 
+  // Clear old cache (new key = old cache unreadable anyway)
+  clearCache();
+
   // Ensure ~/.composure/bin/ symlinks exist for cross-plugin access
   setupBinSymlinks();
 
   console.log(`\nLogged in as ${email}. Plan: ${plan}.`);
   console.log(`Credentials stored at ${CREDENTIALS_PATH}`);
+}
+
+// ── Cache Management ────────────────────────────────────────────────
+
+function clearCache() {
+  const cacheDir = join(COMPOSURE_DIR, "cache");
+  if (existsSync(cacheDir)) {
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
 }
 
 // ── Bin Symlinks ────────────────────────────────────────────────────
@@ -278,8 +291,10 @@ function setupBinSymlinks() {
 
 function logout() {
   const existed = deleteCredentials();
+  clearCache(); // Encrypted cache is unreadable without credentials anyway, but clean up
   if (existed) {
-    console.log("Logged out. Run /composure:auth login to re-authenticate.");
+    console.log("Logged out. Cached content cleared.");
+    console.log("Run /composure:auth login to re-authenticate.");
   } else {
     console.log("No active session found.");
   }
