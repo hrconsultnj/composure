@@ -7,6 +7,10 @@
     "composure-enforce": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/enforce/dist/server.js"]
+    },
+    "composure-cortex": {
+      "command": "node",
+      "args": ["--experimental-sqlite", "${CLAUDE_PLUGIN_ROOT}/cortex/dist/server.bundle.js"]
     }
   }
 }

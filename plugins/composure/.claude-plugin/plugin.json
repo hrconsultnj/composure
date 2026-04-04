@@ -14,6 +14,13 @@
         "--experimental-sqlite",
         "${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"
       ]
+    },
+    "composure-cortex": {
+      "command": "node",
+      "args": [
+        "--experimental-sqlite",
+        "${CLAUDE_PLUGIN_ROOT}/cortex/dist/server.bundle.js"
+      ]
     }
   },
   "skills": "./skills/",
