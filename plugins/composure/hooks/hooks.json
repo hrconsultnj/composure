@@ -137,6 +137,17 @@
             "statusMessage": "Updating code graph..."
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cortex/memory-fusion.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
       }
     ]
   }
