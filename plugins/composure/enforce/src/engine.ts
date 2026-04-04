@@ -27,6 +27,20 @@ import {
 } from "./types.js";
 
 /**
+ * Paths that should be skipped by enforcement — rule definition files
+ * contain violation patterns in their string literals (false positives).
+ */
+const SELF_SKIP_PATTERNS = [
+  /enforce\/src\/rules\//,
+  /enforce\/src\/adapters\./,
+  /enforce\/tests\/fixtures\//,
+];
+
+function isSelfSkipped(filePath: string): boolean {
+  return SELF_SKIP_PATTERNS.some((p) => p.test(filePath));
+}
+
+/**
  * Run no-bandaids language rules against file content.
  */
 export function validateCode(
@@ -34,6 +48,11 @@ export function validateCode(
   content: string,
   config?: ComposureConfig | null,
 ): EnforcementResult {
+  // Skip enforcement engine's own source files (rule definitions contain violation patterns)
+  if (isSelfSkipped(filePath)) {
+    return { filePath, passed: true, violations: [], warnings: [] };
+  }
+
   const violations: Violation[] = [];
   const warnings: Violation[] = [];
 

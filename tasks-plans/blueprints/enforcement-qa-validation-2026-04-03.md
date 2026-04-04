@@ -166,13 +166,13 @@ const SELF_SKIP_PATTERNS = [
 - [x] Update .hooks-integrity.json checksums
 
 ### Parity Test Suite
-- [ ] Create test fixtures (violation + clean files per language)
-- [ ] Create parity test runner
-- [ ] Verify all 35+ rules detect expected violations
-- [ ] Verify framework validation rules match on both engines
+- [x] Create test fixtures (violations.tsx, clean.tsx, violations.py, clean.py, violations.go, nextjs-violation.tsx, tailwind-violation.css)
+- [x] Create parity test runner (tests/parity.test.mjs — 31 tests, 0 deps)
+- [x] Verify TS rules (13 tests), Python rules (8 tests), Go rules (5 tests), edge cases (5 tests)
+- [ ] Verify framework validation rules match on both engines (needs project config fixture)
 
 ### Self-Review Skip
-- [ ] Add skipPaths to engine.ts for enforcement source files
+- [x] Add SELF_SKIP_PATTERNS to engine.ts (enforce/src/rules/, enforce/src/adapters, enforce/tests/fixtures/)
 
 ### Windows VM Testing (VMware)
 - [ ] Spin up Windows VM in VMware

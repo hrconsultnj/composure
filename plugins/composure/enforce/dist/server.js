@@ -21610,7 +21610,18 @@ function detectLanguage(filePath) {
 }
 
 // dist/engine.js
+var SELF_SKIP_PATTERNS = [
+  /enforce\/src\/rules\//,
+  /enforce\/src\/adapters\./,
+  /enforce\/tests\/fixtures\//
+];
+function isSelfSkipped(filePath) {
+  return SELF_SKIP_PATTERNS.some((p) => p.test(filePath));
+}
 function validateCode(filePath, content, config2) {
+  if (isSelfSkipped(filePath)) {
+    return { filePath, passed: true, violations: [], warnings: [] };
+  }
   const violations = [];
   const warnings = [];
   const language = detectLanguage(filePath);

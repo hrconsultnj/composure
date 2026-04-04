@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "tsc && node esbuild.config.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/parity.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
