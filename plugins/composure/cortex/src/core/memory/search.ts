@@ -9,6 +9,7 @@
 
 import type { ToolResult, MemorySearchParams, SemanticSearchParams } from "../types.js";
 import type { StorageAdapter } from "../../adapters/types.js";
+import { generateEmbedding, getEmbeddingConfig } from "./embed.js";
 
 export async function searchMemory(
   adapter: StorageAdapter,
@@ -45,5 +46,38 @@ export async function searchSemantic(
       status: "error",
       error: `Failed to search memory (semantic): ${err instanceof Error ? err.message : String(err)}`,
     };
+  }
+}
+
+/**
+ * Convenience: search with plain text — auto-generates embedding,
+ * then calls semantic search. Falls back to FTS if embedding
+ * provider is not configured.
+ *
+ * Embedding generation uses OpenAI text-embedding-3-small ($0.02/1M tokens).
+ * The vector is stored in Supabase pgvector (ai_memory_nodes.embedding column).
+ * OpenAI generates the vector; Supabase stores and searches it.
+ */
+export async function searchWithText(
+  adapter: StorageAdapter,
+  params: Omit<MemorySearchParams, "query"> & { query: string }
+): Promise<ToolResult> {
+  const embeddingConfig = getEmbeddingConfig();
+
+  // If no embedding provider configured, fall back to full-text search
+  if (!embeddingConfig) {
+    return searchMemory(adapter, params);
+  }
+
+  try {
+    const embedding = await generateEmbedding(params.query, embeddingConfig);
+    return searchSemantic(adapter, {
+      ...params,
+      query_embedding: embedding,
+      query_text: params.query,
+    });
+  } catch (err) {
+    // If embedding fails, fall back to FTS gracefully
+    return searchMemory(adapter, params);
   }
 }

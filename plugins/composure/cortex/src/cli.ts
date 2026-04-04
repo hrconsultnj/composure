@@ -48,6 +48,7 @@ const commands: Record<string, CommandHandler> = {
   delete_memory_edge: (a, args) => memory.deleteEdge(a, args as any),
   search_memory: (a, args) => memory.searchMemory(a, args as any),
   search_memory_semantic: (a, args) => memory.searchSemantic(a, args as any),
+  search_memory_text: (a, args) => memory.searchWithText(a, args as any),
   traverse_memory_graph: (a, args) => memory.traverseGraph(a, args as any),
 };
 

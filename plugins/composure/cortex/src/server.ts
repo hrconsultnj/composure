@@ -205,6 +205,23 @@ server.tool(
 );
 
 server.tool(
+  "search_memory_text",
+  "Smart search: takes plain text, auto-generates embedding vector, then runs hybrid semantic+keyword search (70/30 scoring). Falls back to full-text search if embedding provider is not configured. Set OPENAI_API_KEY for semantic search.",
+  {
+    agent_id: z.string().describe("Agent ID to search within."),
+    query: z.string().describe("Plain text query — embedding is generated automatically."),
+    tags: z.array(z.string()).optional().describe("Filter by metadata tags."),
+    category: z.string().optional().describe("Filter by metadata category."),
+    include_related: z.boolean().optional().describe("Include 1-hop related nodes. Default: false."),
+    limit: z.number().optional().describe("Max results. Default: 10."),
+  },
+  async (params) => {
+    const result = await memory.searchWithText(adapter, params);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  },
+);
+
+server.tool(
   "delete_memory_node",
   "Delete a memory node and all its edges (CASCADE).",
   {
