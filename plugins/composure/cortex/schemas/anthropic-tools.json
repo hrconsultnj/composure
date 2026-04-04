@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Composure Cortex tool definitions for Anthropic Claude tool use. Point these at your Cortex REST endpoints.",
+  "tools": [
+    {
+      "name": "sequential_think",
+      "description": "Add a thought step to a reasoning chain. Creates a new session if no session_id provided. Supports branching and revision.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "const": "add_thought" },
+          "thought": { "type": "string", "description": "The current thinking step content." },
+          "session_id": { "type": "string", "description": "Existing session to continue." },
+          "agent_id": { "type": "string", "description": "Agent ID. Required for new sessions." },
+          "thought_type": { "type": "string", "enum": ["analysis", "revision", "hypothesis", "verification", "conclusion"] },
+          "is_revision": { "type": "boolean" },
+          "revises_thought": { "type": "integer" },
+          "branch_id": { "type": "string" },
+          "branch_from_thought": { "type": "integer" },
+          "total_thoughts": { "type": "integer" }
+        },
+        "required": ["action", "thought"]
+      }
+    },
+    {
+      "name": "search_memory",
+      "description": "Search the knowledge graph using full-text search with filtering.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "const": "search" },
+          "agent_id": { "type": "string" },
+          "query": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "category": { "type": "string" },
+          "include_related": { "type": "boolean" },
+          "limit": { "type": "integer" }
+        },
+        "required": ["action", "agent_id"]
+      }
+    },
+    {
+      "name": "create_memory_node",
+      "description": "Create a new node in the knowledge graph.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "const": "create_node" },
+          "agent_id": { "type": "string" },
+          "content": { "type": "string" },
+          "content_type": { "type": "string", "enum": ["text", "markdown", "document", "conversation", "fact"] },
+          "metadata": { "type": "object" }
+        },
+        "required": ["action", "agent_id", "content"]
+      }
+    },
+    {
+      "name": "traverse_memory_graph",
+      "description": "Walk the knowledge graph from a starting node, collecting connected nodes via BFS.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string", "const": "traverse" },
+          "start_node_id": { "type": "string" },
+          "depth": { "type": "integer", "default": 2 },
+          "relationship_types": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["action", "start_node_id"]
+      }
+    }
+  ]
+}

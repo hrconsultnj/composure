@@ -1,0 +1,31 @@
+{
+  "name": "@composure/cortex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-transport AI reasoning layer — Sequential Thinking + Memory Graph. Part of the Composure plugin suite.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/types.ts",
+    "./thinking": "./src/core/thinking/index.ts",
+    "./memory": "./src/core/memory/index.ts",
+    "./adapters": "./src/adapters/types.ts",
+    "./adapters/supabase": "./src/adapters/supabase.ts",
+    "./adapters/sqlite": "./src/adapters/sqlite.ts"
+  },
+  "scripts": {
+    "build": "tsc && node esbuild.config.js",
+    "build:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@supabase/supabase-js": "^2.101.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0"
+  }
+}
