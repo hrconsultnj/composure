@@ -106,7 +106,10 @@ For each JSON file, grep for `\s`, `\d`, `\w`, `\b` in pattern fields and conver
 - `\w` → `[a-zA-Z0-9_]`
 - `\b` → `[[:<:]]` (word boundary, macOS grep)
 
-**Important**: The TypeScript engine uses JS regex (supports `\s`, `\d`, etc. natively). The JSON files are shared between bash hooks (POSIX grep) and TS engine (JS regex). Both `[[:space:]]` and `\s` work in JS regex, but only `[[:space:]]` works in POSIX grep. So converting to POSIX is safe for both.
+**IMPORTANT FINDING**: `[[:space:]]` does NOT work in JavaScript regex. Converting JSON files to POSIX would break the TypeScript engine. The correct architecture is:
+- JSON files keep `\s`/`\d`/`\w` (works in JS regex natively)
+- Bash hook converts at runtime via `sed` before `grep -E` (already implemented)
+- **Do NOT modify the defaults/*.json files** — the runtime conversion handles everything
 
 ### 12-13. Parity Test Suite (Create)
 
@@ -157,14 +160,10 @@ const SELF_SKIP_PATTERNS = [
 ## Checklist
 
 ### Bug Fix
-- [ ] Fix POSIX ERE conversion in framework-validation.sh
-- [ ] Fix project FV group iteration in framework-validation.sh
-- [ ] Audit + convert defaults/shared.json patterns
-- [ ] Audit + convert defaults/frontend/*.json patterns
-- [ ] Audit + convert defaults/fullstack/nextjs.json patterns
-- [ ] Audit + convert defaults/backend/supabase.json patterns
-- [ ] Audit + convert defaults/sdks/*.json patterns
-- [ ] Update .hooks-integrity.json checksums
+- [x] Fix POSIX ERE conversion in framework-validation.sh (runtime sed, NOT source JSON)
+- [x] Fix project FV group iteration in framework-validation.sh (read from file, not shell var)
+- [x] Audit defaults/*.json — KEEP \s/\d/\w (JS regex needs them), runtime conversion handles POSIX
+- [x] Update .hooks-integrity.json checksums
 
 ### Parity Test Suite
 - [ ] Create test fixtures (violation + clean files per language)
