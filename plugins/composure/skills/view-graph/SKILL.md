@@ -7,10 +7,10 @@ Open the standalone graph visualization in the browser. No dev server needed —
 
 ## Content Loading
 
-This skill's content is served from the Composure API. Before reading a step, fetch it:
+This skill's content is cached locally. Read steps from cache first, fetch only if missing:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure view-graph {step-filename}
+"~/.composure/bin/composure-fetch.mjs" skill composure view-graph {step-filename}
 ```
 
-Cached content is at `~/.composure/cache/composure/skills/view-graph/`. If cached, read directly from there.
+**Read from `~/.composure/cache/composure/skills/view-graph/` first.** Only run the fetch command above if the cached file is missing.

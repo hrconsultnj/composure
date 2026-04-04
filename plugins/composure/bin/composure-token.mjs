@@ -23,6 +23,11 @@ export const CREDENTIALS_PATH = join(COMPOSURE_DIR, "credentials.json");
 // Token refresh buffer — refresh 60 seconds before actual expiry
 const EXPIRY_BUFFER_MS = 60_000;
 
+// Retry / Resilience
+const TOKEN_RETRY_COUNT = 2;
+const TOKEN_TIMEOUT_MS = 10_000;
+const TOKEN_BACKOFF_MS = 1500;
+
 // ── Credential I/O ───────────────────────────────────────────────────
 
 /**
@@ -86,43 +91,66 @@ export function isExpired(credentials) {
 export async function refreshToken(credentials) {
   if (!credentials?.refresh_token) return null;
 
-  try {
-    const body = new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: credentials.refresh_token,
-    });
+  for (let attempt = 1; attempt <= TOKEN_RETRY_COUNT; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
 
-    const response = await fetch(`${API_BASE}/api/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
+      const body = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: credentials.refresh_token,
+      });
 
-    if (!response.ok) {
-      const errBody = await response.json().catch(() => ({}));
+      const response = await fetch(`${API_BASE}/api/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        if (process.env.COMPOSURE_DEBUG) {
+          console.error(`[composure-token] Refresh attempt ${attempt}/${TOKEN_RETRY_COUNT} failed (${response.status}): ${JSON.stringify(errBody)}`);
+        }
+        // Don't retry 4xx errors — they indicate bad credentials, not transient failure
+        if (response.status >= 400 && response.status < 500) return null;
+        if (attempt < TOKEN_RETRY_COUNT) {
+          await new Promise((r) => setTimeout(r, TOKEN_BACKOFF_MS));
+          continue;
+        }
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (!data.access_token) return null;
+
+      const updated = {
+        ...credentials,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token ?? credentials.refresh_token,
+        expires_at: new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString(),
+        refreshed_at: new Date().toISOString(),
+      };
+
+      writeCredentials(updated);
+      return updated;
+    } catch (err) {
       if (process.env.COMPOSURE_DEBUG) {
-        console.error(`[composure-token] Refresh failed (${response.status}): ${JSON.stringify(errBody)}`);
+        console.error(`[composure-token] Refresh attempt ${attempt}/${TOKEN_RETRY_COUNT} error: ${err.message}`);
+      }
+      if (attempt < TOKEN_RETRY_COUNT) {
+        await new Promise((r) => setTimeout(r, TOKEN_BACKOFF_MS));
+        continue;
       }
       return null;
     }
-
-    const data = await response.json();
-
-    if (!data.access_token) return null;
-
-    const updated = {
-      ...credentials,
-      access_token: data.access_token,
-      refresh_token: data.refresh_token ?? credentials.refresh_token,
-      expires_at: new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString(),
-      refreshed_at: new Date().toISOString(),
-    };
-
-    writeCredentials(updated);
-    return updated;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 // ── Convenience ──────────────────────────────────────────────────────
@@ -151,16 +179,37 @@ export async function validateLicense() {
   const token = await getValidToken();
   if (!token) return null;
 
-  try {
-    const response = await fetch(`${API_BASE}/api/v1/license/validate`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  for (let attempt = 1; attempt <= TOKEN_RETRY_COUNT; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
 
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
+      const response = await fetch(`${API_BASE}/api/v1/license/validate`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        if (response.status >= 400 && response.status < 500) return null;
+        if (attempt < TOKEN_RETRY_COUNT) {
+          await new Promise((r) => setTimeout(r, TOKEN_BACKOFF_MS));
+          continue;
+        }
+        return null;
+      }
+      return await response.json();
+    } catch {
+      if (attempt < TOKEN_RETRY_COUNT) {
+        await new Promise((r) => setTimeout(r, TOKEN_BACKOFF_MS));
+        continue;
+      }
+      return null;
+    }
   }
+
+  return null;
 }
 
 // ── CLI Interface ────────────────────────────────────────────────────

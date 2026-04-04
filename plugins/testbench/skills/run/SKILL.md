@@ -8,13 +8,13 @@ Run tests and parse the output into actionable failure reports with source conte
 
 ## Content Loading
 
-This skill's content is served from the Composure API. Before reading a step, fetch it:
+This skill's content is cached locally. Read steps from cache first, fetch only if missing:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill testbench run {step-filename}
+"~/.composure/bin/composure-fetch.mjs" skill testbench run {step-filename}
 ```
 
-Cached content is at `~/.composure/cache/testbench/skills/run/`. If cached, read directly from there.
+**Read from `~/.composure/cache/testbench/skills/run/` first.** Only run the fetch command above if the cached file is missing.
 
 ## Steps
 

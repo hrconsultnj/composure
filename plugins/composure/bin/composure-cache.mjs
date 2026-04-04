@@ -22,6 +22,30 @@ import { getValidToken, validateLicense, API_BASE, COMPOSURE_DIR } from "./compo
 
 const CACHE_DIR = join(COMPOSURE_DIR, "cache");
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SYNC_RETRY_COUNT = 2;
+const SYNC_TIMEOUT_MS = 10_000;
+const SYNC_BACKOFF_MS = 1000;
+
+// ── Resilient Fetch ─────────────────────────────────────────────────
+
+async function resilientFetch(url, options) {
+  for (let attempt = 1; attempt <= SYNC_RETRY_COUNT; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      return response;
+    } catch (err) {
+      if (attempt < SYNC_RETRY_COUNT) {
+        await new Promise((r) => setTimeout(r, SYNC_BACKOFF_MS * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -74,7 +98,7 @@ async function sync() {
 
   console.log("Fetching manifest...");
 
-  const response = await fetch(`${API_BASE}/api/v1/manifest`, {
+  const response = await resilientFetch(`${API_BASE}/api/v1/manifest`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -98,7 +122,7 @@ async function sync() {
     for (const skill of info.skills || []) {
       for (const step of info.skill_steps?.[skill] || []) {
         try {
-          const res = await fetch(`${API_BASE}/api/v1/skills/${plugin}/${skill}/${step}`, {
+          const res = await resilientFetch(`${API_BASE}/api/v1/skills/${plugin}/${skill}/${step}`, {
             headers: { Authorization: `Bearer ${token}`, Accept: "text/markdown" },
           });
           if (res.ok) {
@@ -119,7 +143,7 @@ async function sync() {
     // Sync hooks
     for (const hook of info.hooks || []) {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/hooks/${plugin}/${hook}`, {
+        const res = await resilientFetch(`${API_BASE}/api/v1/hooks/${plugin}/${hook}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {

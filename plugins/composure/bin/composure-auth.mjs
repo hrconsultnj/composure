@@ -30,7 +30,7 @@ import {
   COMPOSURE_DIR,
   CREDENTIALS_PATH,
 } from "./composure-token.mjs";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, lstatSync } from "node:fs";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -239,8 +239,39 @@ async function login() {
 
   writeCredentials(credentials);
 
+  // Ensure ~/.composure/bin/ symlinks exist for cross-plugin access
+  setupBinSymlinks();
+
   console.log(`\nLogged in as ${email}. Plan: ${plan}.`);
   console.log(`Credentials stored at ${CREDENTIALS_PATH}`);
+}
+
+// ── Bin Symlinks ────────────────────────────────────────────────────
+
+function setupBinSymlinks() {
+  const binDir = join(COMPOSURE_DIR, "bin");
+  if (!existsSync(binDir)) {
+    mkdirSync(binDir, { recursive: true, mode: 0o755 });
+  }
+
+  // Resolve the directory containing this script (composure plugin's bin/)
+  const scriptDir = new URL(".", import.meta.url).pathname;
+  const binaries = ["composure-fetch.mjs", "composure-token.mjs", "composure-cache.mjs", "composure-auth.mjs"];
+
+  for (const bin of binaries) {
+    const target = join(scriptDir, bin);
+    const link = join(binDir, bin);
+    try {
+      // Skip if symlink already points to the right place
+      if (existsSync(link)) {
+        const stat = lstatSync(link);
+        if (stat.isSymbolicLink()) continue;
+      }
+      symlinkSync(target, link);
+    } catch {
+      // Non-fatal — symlink may already exist or permissions issue
+    }
+  }
 }
 
 // ── Logout ───────────────────────────────────────────────────────────

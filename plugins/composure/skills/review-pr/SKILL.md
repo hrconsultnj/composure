@@ -8,13 +8,13 @@ Perform a comprehensive, graph-powered code review of a pull request. Uses verif
 
 ## Content Loading
 
-This skill's content is served from the Composure API. Before reading a step, fetch it:
+This skill's content is cached locally. Read steps from cache first, fetch only if missing:
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/composure-fetch.mjs" skill composure review-pr {step-filename}
+"~/.composure/bin/composure-fetch.mjs" skill composure review-pr {step-filename}
 ```
 
-Cached content is at `~/.composure/cache/composure/skills/review-pr/`. If cached, read directly from there.
+**Read from `~/.composure/cache/composure/skills/review-pr/` first.** Only run the fetch command above if the cached file is missing.
 
 ## Steps
 

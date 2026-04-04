@@ -22,6 +22,11 @@ import { getValidToken, API_BASE, COMPOSURE_DIR } from "./composure-token.mjs";
 const CACHE_DIR = join(COMPOSURE_DIR, "cache");
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// ── Retry / Resilience Constants ────────────────────────────────────
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 1000;     // 1s → 2s → 4s
+const REQUEST_TIMEOUT_MS = 10_000;   // 10 seconds per attempt
+
 // ── Cache Utilities ──────────────────────────────────────────────────
 
 function getCachePath(type, plugin, ...parts) {
@@ -62,7 +67,18 @@ function writeCache(cachePath, content, meta) {
   }, null, 2), { mode: 0o600 });
 }
 
-// ── Fetch from API ───────────────────────────────────────────────────
+// ── Retry Helpers ───────────────────────────────────────────────────
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryable(status) {
+  // Retry on network errors (0), server errors (5xx), and 429 (rate-limited)
+  return status === 0 || status === 429 || (status >= 500 && status < 600);
+}
+
+// ── Fetch from API (with retries + timeout) ─────────────────────────
 
 async function fetchFromAPI(endpoint) {
   const token = await getValidToken();
@@ -71,35 +87,82 @@ async function fetchFromAPI(endpoint) {
     return { ok: false, status: 401, error: "Not authenticated. Run /composure:auth login" };
   }
 
-  try {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "text/markdown, application/json",
-      },
-    });
+  let lastError = null;
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      return {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/markdown, application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        lastError = {
+          ok: false,
+          status: response.status,
+          error: body.error || body.message || response.statusText,
+        };
+
+        // Don't retry auth or plan errors — they won't resolve with retries
+        if (!isRetryable(response.status)) {
+          return lastError;
+        }
+
+        if (attempt < MAX_RETRIES) {
+          const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
+          console.error(`[composure] Attempt ${attempt}/${MAX_RETRIES} failed (${response.status}). Retrying in ${backoff / 1000}s...`);
+          await sleep(backoff);
+          continue;
+        }
+
+        return lastError;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      const content = await response.text();
+      return { ok: true, content, contentType };
+    } catch (err) {
+      const isTimeout = err.name === "AbortError";
+      lastError = {
         ok: false,
-        status: response.status,
-        error: body.error || body.message || response.statusText,
+        status: 0,
+        error: isTimeout
+          ? `Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`
+          : `Network error: ${err.message}`,
       };
-    }
 
-    const contentType = response.headers.get("content-type") || "";
-    const content = await response.text();
-    return { ok: true, content, contentType };
-  } catch (err) {
-    return { ok: false, status: 0, error: `Network error: ${err.message}` };
+      if (attempt < MAX_RETRIES) {
+        const backoff = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
+        console.error(`[composure] Attempt ${attempt}/${MAX_RETRIES} failed (${isTimeout ? "timeout" : "network"}). Retrying in ${backoff / 1000}s...`);
+        await sleep(backoff);
+        continue;
+      }
+    }
   }
+
+  return lastError;
 }
 
-// ── Fetch with Cache ─────────────────────────────────────────────────
+// ── Fetch with Cache (cache-first strategy) ─────────────────────────
 
 async function fetchWithCache(type, endpoint, cachePath) {
-  // Try API first
+  // Check cache first — if fresh, serve immediately (no network needed)
+  const cached = readCache(cachePath);
+
+  if (cached && !cached.stale) {
+    return { content: cached.content, source: "[cached]" };
+  }
+
+  // Cache is stale or missing — try API with retries
   const result = await fetchFromAPI(endpoint);
 
   if (result.ok) {
@@ -107,9 +170,13 @@ async function fetchWithCache(type, endpoint, cachePath) {
     return { content: result.content, source: "api" };
   }
 
-  // API failed — try cache fallback
+  // API failed — handle non-retryable errors
   if (result.status === 401) {
-    // Auth error — no point falling back to cache
+    // Auth error — still serve stale cache if available (don't block work)
+    if (cached) {
+      console.error("[composure] Auth expired — serving cached version. Run /composure:auth login to refresh.");
+      return { content: cached.content, source: "[cached:stale:auth-expired]" };
+    }
     console.error(result.error);
     process.exit(1);
   }
@@ -120,16 +187,16 @@ async function fetchWithCache(type, endpoint, cachePath) {
     process.exit(1);
   }
 
-  // Network error or server error — try cache
-  const cached = readCache(cachePath);
+  // Network/server error — serve stale cache if available
   if (cached) {
-    const marker = cached.stale ? "[cached:stale]" : "[cached]";
-    return { content: cached.content, source: marker };
+    console.error(`[composure] API unreachable after ${MAX_RETRIES} attempts — serving cached version`);
+    return { content: cached.content, source: "[cached:stale]" };
   }
 
-  // No cache, no API
-  console.error(`Failed to fetch: ${result.error}`);
-  console.error("No cached version available. Check your internet connection.");
+  // No cache, no API — hard fail with actionable guidance
+  console.error(`[composure] Failed to fetch after ${MAX_RETRIES} attempts: ${result.error}`);
+  console.error("No cached version available.");
+  console.error("Fix: Run 'composure-cache sync' when online to pre-populate the cache.");
   process.exit(1);
 }
 
