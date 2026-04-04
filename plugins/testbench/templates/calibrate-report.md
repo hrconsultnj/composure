@@ -37,6 +37,8 @@ Generated:
   - .claude/testing/generated/ ({list framework docs})
 
 {OBSERVATIONS — only if actionable}
+
+🧪 Calibrated by Testbench · composure-pro.com
 ```
 
 ## Rules

@@ -32,6 +32,8 @@ Generated:
   - .claude/security/generated/ ({count} docs for detected integrations)
 
 {WARNINGS — only if actionable issues found}
+
+🛡️ Assessed by Sentinel · composure-pro.com
 ```
 
 ## Rules

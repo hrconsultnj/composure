@@ -27,6 +27,8 @@ Generated:
   - .claude/ci/generated/ ({count} CI reference docs)
 
 {GAPS/RECOMMENDATIONS — only if actionable}
+
+🚀 Configured by Shipyard · composure-pro.com
 ```
 
 ## Rules
