@@ -87,6 +87,13 @@
   - **Why shipyard, not testbench**: Testbench = unit/integration tests (code-level). Shipyard = deployment pipeline (system-level). Smoke tests are a deployment gate — "can we ship this?" — which is shipyard's domain. Testbench:e2e-scaffold still makes sense as the *setup* skill (generate Playwright config + test files), while shipyard:smoke-test is the *runner*.
   - **Monetization angle**: This is the skill that saves a deployment. Free tier gets testbench (unit tests). Pro tier gets shipyard:smoke-test (the safety net that catches runtime breaks before they hit production). High perceived value — "your CI caught a hydration error before merge" is worth $12/mo.
 
+## 🔧 Auth & UX Improvements
+
+- [ ] **Seamless auth** — When a skill needs API content and the user isn't authenticated, Claude should auto-offer to run `composure-auth login` (Bash tool, user approves once). No manual terminal commands. Flow: skill fetch fails 401 → Claude says "You need to authenticate to use this skill. Shall I open the login?" → runs login → continues skill. [2026-04-03]
+- [ ] **Token TTL** — Increase Supabase JWT expiry from 1 hour to 7 days in dashboard. Users shouldn't re-auth daily. [2026-04-03]
+- [ ] **Silent refresh fix** — `composure-token.mjs refresh` exits 0 but doesn't always update credentials.json. Debug and fix the refresh flow so tokens renew transparently. [2026-04-03]
+- [ ] **Content deployment** — API endpoint at `/api/v1/skills/` returns 404 — skill content from composure-pro needs to be mounted at `CONTENT_DIR` on the Vercel deployment. [2026-04-03]
+
 ## 🔧 Skill Improvements
 
 - [ ] **`/composure:review-pr` actionable output** — Three enhancements [2026-04-03]:
