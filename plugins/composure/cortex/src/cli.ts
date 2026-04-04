@@ -17,6 +17,7 @@ import { thinking, memory } from "./index.js";
 import type { StorageAdapter } from "./adapters/types.js";
 import { SupabaseAdapter } from "./adapters/supabase.js";
 import { SqliteAdapter } from "./adapters/sqlite.js";
+import { syncUp, syncDown, syncStatus } from "./adapters/sync.js";
 
 function createAdapter(): StorageAdapter {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -51,6 +52,41 @@ const commands: Record<string, CommandHandler> = {
   search_memory_semantic: (a, args) => memory.searchSemantic(a, args as any),
   search_memory_text: (a, args) => memory.searchWithText(a, args as any),
   traverse_memory_graph: (a, args) => memory.traverseGraph(a, args as any),
+
+  // Sync
+  sync_up: async (_a, args) => {
+    const local = new SqliteAdapter();
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return { status: "error", error: "SUPABASE_URL and key required for sync" };
+    const remote = new SupabaseAdapter({ type: "supabase", url: supabaseUrl, key: supabaseKey });
+    const result = await syncUp(local, remote, args.agent_id as string);
+    local.close();
+    remote.close();
+    return result;
+  },
+  sync_down: async (_a, args) => {
+    const local = new SqliteAdapter();
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return { status: "error", error: "SUPABASE_URL and key required for sync" };
+    const remote = new SupabaseAdapter({ type: "supabase", url: supabaseUrl, key: supabaseKey });
+    const result = await syncDown(local, remote, args.agent_id as string);
+    local.close();
+    remote.close();
+    return result;
+  },
+  sync_status: async (_a, args) => {
+    const local = new SqliteAdapter();
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return { status: "error", error: "SUPABASE_URL and key required for sync" };
+    const remote = new SupabaseAdapter({ type: "supabase", url: supabaseUrl, key: supabaseKey });
+    const result = await syncStatus(local, remote, args.agent_id as string);
+    local.close();
+    remote.close();
+    return result;
+  },
 };
 
 async function main(): Promise<void> {
