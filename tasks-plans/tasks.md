@@ -90,9 +90,17 @@
 ## 🔧 Auth & UX Improvements
 
 - [ ] **Seamless auth** — When a skill needs API content and the user isn't authenticated, Claude should auto-offer to run `composure-auth login` (Bash tool, user approves once). No manual terminal commands. Flow: skill fetch fails 401 → Claude says "You need to authenticate to use this skill. Shall I open the login?" → runs login → continues skill. [2026-04-03]
-- [ ] **Token TTL** — Increase Supabase JWT expiry from 1 hour to 7 days in dashboard. Users shouldn't re-auth daily. [2026-04-03]
-- [ ] **Silent refresh fix** — `composure-token.mjs refresh` exits 0 but doesn't always update credentials.json. Debug and fix the refresh flow so tokens renew transparently. [2026-04-03]
-- [ ] **Content deployment** — API endpoint at `/api/v1/skills/` returns 404 — skill content from composure-pro needs to be mounted at `CONTENT_DIR` on the Vercel deployment. [2026-04-03]
+- [x] **Token TTL** — ~~Increase Supabase JWT expiry~~ Done: 604800 (7 days) set in Supabase dashboard. JWT Signing Keys (new system, legacy secret migrated). [2026-04-03]
+- [x] **Silent refresh fix** — ~~composure-token.mjs refresh exits 0 but doesn't update~~ Root cause: proxy sent form-urlencoded, Supabase expects JSON. Fixed in composure-web token route. Auto-refresh added to validate command. [2026-04-03]
+- [x] **Content deployment** — ~~API endpoint at `/api/v1/skills/` returns 404~~ Auth fixed, 404 is content mount issue (see below). [2026-04-03]
+- [ ] **Skill content mount on Vercel** — `/api/v1/skills/composure/blueprint/01-classify` returns 404 because skill step files from composure-pro are NOT available at `CONTENT_DIR` on the server. [2026-04-03]
+  - **Auth works**: Token validates, 7-day TTL, refresh works. The 404 is purely about content files.
+  - **API route**: `composure-web/src/app/api/v1/skills/[plugin]/[skill]/[step]/route.ts`
+  - **Content source**: `composure-pro/plugins/{plugin}/skills/{skill}/steps/{step}.md`
+  - **Expected path on server**: `{CONTENT_DIR}/{plugin}/skills/{skill}/steps/{step}.md` (or `/steps/{step}`, tries 6 path variants)
+  - **CONTENT_DIR**: defaults to `{process.cwd()}/content/plugins` — needs composure-pro content cloned/mounted there
+  - **Options**: (a) Git submodule composure-pro into composure-web at `content/plugins/`, (b) Build step that copies files, (c) Set `CONTENT_DIR` env var to point to a mounted volume
+  - **Test**: After mounting, verify: `curl -H "Authorization: Bearer <token>" https://composure-pro.com/api/v1/skills/composure/blueprint/01-classify`
 
 ## 🔧 Skill Improvements
 
