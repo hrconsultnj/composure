@@ -98,7 +98,13 @@ export async function refreshToken(credentials) {
       body: body.toString(),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      if (process.env.COMPOSURE_DEBUG) {
+        console.error(`[composure-token] Refresh failed (${response.status}): ${JSON.stringify(errBody)}`);
+      }
+      return null;
+    }
 
     const data = await response.json();
 
@@ -168,6 +174,12 @@ if (subcommand === "validate") {
     process.exit(1);
   }
   if (isExpired(creds)) {
+    // Try silent refresh before reporting expired
+    const refreshed = await refreshToken(creds);
+    if (refreshed) {
+      console.log(`valid:${refreshed.plan ?? "free"}:${refreshed.email ?? "unknown"}`);
+      process.exit(0);
+    }
     console.log("expired");
     process.exit(2);
   }
