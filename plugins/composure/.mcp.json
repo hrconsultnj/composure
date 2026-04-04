@@ -11,6 +11,10 @@
     "composure-cortex": {
       "command": "node",
       "args": ["--experimental-sqlite", "${CLAUDE_PLUGIN_ROOT}/cortex/dist/server.bundle.js"]
+    },
+    "composure-guardrails": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/guardrails/dist/server.bundle.js"]
     }
   }
 }
