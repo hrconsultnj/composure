@@ -171,3 +171,11 @@ The research identified specific patterns to borrow from Vercel (restraint, Geis
 | Build iterations with user feedback | 3 (mega menu layout) |
 | Type errors on first build | 2 (fixed in <1 minute) |
 | Final build status | Clean, all routes statically generated |
+
+## Next in the Series
+
+This use case ends with a clean local build at 3:46 PM ET. For the deployment phase — GitHub repo creation, Shipyard preflight, Vercel deploy, live header audit, and security header hardening — continue with:
+
+**→ [From Repo to Production with Hardened Security — 22 Minutes](../shipyard-sentinel-hardened-deploy/README.md)**
+
+Together, the two use cases cover the full workflow from "/ux-researcher invoked" to "aigraas.com live with A/A+ security headers" in under 70 minutes of hands-on time.
