@@ -87,6 +87,16 @@
   - **Why shipyard, not testbench**: Testbench = unit/integration tests (code-level). Shipyard = deployment pipeline (system-level). Smoke tests are a deployment gate — "can we ship this?" — which is shipyard's domain. Testbench:e2e-scaffold still makes sense as the *setup* skill (generate Playwright config + test files), while shipyard:smoke-test is the *runner*.
   - **Monetization angle**: This is the skill that saves a deployment. Free tier gets testbench (unit tests). Pro tier gets shipyard:smoke-test (the safety net that catches runtime breaks before they hit production). High perceived value — "your CI caught a hydration error before merge" is worth $12/mo.
 
+## 🔧 Skill Improvements
+
+- [ ] **`/composure:review-pr` actionable output** — Three enhancements [2026-04-03]:
+  1. Write audit file to `tasks-plans/audits/pr-{number}-{date}.md` (persists across sessions)
+  2. AskUserQuestion: "Post as GitHub review?" → use `gh pr review` to post inline comments
+  3. Structure findings with exact `file:line:fix` instructions for agent-to-agent delegation
+  - PR template format: blocking vs non-blocking, each finding has file, line, current code, fix code
+  - Enables: manager reviewing, autonomous agent fixing, audit trail
+  - Lesson from: composure-pro#1 review where blocking issues needed manual relay to fixing agent
+
 ## 🗺️ Roadmap
 
 - [ ] **Multi-platform enforcement MCP** — composure-enforce server + adapters (Cursor, Windsurf, Cline, Git). Branch: `feat/enforcement-mcp-server`, PR #8. Blueprint: `multi-platform-compatibility-2026-04-03.md`
