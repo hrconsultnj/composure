@@ -37,6 +37,7 @@ const commands: Record<string, CommandHandler> = {
   list_thinking_sessions: (a, args) => thinking.listSessions(a, args as any),
   complete_thinking_session: (a, args) => thinking.completeSession(a, args as any),
   summarize_thinking_session: (a, args) => thinking.summarizeSession(a, args as any),
+  list_thinking_templates: async () => ({ status: "ok", templates: thinking.listTemplates() }),
 
   // Memory
   create_memory_node: (a, args) => memory.createNode(a, args as any),

@@ -7,20 +7,45 @@
 
 import type { ToolResult, ThinkingSessionStatus } from "../types.js";
 import type { StorageAdapter } from "../../adapters/types.js";
+import { getTemplate, getNextStep, listTemplates, type ThinkingTemplate } from "./templates/index.js";
 
 export async function createSession(
   adapter: StorageAdapter,
-  params: { agent_id: string; title?: string }
+  params: { agent_id: string; title?: string; template_id?: string }
 ): Promise<ToolResult> {
   try {
-    const session = await adapter.createSession(params.agent_id, params.title);
-    return {
+    let template: ThinkingTemplate | null = null;
+    if (params.template_id) {
+      template = getTemplate(params.template_id);
+      if (!template) {
+        return {
+          status: "error",
+          error: `Unknown template: ${params.template_id}`,
+          available_templates: listTemplates(),
+        };
+      }
+    }
+
+    const title = params.title ?? template?.name ?? undefined;
+    const session = await adapter.createSession(params.agent_id, title);
+
+    const result: Record<string, unknown> = {
       status: "ok",
       session_id: session.id,
       id_prefix: session.id_prefix,
       title: session.title,
       message: "Thinking session created",
     };
+
+    if (template) {
+      const firstStep = template.steps[0];
+      result.template = template.id;
+      result.total_steps = template.steps.length;
+      result.next_prompt = firstStep?.prompt ?? null;
+      result.next_thought_type = firstStep?.thought_type ?? null;
+    }
+
+    return result as ToolResult;
   } catch (err) {
     return {
       status: "error",

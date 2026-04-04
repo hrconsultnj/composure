@@ -44,6 +44,7 @@ server.tool(
   `Add a thought step to a reasoning chain. Creates a new session automatically if no session_id is provided.
 
 Supports:
+- Templates: provide template_id to follow a guided reasoning pattern (code-review, bug-investigation, architecture-decision, guardrails-config, incident-response, refactor-plan)
 - Sequential thoughts (default): builds a chain of analysis
 - Revisions: mark is_revision=true to reconsider a previous thought
 - Branching: provide branch_id + branch_from_thought to explore alternatives
@@ -53,6 +54,7 @@ Supports:
     session_id: z.string().optional().describe("Existing session to continue. If omitted, creates a new session."),
     agent_id: z.string().optional().describe("Agent ID. Required when creating a new session."),
     title: z.string().optional().describe("Session title. Used when creating a new session."),
+    template_id: z.string().optional().describe("Template for guided reasoning: code-review, bug-investigation, architecture-decision, guardrails-config, incident-response, refactor-plan."),
     thought_type: z.enum(["analysis", "revision", "hypothesis", "verification", "conclusion", "branch"]).optional().describe("Type of thought. Auto-detected for revisions and branches."),
     is_revision: z.boolean().optional().describe("Whether this thought revises a previous one."),
     revises_thought: z.number().optional().describe("Which thought number is being revised."),
@@ -113,6 +115,16 @@ server.tool(
   async (params) => {
     const result = await thinking.summarizeSession(adapter, params);
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  },
+);
+
+server.tool(
+  "list_thinking_templates",
+  "List available thinking templates — pre-built reasoning patterns for common workflows.",
+  {},
+  async () => {
+    const templates = thinking.listTemplates();
+    return { content: [{ type: "text" as const, text: JSON.stringify({ status: "ok", templates }, null, 2) }] };
   },
 );
 
