@@ -68,11 +68,24 @@ All plugins, all skills, all hooks — free for personal use, education, and non
 
 ### Quick Install
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://composure-pro.com/install.sh | sh
 ```
 
+**Windows (PowerShell):**
+```powershell
+irm https://composure-pro.com/install.ps1 | iex
+```
+
+**Windows (Command Prompt):**
+```cmd
+curl -fsSL https://composure-pro.com/install.cmd -o %TEMP%\composure-install.cmd && %TEMP%\composure-install.cmd
+```
+
 ### Manual Install
+
+Works on any OS with Claude Code installed:
 
 ```bash
 # Add the marketplace
