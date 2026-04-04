@@ -1,0 +1,8 @@
+/* Test fixture: Tailwind v3 deprecated directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.card {
+  color: hsl(220 13% 69%);
+}

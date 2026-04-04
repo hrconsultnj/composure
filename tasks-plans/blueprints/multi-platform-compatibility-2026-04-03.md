@@ -27,8 +27,14 @@ Research: `composure-pro/docs/expansion.txt`
 | **Codex CLI** | In dev (lifecycle) | Full (STDIO/HTTP) | .codex/config.toml | TBD | Medium — MCP first |
 | **Cline** (VS Code) | Yes (.clinerules/hooks/) | Yes | .clinerules | No | Medium — hooks + MCP |
 | **Roo Code** (VS Code) | Via MCP only | Full | Custom modes | No | Easy — MCP-only integration |
+| **Windsurf** (Codeium) | Yes (Cascade Hooks) | Full | .windsurfrules | JSON config | High — hooks + MCP + rules |
+| **Replit** | No | Full | — | MCP only | Medium — MCP-only integration |
+| **Lovable** | No | Full (Personal Connectors) | — | MCP for context | Medium — MCP-only integration |
+| **Bolt.new** (StackBlitz) | No | Full (bolt.diy) | — | MCP config UI | Medium — MCP via community fork |
+| **Dyad.sh** (open source) | No | Full (v0.22+, stdio/HTTP) | — | MCP | Medium — MCP-only, self-hosted |
 | **Continue.dev** (VS Code) | No | No | .continue/rules/ | No | Low — rules-only, no runtime enforcement |
 | **Aider** | No | No | YAML config | No | Low — config-only |
+| **v0** (Vercel) | No | No | tailwind.config only | No | Not viable — no extensibility |
 | **Claude Code Web** | Via sandbox | Via sandbox | Same as CLI | Yes | Auto — same plugin system |
 | **Claude Code Mobile** | Monitor only | No local | Same as CLI | No | Monitor only — no local enforcement |
 | **Claude Desktop** | Full | Full | Same as CLI | Yes | Auto — same plugin system |
@@ -41,11 +47,11 @@ Research: `composure-pro/docs/expansion.txt`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Layer 3: Platform Adapters (optional, for native hook integration) │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│  │  Claude   │ │  Cursor  │ │ Gemini   │ │  Cline   │ │   Git    │ │
-│  │ hooks.json│ │hooks.json│ │extension │ │.clinerules│ │pre-commit│ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
+│  Layer 3: Platform Adapters (optional, for native hook integration)       │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ Claude │ │ Cursor │ │Windsurf│ │ Gemini │ │  Cline   │ │   Git    │ │
+│  │hooks.js│ │hooks.js│ │Cascade │ │  ext   │ │.clinerule│ │pre-commit│ │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └──────────┘ └──────────┘ │
 ├─────────────────────────────────────────────────────────────────────┤
 │  Layer 2: MCP Server (universal — works on all MCP-capable tools)  │
 │                                                                     │
@@ -140,7 +146,47 @@ Package as a Gemini extension with bundled hooks:
 - Generates .git/hooks/pre-commit calling composure-enforcement
 - Works with ANY tool, ANY model, ANY workflow
 
-### Phase G: Claude Code Web/Mobile Status (LOW)
+### Phase G: Universal Installer + Auto-Detection (HIGH — unlocks non-Claude users)
+
+The install script becomes a universal entry point that:
+1. Detects which AI coding tools are already installed
+2. Offers to install Claude Code if missing (or works without it)
+3. Auto-runs appropriate adapters for detected platforms
+4. Works on macOS, Linux, and Windows (PowerShell + WSL)
+
+**Tool Detection Matrix:**
+
+| Tool | Detection Command | Install Command | Config Dir |
+|------|-------------------|-----------------|-----------|
+| Claude Code | `which claude` | `npm i -g @anthropic-ai/claude-code` | `~/.claude/` |
+| Cursor | `which cursor` | `curl https://cursor.com/install -fsSL \| bash` | `~/.cursor/` |
+| Windsurf | `which windsurf` | Download from windsurf.com | `~/.codeium/windsurf/` |
+| Gemini CLI | `which gemini` | `npm i -g @google/gemini-cli` | `~/.config/gemini/` |
+| Codex CLI | `which codex` | `npm i -g @openai/codex` | `~/.codex/` |
+| Aider | `which aider` | `pip install aider-chat` | `~/.aider/` |
+| Cline | `code --list-extensions \| grep claude-dev` | VS Code Marketplace | Extension storage |
+| Roo Code | `code --list-extensions \| grep roo-cline` | VS Code Marketplace | Extension storage |
+
+**Installer flow:**
+```
+1. Check Node.js 22.5+ (required for graph)
+2. Detect installed AI tools → report findings
+3. If Claude Code missing → offer auto-install (npm i -g)
+4. If Claude Code present → add marketplace + install plugin
+5. Create ~/.composure/ with full directory structure
+6. For each detected platform → run composure-enforce adapt <platform>
+7. Print summary: what was installed, what adapters were generated
+```
+
+**Windows support:**
+- PowerShell installer at composure-pro.com/install.ps1
+- Detects WSL and offers to install there instead
+- npm install -g works identically on Windows/Mac/Linux
+- Adapters generate Windows-compatible paths
+
+**Key insight:** Composure no longer REQUIRES Claude Code. It works standalone with any detected platform. Claude Code is the best experience (hooks), but Cursor/Windsurf get hooks too, and everything else gets MCP or git hooks.
+
+### Phase H: Claude Code Web/Mobile Status (LOW)
 
 - Read-only /composure:health via MCP in sandbox environments
 - No runtime enforcement (sandbox limitations)
@@ -241,6 +287,15 @@ The MCP server and the CLI tool share the same enforcement engine. Hooks are jus
 - [ ] Generate .git/hooks/pre-commit
 - [ ] Test with bare git (no AI tool)
 
-### Phase G: Sandbox/Mobile
+### Phase G: Universal Installer + Auto-Detection
+- [ ] Rewrite install.sh with multi-tool detection
+- [ ] Auto-detect Claude Code, Cursor, Windsurf, Gemini, Codex, Aider
+- [ ] Offer auto-install for Claude Code if missing
+- [ ] Auto-run `composure-enforce adapt` for detected platforms
+- [ ] Create install.ps1 for Windows (PowerShell)
+- [ ] WSL detection and routing
+- [ ] Test on macOS, Linux, Windows
+
+### Phase H: Sandbox/Mobile
 - [ ] Test composure-graph MCP in Claude Code Web sandbox
 - [ ] Verify read-only status queries work

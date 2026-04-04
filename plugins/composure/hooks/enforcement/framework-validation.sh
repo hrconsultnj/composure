@@ -101,6 +101,12 @@ process_fv_groups() {
       RULE_SKIPIF=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].skipIf // empty" 2>/dev/null)
       RULE_INVERT=$(printf '%s' "$FV_JSON" | jq -r ".\"$GROUP\".rules[$i].invertMatch // false" 2>/dev/null)
 
+      # Convert Perl/PCRE shortcuts to POSIX ERE (macOS grep -E doesn't support \s, \d, \w, \b)
+      RULE_PATTERN=$(printf '%s' "$RULE_PATTERN" | sed 's/\\s/[[:space:]]/g; s/\\d/[0-9]/g; s/\\w/[a-zA-Z0-9_]/g; s/\\b/[[:<:]]/g')
+      if [[ -n "$RULE_SKIPIF" ]]; then
+        RULE_SKIPIF=$(printf '%s' "$RULE_SKIPIF" | sed 's/\\s/[[:space:]]/g; s/\\d/[0-9]/g; s/\\w/[a-zA-Z0-9_]/g; s/\\b/[[:<:]]/g')
+      fi
+
       # Skip if content matches skipIf pattern
       if [[ -n "$RULE_SKIPIF" ]] && printf '%s\n' "$CONTENT" | grep -qE "$RULE_SKIPIF" 2>/dev/null; then
         continue
@@ -194,16 +200,21 @@ if [[ -f "$CONFIG_FILE" ]]; then
 fi
 
 # ── Layer 2: Project-level rules ─────────────────────────────
-if printf '%s' "$CONFIG" | jq -e '.frameworkValidation' >/dev/null 2>&1; then
-  PROJECT_FV=$(printf '%s' "$CONFIG" | jq -r '.frameworkValidation')
-  if [[ -n "$PLUGIN_GROUP_NAMES" ]]; then
-    # Filter out project groups that share names with plugin groups
-    PLUGIN_KEYS_JSON=$(printf '%s' "$PLUGIN_GROUP_NAMES" | grep -v '^$' | sort -u | jq -R . | jq -s . 2>/dev/null || echo '[]')
-    FILTERED_FV=$(printf '%s' "$PROJECT_FV" | jq --argjson plugin "$PLUGIN_KEYS_JSON" 'with_entries(select(.key as $k | $plugin | index($k) | not))' 2>/dev/null)
-    [[ -n "$FILTERED_FV" && "$FILTERED_FV" != "null" && "$FILTERED_FV" != "{}" ]] && process_fv_groups "$FILTERED_FV"
-  else
-    process_fv_groups "$PROJECT_FV"
-  fi
+# Read directly from config file (not shell variable) to preserve JSON escaping.
+# The previous approach piped JSON through shell variables which corrupted
+# backslash-heavy regex patterns like \s, \w, causing jq parse errors.
+if [[ -f "$CONFIG_FILE" ]] && jq -e '.frameworkValidation' "$CONFIG_FILE" >/dev/null 2>&1; then
+  # Get project group names, skipping any that overlap with plugin groups
+  PROJECT_GROUP_NAMES=$(jq -r '.frameworkValidation | keys[]' "$CONFIG_FILE" 2>/dev/null)
+  for PROJECT_GROUP in $PROJECT_GROUP_NAMES; do
+    # Skip if plugin already defined this group (plugin takes precedence)
+    if [[ -n "$PLUGIN_GROUP_NAMES" ]] && printf '%s' "$PLUGIN_GROUP_NAMES" | grep -qxF "$PROJECT_GROUP"; then
+      continue
+    fi
+    # Extract this single group's JSON and process it
+    SINGLE_GROUP=$(jq -c "{\"$PROJECT_GROUP\": .frameworkValidation.\"$PROJECT_GROUP\"}" "$CONFIG_FILE" 2>/dev/null)
+    [[ -n "$SINGLE_GROUP" && "$SINGLE_GROUP" != "null" ]] && process_fv_groups "$SINGLE_GROUP"
+  done
 fi
 
 # ── Report ───────────────────────────────────────────────────

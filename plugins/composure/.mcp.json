@@ -3,6 +3,10 @@
     "composure-graph": {
       "command": "node",
       "args": ["--experimental-sqlite", "${CLAUDE_PLUGIN_ROOT}/graph/dist/server.js"]
+    },
+    "composure-enforce": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/enforce/dist/server.js"]
     }
   }
 }
