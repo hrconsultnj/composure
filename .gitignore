@@ -20,3 +20,6 @@ plugins/composure/enforce/src/**/*.js.map
 plugins/composure/app/dist/
 plugins/composure/graph/src/
 plugins/composure/graph/pnpm-workspace.yaml
+
+# Supabase CLI temp files
+supabase/.temp/
