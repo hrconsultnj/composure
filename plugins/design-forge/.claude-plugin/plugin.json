@@ -1,0 +1,14 @@
+{
+  "name": "design-forge",
+  "description": "Premium design patterns, UX research skills, and user journey mapping for modern web applications.",
+  "version": "2.2.0",
+  "author": {
+    "name": "Helder Rodrigues",
+    "url": "https://github.com/hrconsultnj"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "agents": "./agents/",
+  "hooks": "./hooks/"
+}
