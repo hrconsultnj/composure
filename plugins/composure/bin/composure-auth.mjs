@@ -395,7 +395,7 @@ async function upgradeProject() {
   const claudeDir = join(projectDir, ".claude");
   const composureDir = join(projectDir, ".composure");
 
-  console.log(`\nComposure Upgrade — Migrate configs to .composure/\n`);
+  console.log(`\nComposure Migrate — Move configs to .composure/\n`);
   console.log(`Project: ${projectDir}`);
 
   // Check for legacy configs
@@ -415,10 +415,29 @@ async function upgradeProject() {
     return;
   }
 
-  // Create .composure/ directory
-  if (!existsSync(composureDir)) {
-    mkdirSync(composureDir, { recursive: true });
+  // Create full .composure/ scaffold (matches auto-bootstrap)
+  for (const dir of [
+    composureDir,
+    join(composureDir, "frameworks", "generated"),
+    join(composureDir, "frameworks", "project"),
+    join(composureDir, "workspaces"),
+    join(composureDir, "cortex"),
+    join(composureDir, "graph"),
+  ]) {
+    mkdirSync(dir, { recursive: true });
   }
+
+  // Create tasks-plans/ scaffold
+  for (const dir of [
+    join(projectDir, "tasks-plans", "blueprints"),
+    join(projectDir, "tasks-plans", "archive"),
+    join(projectDir, "tasks-plans", "docs"),
+  ]) {
+    mkdirSync(dir, { recursive: true });
+  }
+
+  // Ensure global Cortex directory exists
+  mkdirSync(join(COMPOSURE_DIR, "cortex"), { recursive: true });
 
   let migrated = 0;
 
@@ -508,11 +527,6 @@ switch (subcommand) {
 
   case "refresh":
     await refresh();
-    break;
-
-  // Legacy aliases
-  case "upgrade-plan":
-    upgrade();
     break;
 
   default:
