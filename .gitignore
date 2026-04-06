@@ -16,6 +16,10 @@ plugins/composure/*/dist/**/*.js.map
 plugins/composure/enforce/src/**/*.js
 plugins/composure/enforce/src/**/*.js.map
 
+# Tools build output
+tools/*/dist/
+tools/*/node_modules/
+
 # Plugin-specific ignores
 plugins/composure/app/dist/
 plugins/composure/graph/src/
