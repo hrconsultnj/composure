@@ -4,14 +4,15 @@
  * composure-auth.mjs — CLI Authentication Orchestrator
  *
  * Handles OAuth 2.1 PKCE flow: CLI → browser → localhost callback → token storage.
- * Subcommands: login, logout, status, upgrade, upgrade-plan
+ * Subcommands: login, logout, status, upgrade, migrate, refresh
  *
  * Usage:
  *   composure-auth login        # Open browser, authenticate, store tokens
  *   composure-auth logout       # Clear stored credentials
- *   composure-auth status       # Show current auth status and plan
- *   composure-auth upgrade      # Migrate project configs (.claude/ → .composure/)
- *   composure-auth upgrade-plan # Open pricing page in browser
+ *   composure-auth status       # Show current auth status, plan, cache info
+ *   composure-auth upgrade      # Open pricing page to upgrade plan
+ *   composure-auth migrate      # Migrate project configs (.claude/ → .composure/)
+ *   composure-auth refresh      # Silently refresh expired token
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -345,14 +346,38 @@ async function status() {
 
 // ── Upgrade Plan ─────────────────────────────────────────────────────
 
-function upgradePlan() {
+function upgrade() {
   const url = `${API_BASE}/pricing`;
   console.log("Opening pricing page...");
   openBrowser(url);
   console.log(`Visit: ${url}`);
 }
 
-// ── Upgrade (migrate .claude/ → .composure/) ────────────────────────
+// ── Refresh Token ───────────────────────────────────────────────────
+
+async function refresh() {
+  const creds = readCredentials();
+  if (!creds) {
+    console.log("Not authenticated. Run composure-auth login first.");
+    process.exit(1);
+  }
+
+  if (!isExpired(creds)) {
+    console.log(`Token still valid (expires ${new Date(creds.expires_at).toLocaleString()}).`);
+    return;
+  }
+
+  console.log("Refreshing token...");
+  const refreshed = await refreshToken(creds);
+  if (refreshed) {
+    console.log("Token refreshed successfully.");
+  } else {
+    console.log("Refresh failed. Run composure-auth login to re-authenticate.");
+    process.exit(1);
+  }
+}
+
+// ── Migrate (.claude/ → .composure/) ─────────────────────────────────
 
 import { cpSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -474,21 +499,31 @@ switch (subcommand) {
     break;
 
   case "upgrade":
+    upgrade();
+    break;
+
+  case "migrate":
     await upgradeProject();
     break;
 
+  case "refresh":
+    await refresh();
+    break;
+
+  // Legacy aliases
   case "upgrade-plan":
-    upgradePlan();
+    upgrade();
     break;
 
   default:
     console.log("composure-auth — Composure CLI Authentication\n");
     console.log("Usage:");
-    console.log("  composure-auth login        Authenticate via browser (OAuth 2.1 + PKCE)");
-    console.log("  composure-auth logout       Clear stored credentials");
-    console.log("  composure-auth status       Show auth status and plan info");
-    console.log("  composure-auth upgrade      Migrate project configs (.claude/ → .composure/)");
-    console.log("  composure-auth upgrade-plan Open pricing page to upgrade plan");
+    console.log("  composure-auth login     Authenticate via browser (OAuth 2.1 + PKCE)");
+    console.log("  composure-auth logout    Clear stored credentials and cache");
+    console.log("  composure-auth status    Show account, plan, and token info");
+    console.log("  composure-auth upgrade   Open pricing page to upgrade your plan");
+    console.log("  composure-auth migrate   Migrate project configs (.claude/ → .composure/)");
+    console.log("  composure-auth refresh   Refresh an expired token without re-login");
     console.log(`\nCredentials: ${CREDENTIALS_PATH}`);
     break;
 }

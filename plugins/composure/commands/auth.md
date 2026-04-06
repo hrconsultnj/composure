@@ -1,7 +1,7 @@
 ---
 name: auth
-description: Authenticate with Composure Pro — login, logout, check status, or upgrade your plan
-argument-hint: "login | logout | status | upgrade"
+description: Authenticate with Composure — login, logout, check status, upgrade plan, migrate configs, or refresh tokens
+argument-hint: "login | logout | status | upgrade | migrate | refresh"
 ---
 
 Manage CLI authentication for Composure. Runs the `composure-auth.mjs` binary from the plugin's `bin/` directory.
@@ -13,9 +13,11 @@ Parse `$ARGUMENTS` to determine the action:
 | Argument | Action |
 |----------|--------|
 | `login` | Run the browser-based OAuth login flow |
-| `logout` | Clear stored credentials |
-| `status` | Show current auth status, plan, and features |
+| `logout` | Clear stored credentials and content cache |
+| `status` | Show current auth status, plan, and token info |
 | `upgrade` | Open the pricing page to upgrade your plan |
+| `migrate` | Migrate project configs from `.claude/` to `.composure/` |
+| `refresh` | Refresh an expired token without full re-login |
 | *(empty)* | Show current status, or prompt to login if not authenticated |
 
 ## Execution
@@ -37,18 +39,31 @@ Run the appropriate command via Bash using the full plugin path:
 ### For `logout`
 
 1. Run `"${CLAUDE_PLUGIN_ROOT}/bin/composure-auth.mjs" logout`
-2. Confirm: "Logged out. Sign back in anytime with `/composure:auth login`."
+2. Confirm: "Logged out. Cached content cleared. Sign back in anytime with `/composure:auth login`."
 
 ### For `status`
 
 1. Run `"${CLAUDE_PLUGIN_ROOT}/bin/composure-auth.mjs" status`
 2. Display the output (email, plan, features, token expiry).
 3. If not authenticated, suggest: "Run `/composure:auth login` to authenticate."
+4. Mention: "Run `/composure:health` for full installation diagnostics."
 
 ### For `upgrade`
 
 1. Run `"${CLAUDE_PLUGIN_ROOT}/bin/composure-auth.mjs" upgrade`
 2. Tell the user: "The pricing page is opening in your browser."
+
+### For `migrate`
+
+1. Run `"${CLAUDE_PLUGIN_ROOT}/bin/composure-auth.mjs" migrate`
+2. Report which files were migrated from `.claude/` to `.composure/`.
+3. Remind user to restart Claude Code to pick up the new paths.
+
+### For `refresh`
+
+1. Run `"${CLAUDE_PLUGIN_ROOT}/bin/composure-auth.mjs" refresh`
+2. If token was refreshed: "Token refreshed successfully."
+3. If refresh failed: "Refresh failed. Run `/composure:auth login` to re-authenticate."
 
 ### For no argument
 
