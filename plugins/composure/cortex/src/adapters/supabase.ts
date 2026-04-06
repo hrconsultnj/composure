@@ -11,7 +11,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { StorageAdapter, SupabaseAdapterConfig } from "./types.js";
+import type { StorageAdapter, SupabaseAdapterConfig, CreateSessionOptions } from "./types.js";
 import type {
   ThinkingSession,
   ThinkingStep,
@@ -37,10 +37,26 @@ export class SupabaseAdapter implements StorageAdapter {
 
   // ── Thinking — Sessions ──────────────────────────────────────
 
-  async createSession(agent_id: string, title?: string): Promise<ThinkingSession> {
+  async createSession(agent_id: string, title?: string, options?: CreateSessionOptions): Promise<ThinkingSession> {
+    const insertData: Record<string, unknown> = { agent_id, title: title ?? null };
+
+    // When feed_context is provided, populate metadata with project + task linkage.
+    // The existing create_entity_feed() trigger auto-populates entity_registry.
+    if (options?.metadata || options?.feed_context) {
+      const meta: Record<string, unknown> = { ...(options.metadata ?? {}) };
+      if (options.feed_context) {
+        meta.feed_entity_type = options.feed_context.entity_type;
+        meta.feed_project = options.feed_context.project;
+        meta.feed_project_root = options.feed_context.project_root;
+        if (options.feed_context.task_id) meta.feed_task_id = options.feed_context.task_id;
+        if (options.feed_context.task_subject) meta.feed_task_subject = options.feed_context.task_subject;
+      }
+      insertData.metadata = meta;
+    }
+
     const { data, error } = await this.client
       .from("ai_thinking_sessions")
-      .insert({ agent_id, title: title ?? null })
+      .insert(insertData)
       .select()
       .single();
 

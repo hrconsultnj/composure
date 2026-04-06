@@ -9,6 +9,7 @@ import type {
   ThinkingSession,
   ThinkingStep,
   ThinkingSessionStatus,
+  FeedContext,
   MemoryNode,
   MemoryEdge,
   MemorySearchParams,
@@ -19,6 +20,11 @@ import type {
   UpdateNodeParams,
   CreateEdgeParams,
 } from "../core/types.js";
+
+export interface CreateSessionOptions {
+  feed_context?: FeedContext;
+  metadata?: Record<string, unknown>;
+}
 
 // ── Adapter Config ───────────────────────────────────────────────
 
@@ -43,7 +49,7 @@ export interface StorageAdapter {
   readonly type: AdapterType;
 
   // Thinking — Sessions
-  createSession(agent_id: string, title?: string): Promise<ThinkingSession>;
+  createSession(agent_id: string, title?: string, options?: CreateSessionOptions): Promise<ThinkingSession>;
   getSession(session_id: string): Promise<{ session: ThinkingSession; steps: ThinkingStep[] } | null>;
   listSessions(agent_id: string, status?: ThinkingSessionStatus): Promise<ThinkingSession[]>;
   updateSession(session_id: string, updates: Partial<Pick<ThinkingSession, "title" | "status" | "total_thoughts" | "conclusion">>): Promise<ThinkingSession | null>;
