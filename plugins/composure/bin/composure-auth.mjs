@@ -429,9 +429,11 @@ async function upgradeProject() {
 
   // Create tasks-plans/ scaffold
   for (const dir of [
+    join(projectDir, "tasks-plans", "backlog"),
     join(projectDir, "tasks-plans", "blueprints"),
     join(projectDir, "tasks-plans", "archive"),
-    join(projectDir, "tasks-plans", "docs"),
+    join(projectDir, "tasks-plans", "ideas"),
+    join(projectDir, "tasks-plans", "reference"),
   ]) {
     mkdirSync(dir, { recursive: true });
   }
