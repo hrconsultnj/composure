@@ -67,18 +67,24 @@ export class SqliteAdapter implements StorageAdapter {
 
   private static resolveDbPath(): string {
     const { existsSync, mkdirSync } = require("node:fs");
-    const newPath = ".composure/cortex/cortex.db";
-    const oldPath = ".composure/cortex.db";
+    const { join } = require("node:path");
+    const home = process.env.HOME || process.env.USERPROFILE || "";
 
-    // New path takes priority
-    if (existsSync(newPath)) return newPath;
+    // Resolution order:
+    // 1. Project-level .composure/cortex/cortex.db (Decision 19, per-project override)
+    // 2. Project-level .composure/cortex.db (old path, backwards compat)
+    // 3. Global ~/.composure/cortex/cortex.db (shared across all projects — default)
+    const projectNew = ".composure/cortex/cortex.db";
+    const projectOld = ".composure/cortex.db";
+    const globalPath = join(home, ".composure", "cortex", "cortex.db");
 
-    // Old path as backwards-compat fallback
-    if (existsSync(oldPath)) return oldPath;
+    if (existsSync(projectNew)) return projectNew;
+    if (existsSync(projectOld)) return projectOld;
+    if (existsSync(globalPath)) return globalPath;
 
-    // Neither exists — create at new path
-    mkdirSync(".composure/cortex", { recursive: true });
-    return newPath;
+    // Nothing exists — create at global path
+    mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+    return globalPath;
   }
 
   private initSchema(): void {
@@ -108,8 +114,7 @@ export class SqliteAdapter implements StorageAdapter {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(session_id, thought_number, COALESCE(branch_id, '__main__'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -153,6 +158,8 @@ export class SqliteAdapter implements StorageAdapter {
 
       CREATE INDEX IF NOT EXISTS idx_thinking_sessions_agent ON ai_thinking_sessions(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_thinking_steps_session ON ai_thinking_steps(session_id, thought_number);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_main ON ai_thinking_steps(session_id, thought_number) WHERE branch_id IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_branch ON ai_thinking_steps(session_id, thought_number, branch_id) WHERE branch_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_memory_nodes_agent ON ai_memory_nodes(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_from ON ai_memory_edges(from_node_id);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_to ON ai_memory_edges(to_node_id);

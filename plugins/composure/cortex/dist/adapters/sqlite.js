@@ -37,10 +37,32 @@ export class SqliteAdapter {
         if (!DatabaseConstructor) {
             throw new Error("Node.js built-in SQLite requires Node >= 22.5");
         }
-        const path = dbPath ?? ".composure/cortex.db";
+        // Decision 19: prefer .composure/cortex/cortex.db, fall back to .composure/cortex.db
+        const path = dbPath ?? SqliteAdapter.resolveDbPath();
         this.db = new DatabaseConstructor(path);
         this.db.exec("PRAGMA journal_mode = WAL");
         this.initSchema();
+    }
+    static resolveDbPath() {
+        const { existsSync, mkdirSync } = require("node:fs");
+        const { join } = require("node:path");
+        const home = process.env.HOME || process.env.USERPROFILE || "";
+        // Resolution order:
+        // 1. Project-level .composure/cortex/cortex.db (Decision 19, per-project override)
+        // 2. Project-level .composure/cortex.db (old path, backwards compat)
+        // 3. Global ~/.composure/cortex/cortex.db (shared across all projects — default)
+        const projectNew = ".composure/cortex/cortex.db";
+        const projectOld = ".composure/cortex.db";
+        const globalPath = join(home, ".composure", "cortex", "cortex.db");
+        if (existsSync(projectNew))
+            return projectNew;
+        if (existsSync(projectOld))
+            return projectOld;
+        if (existsSync(globalPath))
+            return globalPath;
+        // Nothing exists — create at global path
+        mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+        return globalPath;
     }
     initSchema() {
         this.db.exec(`
@@ -69,8 +91,7 @@ export class SqliteAdapter {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(session_id, thought_number, COALESCE(branch_id, '__main__'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -101,12 +122,34 @@ export class SqliteAdapter {
         UNIQUE(from_node_id, to_node_id, relationship_type)
       );
 
+      -- Local mirror of entity_registry for free-tier feed linkage
+      CREATE TABLE IF NOT EXISTS local_entity_feed (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        project TEXT NOT NULL,
+        project_root TEXT NOT NULL,
+        task_id TEXT,
+        task_subject TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+
       CREATE INDEX IF NOT EXISTS idx_thinking_sessions_agent ON ai_thinking_sessions(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_thinking_steps_session ON ai_thinking_steps(session_id, thought_number);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_main ON ai_thinking_steps(session_id, thought_number) WHERE branch_id IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_branch ON ai_thinking_steps(session_id, thought_number, branch_id) WHERE branch_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_memory_nodes_agent ON ai_memory_nodes(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_from ON ai_memory_edges(from_node_id);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_to ON ai_memory_edges(to_node_id);
+      CREATE INDEX IF NOT EXISTS idx_local_entity_feed_project ON local_entity_feed(project);
+      CREATE INDEX IF NOT EXISTS idx_local_entity_feed_task ON local_entity_feed(task_id) WHERE task_id IS NOT NULL;
     `);
+        // Schema migration: add feed_id column to ai_thinking_sessions if missing
+        try {
+            this.db.exec("ALTER TABLE ai_thinking_sessions ADD COLUMN feed_id TEXT REFERENCES local_entity_feed(id)");
+        }
+        catch {
+            // Column already exists — fine
+        }
     }
     parseJson(val) {
         if (!val)
@@ -119,13 +162,28 @@ export class SqliteAdapter {
         }
     }
     // ── Thinking — Sessions ──────────────────────────────────────
-    async createSession(agent_id, title) {
+    async createSession(agent_id, title, options) {
         const id = generateId();
         const id_prefix = generatePrefix("ATS");
         const ts = now();
-        this.db.prepare(`INSERT INTO ai_thinking_sessions (id, id_prefix, agent_id, title, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`).run(id, id_prefix, agent_id, title ?? null, ts, ts);
-        return { id, id_prefix, agent_id, title: title ?? null, status: "active", total_thoughts: 0, conclusion: null, metadata: {}, created_at: ts, updated_at: ts };
+        let feedId = null;
+        const meta = { ...(options?.metadata ?? {}) };
+        // Insert local_entity_feed row when feed_context is provided
+        if (options?.feed_context) {
+            feedId = generateId();
+            const fc = options.feed_context;
+            this.db.prepare(`INSERT INTO local_entity_feed (id, entity_type, project, project_root, task_id, task_subject)
+         VALUES (?, ?, ?, ?, ?, ?)`).run(feedId, fc.entity_type, fc.project, fc.project_root, fc.task_id ?? null, fc.task_subject ?? null);
+            meta.feed_entity_type = fc.entity_type;
+            meta.feed_project = fc.project;
+            if (fc.task_id)
+                meta.feed_task_id = fc.task_id;
+            if (fc.task_subject)
+                meta.feed_task_subject = fc.task_subject;
+        }
+        this.db.prepare(`INSERT INTO ai_thinking_sessions (id, id_prefix, agent_id, title, metadata, feed_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, id_prefix, agent_id, title ?? null, JSON.stringify(meta), feedId, ts, ts);
+        return { id, id_prefix, agent_id, title: title ?? null, status: "active", total_thoughts: 0, conclusion: null, metadata: meta, created_at: ts, updated_at: ts };
     }
     async getSession(session_id) {
         const row = this.db.prepare("SELECT * FROM ai_thinking_sessions WHERE id = ?").get(session_id);

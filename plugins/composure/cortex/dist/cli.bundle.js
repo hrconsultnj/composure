@@ -6,10 +6,16 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
-var __commonJS = (cb, mod) => function __require() {
+var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
@@ -12470,6 +12476,7 @@ var require_main3 = __commonJS({
 var thinking_exports = {};
 __export(thinking_exports, {
   addThought: () => addThought,
+  captureExternalThought: () => captureExternalThought,
   completeSession: () => completeSession,
   createSession: () => createSession,
   getNextStep: () => getNextStep,
@@ -12768,6 +12775,90 @@ async function addThought(adapter, params) {
       status: "error",
       error: `Failed to add thought: ${err instanceof Error ? err.message : String(err)}`
     };
+  }
+}
+
+// dist/core/context-resolver.js
+async function resolveCaptureContext(input) {
+  const { readFile } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const taskFile = join(input.project_root, ".composure", "current-task.json");
+  let task_id;
+  let task_subject;
+  try {
+    const raw = await readFile(taskFile, "utf8");
+    const data = JSON.parse(raw);
+    task_id = data.task_id ?? void 0;
+    task_subject = data.task_subject ?? void 0;
+  } catch {
+  }
+  return {
+    project_name: input.project_name,
+    project_root: input.project_root,
+    task_id,
+    task_subject
+  };
+}
+
+// dist/core/thinking/capture.js
+async function captureExternalThought(adapter, payload) {
+  try {
+    const context = await resolveCaptureContext({
+      project_root: payload.project_root,
+      project_name: payload.project_name
+    });
+    const sessions = await adapter.listSessions("__reflex__", "active");
+    const existing = sessions.find((s) => s.title === payload.session_title && s.metadata?.project_name === context.project_name);
+    let sessionId;
+    if (existing) {
+      sessionId = existing.id;
+    } else {
+      const session = await adapter.createSession("__reflex__", payload.session_title, {
+        feed_context: {
+          entity_type: "ai_thinking",
+          project: context.project_name,
+          project_root: context.project_root,
+          task_id: context.task_id,
+          task_subject: context.task_subject
+        },
+        metadata: {
+          source: payload.source,
+          created_from: "seq-thinking-mcp-reflex",
+          project_name: context.project_name
+        }
+      });
+      sessionId = session.id;
+    }
+    const stepsData = await adapter.getSession(sessionId);
+    const currentSteps = stepsData?.steps ?? [];
+    const mainSteps = currentSteps.filter((s) => !s.branch_id);
+    const thoughtNumber = mainSteps.length + 1;
+    const thoughtType = payload.tool_input.isRevision ? "revision" : "analysis";
+    const step = await adapter.addStep(sessionId, {
+      thought_number: thoughtNumber,
+      thought: payload.thought,
+      thought_type: thoughtType,
+      is_revision: !!payload.tool_input.isRevision,
+      revises_thought: payload.tool_input.revises_thought ?? null,
+      branch_id: payload.tool_input.branchFromThought ? `branch-${payload.tool_input.branchFromThought}` : null,
+      branch_from_thought: payload.tool_input.branchFromThought ?? null,
+      needs_more_thoughts: !!payload.tool_input.nextThoughtNeeded,
+      metadata: {
+        source: payload.source,
+        tool_input: payload.tool_input,
+        user_message: payload.user_message,
+        assistant_prior_turn: payload.assistant_prior_turn,
+        project_root: payload.project_root,
+        project_name: payload.project_name,
+        task_id: context.task_id,
+        task_subject: context.task_subject,
+        captured_at: payload.captured_at
+      }
+    });
+    await adapter.updateSession(sessionId, { total_thoughts: thoughtNumber });
+    return { status: "ok", session_id: sessionId, thought_number: step.thought_number };
+  } catch (err) {
+    return { status: "error", error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -21635,8 +21726,22 @@ var SupabaseAdapter = class {
     this.client = createClient(config.url, config.key);
   }
   // ── Thinking — Sessions ──────────────────────────────────────
-  async createSession(agent_id, title) {
-    const { data, error } = await this.client.from("ai_thinking_sessions").insert({ agent_id, title: title ?? null }).select().single();
+  async createSession(agent_id, title, options) {
+    const insertData = { agent_id, title: title ?? null };
+    if (options?.metadata || options?.feed_context) {
+      const meta = { ...options.metadata ?? {} };
+      if (options.feed_context) {
+        meta.feed_entity_type = options.feed_context.entity_type;
+        meta.feed_project = options.feed_context.project;
+        meta.feed_project_root = options.feed_context.project_root;
+        if (options.feed_context.task_id)
+          meta.feed_task_id = options.feed_context.task_id;
+        if (options.feed_context.task_subject)
+          meta.feed_task_subject = options.feed_context.task_subject;
+      }
+      insertData.metadata = meta;
+    }
+    const { data, error } = await this.client.from("ai_thinking_sessions").insert(insertData).select().single();
     if (error)
       throw new Error(`createSession: ${error.message}`);
     return data;
@@ -21839,17 +21944,33 @@ function generatePrefix(prefix) {
 function now() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
-var SqliteAdapter = class {
+var SqliteAdapter = class _SqliteAdapter {
   type = "sqlite";
   db;
   constructor(dbPath) {
     if (!DatabaseConstructor) {
       throw new Error("Node.js built-in SQLite requires Node >= 22.5");
     }
-    const path = dbPath ?? ".composure/cortex.db";
+    const path = dbPath ?? _SqliteAdapter.resolveDbPath();
     this.db = new DatabaseConstructor(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.initSchema();
+  }
+  static resolveDbPath() {
+    const { existsSync, mkdirSync } = __require("node:fs");
+    const { join } = __require("node:path");
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const projectNew = ".composure/cortex/cortex.db";
+    const projectOld = ".composure/cortex.db";
+    const globalPath = join(home, ".composure", "cortex", "cortex.db");
+    if (existsSync(projectNew))
+      return projectNew;
+    if (existsSync(projectOld))
+      return projectOld;
+    if (existsSync(globalPath))
+      return globalPath;
+    mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+    return globalPath;
   }
   initSchema() {
     this.db.exec(`
@@ -21878,8 +21999,7 @@ var SqliteAdapter = class {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(session_id, thought_number, COALESCE(branch_id, '__main__'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -21910,12 +22030,31 @@ var SqliteAdapter = class {
         UNIQUE(from_node_id, to_node_id, relationship_type)
       );
 
+      -- Local mirror of entity_registry for free-tier feed linkage
+      CREATE TABLE IF NOT EXISTS local_entity_feed (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        project TEXT NOT NULL,
+        project_root TEXT NOT NULL,
+        task_id TEXT,
+        task_subject TEXT,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+
       CREATE INDEX IF NOT EXISTS idx_thinking_sessions_agent ON ai_thinking_sessions(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_thinking_steps_session ON ai_thinking_steps(session_id, thought_number);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_main ON ai_thinking_steps(session_id, thought_number) WHERE branch_id IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_thinking_steps_unique_branch ON ai_thinking_steps(session_id, thought_number, branch_id) WHERE branch_id IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_memory_nodes_agent ON ai_memory_nodes(agent_id, status);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_from ON ai_memory_edges(from_node_id);
       CREATE INDEX IF NOT EXISTS idx_memory_edges_to ON ai_memory_edges(to_node_id);
+      CREATE INDEX IF NOT EXISTS idx_local_entity_feed_project ON local_entity_feed(project);
+      CREATE INDEX IF NOT EXISTS idx_local_entity_feed_task ON local_entity_feed(task_id) WHERE task_id IS NOT NULL;
     `);
+    try {
+      this.db.exec("ALTER TABLE ai_thinking_sessions ADD COLUMN feed_id TEXT REFERENCES local_entity_feed(id)");
+    } catch {
+    }
   }
   parseJson(val) {
     if (!val)
@@ -21927,13 +22066,27 @@ var SqliteAdapter = class {
     }
   }
   // ── Thinking — Sessions ──────────────────────────────────────
-  async createSession(agent_id, title) {
+  async createSession(agent_id, title, options) {
     const id = generateId();
     const id_prefix = generatePrefix("ATS");
     const ts = now();
-    this.db.prepare(`INSERT INTO ai_thinking_sessions (id, id_prefix, agent_id, title, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`).run(id, id_prefix, agent_id, title ?? null, ts, ts);
-    return { id, id_prefix, agent_id, title: title ?? null, status: "active", total_thoughts: 0, conclusion: null, metadata: {}, created_at: ts, updated_at: ts };
+    let feedId = null;
+    const meta = { ...options?.metadata ?? {} };
+    if (options?.feed_context) {
+      feedId = generateId();
+      const fc = options.feed_context;
+      this.db.prepare(`INSERT INTO local_entity_feed (id, entity_type, project, project_root, task_id, task_subject)
+         VALUES (?, ?, ?, ?, ?, ?)`).run(feedId, fc.entity_type, fc.project, fc.project_root, fc.task_id ?? null, fc.task_subject ?? null);
+      meta.feed_entity_type = fc.entity_type;
+      meta.feed_project = fc.project;
+      if (fc.task_id)
+        meta.feed_task_id = fc.task_id;
+      if (fc.task_subject)
+        meta.feed_task_subject = fc.task_subject;
+    }
+    this.db.prepare(`INSERT INTO ai_thinking_sessions (id, id_prefix, agent_id, title, metadata, feed_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(id, id_prefix, agent_id, title ?? null, JSON.stringify(meta), feedId, ts, ts);
+    return { id, id_prefix, agent_id, title: title ?? null, status: "active", total_thoughts: 0, conclusion: null, metadata: meta, created_at: ts, updated_at: ts };
   }
   async getSession(session_id) {
     const row = this.db.prepare("SELECT * FROM ai_thinking_sessions WHERE id = ?").get(session_id);
@@ -22320,6 +22473,7 @@ var commands = {
   complete_thinking_session: (a, args) => thinking_exports.completeSession(a, args),
   summarize_thinking_session: (a, args) => thinking_exports.summarizeSession(a, args),
   list_thinking_templates: async () => ({ status: "ok", templates: thinking_exports.listTemplates() }),
+  capture_thought: (a, args) => thinking_exports.captureExternalThought(a, args),
   // Memory
   create_memory_node: (a, args) => memory_exports.createNode(a, args),
   get_memory_node: (a, args) => memory_exports.getNode(a, args),
