@@ -2,46 +2,24 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/init-check.sh\" 2>&1 || exit 0",
-            "timeout": 5,
-            "statusMessage": "Checking Composure setup..."
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/auth-check.sh\" 2>&1 || exit 0",
-            "timeout": 8,
-            "statusMessage": "Checking authentication..."
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/content-protection.sh\" 2>&1 || exit 0",
-            "timeout": 3,
-            "statusMessage": ""
-          }
-        ]
-      },
-      {
         "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-stack-note.sh\" 2>&1 || exit 0",
-            "timeout": 5,
-            "statusMessage": "Detecting stack..."
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-boot.sh\" 2>&1 || exit 0",
+            "timeout": 8,
+            "statusMessage": "Booting session..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-auth.sh\" 2>&1 || exit 0",
+            "timeout": 8,
+            "statusMessage": "Checking authentication..."
           }
         ]
       },
@@ -62,17 +40,6 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guardrails/guardrails-load.sh\" 2>&1 || exit 0",
-            "timeout": 3,
-            "statusMessage": ""
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/health-nudge.sh\" 2>&1 || exit 0",
             "timeout": 3,
             "statusMessage": ""
           }

@@ -50,6 +50,11 @@ composure_is_initialized() {
   [ -n "$COMPOSURE_CONFIG" ]
 }
 
+# Derive Cortex agent_id for this project
+# Convention: project directory basename (e.g. "composure-web", "my-app")
+# Global/cross-project namespace: "global"
+COMPOSURE_AGENT_ID="$(basename "${PROJECT_DIR:-.}")"
+
 # Helper: find config during project root walk (for hooks that walk up from file path)
 # Usage: composure_find_config_in_dir "/path/to/dir" → returns 0 if found
 composure_find_config_in_dir() {
