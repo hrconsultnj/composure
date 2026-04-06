@@ -17,10 +17,26 @@ export class SupabaseAdapter {
         this.client = createClient(config.url, config.key);
     }
     // ── Thinking — Sessions ──────────────────────────────────────
-    async createSession(agent_id, title) {
+    async createSession(agent_id, title, options) {
+        const insertData = { agent_id, title: title ?? null };
+        // When feed_context is provided, populate metadata with project + task linkage.
+        // The existing create_entity_feed() trigger auto-populates entity_registry.
+        if (options?.metadata || options?.feed_context) {
+            const meta = { ...(options.metadata ?? {}) };
+            if (options.feed_context) {
+                meta.feed_entity_type = options.feed_context.entity_type;
+                meta.feed_project = options.feed_context.project;
+                meta.feed_project_root = options.feed_context.project_root;
+                if (options.feed_context.task_id)
+                    meta.feed_task_id = options.feed_context.task_id;
+                if (options.feed_context.task_subject)
+                    meta.feed_task_subject = options.feed_context.task_subject;
+            }
+            insertData.metadata = meta;
+        }
         const { data, error } = await this.client
             .from("ai_thinking_sessions")
-            .insert({ agent_id, title: title ?? null })
+            .insert(insertData)
             .select()
             .single();
         if (error)

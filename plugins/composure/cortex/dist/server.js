@@ -81,6 +81,28 @@ server.tool("list_thinking_templates", "List available thinking templates — pr
     const templates = thinking.listTemplates();
     return { content: [{ type: "text", text: JSON.stringify({ status: "ok", templates }, null, 2) }] };
 });
+server.tool("capture_thought", "Persist an externally-initiated reasoning step into Cortex with full context and entity_registry linkage. Used by the seq-thinking reflex hook.", {
+    thought: z.string().describe("The reasoning step content."),
+    tool_input: z.object({
+        thought: z.string(),
+        thoughtNumber: z.number().optional(),
+        totalThoughts: z.number().optional(),
+        isRevision: z.boolean().optional(),
+        revises_thought: z.number().optional(),
+        branchFromThought: z.number().optional(),
+        nextThoughtNeeded: z.boolean().optional(),
+    }).describe("Full tool input from the sequential-thinking MCP call."),
+    user_message: z.unknown().describe("User message snapshot from the session."),
+    assistant_prior_turn: z.unknown().describe("Assistant prior turn snapshot."),
+    project_root: z.string().describe("Absolute path to the project root."),
+    project_name: z.string().describe("Project directory name."),
+    session_title: z.string().describe("Session title for deduplication."),
+    source: z.string().describe("Source identifier (e.g. 'seq-thinking-mcp')."),
+    captured_at: z.number().describe("Unix timestamp of capture."),
+}, async (params) => {
+    const result = await thinking.captureExternalThought(adapter, params);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+});
 // ── Memory Tools ─────────────────────────────────────────────────
 server.tool("create_memory_node", "Create a new memory node in the knowledge graph.", {
     agent_id: z.string().describe("Agent ID that owns this memory."),

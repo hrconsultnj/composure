@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "startup|resume",
         "hooks": [
           {
             "type": "command",
@@ -62,6 +62,17 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guardrails/guardrails-load.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/health-nudge.sh\" 2>&1 || exit 0",
             "timeout": 3,
             "statusMessage": ""
           }
@@ -156,6 +167,41 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cortex/memory-fusion.sh\" 2>&1 || exit 0",
             "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
+      },
+      {
+        "matcher": ".*sequential.thinking.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cortex/seq-think-capture.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
+      },
+      {
+        "matcher": "Task.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-state-writer.sh\" 2>&1 || exit 0",
+            "timeout": 2,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guardrails/long-prompt-detect.sh\" 2>&1 || exit 0",
+            "timeout": 2,
             "statusMessage": ""
           }
         ]

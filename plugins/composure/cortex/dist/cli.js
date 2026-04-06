@@ -32,6 +32,7 @@ const commands = {
     complete_thinking_session: (a, args) => thinking.completeSession(a, args),
     summarize_thinking_session: (a, args) => thinking.summarizeSession(a, args),
     list_thinking_templates: async () => ({ status: "ok", templates: thinking.listTemplates() }),
+    capture_thought: (a, args) => thinking.captureExternalThought(a, args),
     // Memory
     create_memory_node: (a, args) => memory.createNode(a, args),
     get_memory_node: (a, args) => memory.getNode(a, args),

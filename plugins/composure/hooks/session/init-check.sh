@@ -9,10 +9,94 @@
 # Step 9 (not this hook) because they need claude plugin list
 # output and context-window awareness that bash can't provide.
 
-# ── Not initialized at all ──────────────────────────────────
+# ── Auto-bootstrap if not initialized ───────────────────────
+# Instead of blocking with "run /composure:initialize", silently create
+# a minimal .composure/ setup so hooks, Cortex, and graph work immediately.
+# Full /composure:initialize is still recommended for stack detection + docs.
 if [ ! -f ".composure/no-bandaids.json" ] && [ ! -f ".claude/no-bandaids.json" ]; then
-  printf '[composure] Not initialized in this project. Run /composure:initialize to detect your stack, build the code graph, and set up all plugins.\n'
-  exit 0
+  # Resolve plugin version for the config stamp
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  BOOT_VERSION=$(jq -r '.version // "0.0.0"' "${SCRIPT_DIR}/../../.claude-plugin/plugin.json" 2>/dev/null)
+
+  # Quick stack detection (bash-level, <1s)
+  FRONTEND="null"; BACKEND="null"; LANG="typescript"
+  [ -f "next.config.js" ] || [ -f "next.config.ts" ] || [ -f "next.config.mjs" ] && FRONTEND="nextjs"
+  [ -f "vite.config.ts" ] || [ -f "vite.config.js" ] && FRONTEND="vite"
+  [ -f "angular.json" ] && FRONTEND="angular"
+  [ -f "app.json" ] && grep -q '"expo"' app.json 2>/dev/null && FRONTEND="expo"
+  [ -f "supabase/config.toml" ] || [ -d "supabase/migrations" ] && BACKEND="supabase"
+  [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && LANG="python"
+  [ -f "go.mod" ] && LANG="go"
+  [ -f "Cargo.toml" ] && LANG="rust"
+
+  # Create .composure/ directory scaffold
+  mkdir -p .composure/frameworks/generated \
+           .composure/frameworks/project \
+           .composure/workspaces \
+           .composure/cortex \
+           .composure/graph 2>/dev/null
+
+  # Create tasks-plans/ scaffold
+  mkdir -p tasks-plans/blueprints \
+           tasks-plans/archive \
+           tasks-plans/docs 2>/dev/null
+
+  # Write minimal no-bandaids.json config
+  cat > .composure/no-bandaids.json 2>/dev/null <<EOJSON
+{
+  "composureVersion": "${BOOT_VERSION}",
+  "autoBootstrapped": true,
+  "frameworks": {
+    "${LANG}": {
+      "frontend": "${FRONTEND}",
+      "backend": "${BACKEND}"
+    }
+  }
+}
+EOJSON
+
+  # Ensure global Cortex directory exists
+  mkdir -p "${HOME}/.composure/cortex" 2>/dev/null
+
+  # Build stack label for display + Cortex registration
+  STACK_MSG=""
+  [ "$FRONTEND" != "null" ] && STACK_MSG="${FRONTEND}"
+  [ "$BACKEND" != "null" ] && [ -n "$STACK_MSG" ] && STACK_MSG="${STACK_MSG} + ${BACKEND}"
+  [ "$BACKEND" != "null" ] && [ -z "$STACK_MSG" ] && STACK_MSG="${BACKEND}"
+  [ -z "$STACK_MSG" ] && STACK_MSG="${LANG}"
+
+  PROJECT_ROOT="$(pwd)"
+  PROJECT_NAME="$(basename "$PROJECT_ROOT")"
+  TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  # Register project in global Cortex (fire-and-forget, backgrounded)
+  # Creates a memory node so the brain knows this project exists.
+  # Only runs on first bootstrap — subsequent sessions skip this entire block.
+  CLI_PATH="${SCRIPT_DIR}/../../cortex/dist/cli.bundle.js"
+  if [ -f "$CLI_PATH" ]; then
+    PAYLOAD=$(jq -n \
+      --arg project "$PROJECT_NAME" \
+      --arg root "$PROJECT_ROOT" \
+      --arg stack "$STACK_MSG" \
+      --arg ts "$TIMESTAMP" \
+      '{
+        agent_id: "__system__",
+        content: ("Project registered: " + $project + " | Stack: " + $stack + " | Path: " + $root + " | First seen: " + $ts),
+        content_type: "fact",
+        metadata: {
+          category: "project-registry",
+          project: $project,
+          project_root: $root,
+          stack: $stack,
+          registered_at: $ts,
+          tags: ["project", "auto-bootstrap"]
+        }
+      }')
+    node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null &
+  fi
+
+  printf '[composure] Auto-initialized project (%s). Run /composure:initialize for full stack detection + companion setup.\n' "$STACK_MSG"
+  # Don't exit — continue to companion checks below
 fi
 
 # Resolve active config path (.composure/ preferred)

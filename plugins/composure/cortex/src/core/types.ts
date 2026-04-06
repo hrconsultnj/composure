@@ -154,6 +154,36 @@ export interface SemanticSearchResult extends MemorySearchResult {
   combined_score: number;
 }
 
+// ── External Capture Types (seq-thinking reflex) ────────────────
+
+export interface ExternalCapturePayload {
+  thought: string;
+  tool_input: {
+    thought: string;
+    thoughtNumber?: number;
+    totalThoughts?: number;
+    isRevision?: boolean;
+    revises_thought?: number;
+    branchFromThought?: number;
+    nextThoughtNeeded?: boolean;
+  };
+  user_message: unknown;
+  assistant_prior_turn: unknown;
+  project_root: string;
+  project_name: string;
+  session_title: string;
+  source: string;
+  captured_at: number;
+}
+
+export interface FeedContext {
+  entity_type: "ai_thinking" | "ai_memory";
+  project: string;
+  project_root: string;
+  task_id?: string;
+  task_subject?: string;
+}
+
 // ── Create/Update Params ─────────────────────────────────────────
 
 export interface CreateNodeParams {
