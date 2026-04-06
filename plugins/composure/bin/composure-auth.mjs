@@ -420,7 +420,7 @@ async function upgradeProject() {
     composureDir,
     join(composureDir, "frameworks", "generated"),
     join(composureDir, "frameworks", "project"),
-    join(composureDir, "workspaces"),
+    join(composureDir, "development", "workspaces"),
     join(composureDir, "cortex"),
     join(composureDir, "graph"),
   ]) {

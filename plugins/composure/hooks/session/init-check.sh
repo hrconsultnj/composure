@@ -32,7 +32,7 @@ if [ ! -f ".composure/no-bandaids.json" ] && [ ! -f ".claude/no-bandaids.json" ]
   # Create .composure/ directory scaffold
   mkdir -p .composure/frameworks/generated \
            .composure/frameworks/project \
-           .composure/workspaces \
+           .composure/development/workspaces \
            .composure/cortex \
            .composure/graph 2>/dev/null
 

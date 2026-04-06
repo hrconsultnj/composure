@@ -46,6 +46,14 @@ A project may have its own `AGENTS.md` at the project root — that file takes p
 - Present pathways with recommendations, then execute. Don't wait for approval on implementation details.
 - ONLY ask when there's a genuine product/business decision or ambiguity.
 
+## Branch discipline (NEVER VIOLATE)
+- NEVER run `git checkout` in the repo root directory. It breaks other sessions.
+- NEVER commit directly to `main` or `master`.
+- All work happens inside `.composure/development/workspaces/` — a persistent worktree on the `development` branch.
+- Feature worktrees go inside: `.composure/development/workspaces/<feature-name>/`.
+- If the worktree doesn't exist, create it: `git worktree add .composure/development/workspaces development`.
+- To merge to main: use PRs (`gh pr create --base main --head development`), never `git checkout main`.
+
 ## Cortex memory discipline
 - When you learn something notable, persist to Cortex via the `memory-persistence.md` reference pattern.
 - Before answering project-history questions, call `/composure:cortex check <area>` to force memory consultation.
