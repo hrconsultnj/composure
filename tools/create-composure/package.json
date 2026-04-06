@@ -1,0 +1,33 @@
+{
+  "name": "create-composure",
+  "version": "1.0.0",
+  "description": "Install Composure — universal code quality enforcement for AI coding tools",
+  "type": "module",
+  "packageManager": "pnpm@10.12.1",
+  "bin": {
+    "create-composure": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "kleur": "^4.1.5",
+    "ora": "^8.2.0",
+    "prompts": "^2.4.2",
+    "open": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
