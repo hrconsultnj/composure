@@ -32,14 +32,16 @@ if [ ! -f ".composure/no-bandaids.json" ] && [ ! -f ".claude/no-bandaids.json" ]
   # Create .composure/ directory scaffold
   mkdir -p .composure/frameworks/generated \
            .composure/frameworks/project \
-           .composure/workspaces \
+           .composure/development/workspaces \
            .composure/cortex \
            .composure/graph 2>/dev/null
 
   # Create tasks-plans/ scaffold
-  mkdir -p tasks-plans/blueprints \
+  mkdir -p tasks-plans/backlog \
+           tasks-plans/blueprints \
            tasks-plans/archive \
-           tasks-plans/docs 2>/dev/null
+           tasks-plans/ideas \
+           tasks-plans/reference 2>/dev/null
 
   # Write minimal no-bandaids.json config
   cat > .composure/no-bandaids.json 2>/dev/null <<EOJSON
