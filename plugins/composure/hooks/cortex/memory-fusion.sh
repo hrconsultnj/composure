@@ -99,9 +99,37 @@ if [ "$IS_NOTABLE" = false ] && [ -f "$FILE_PATH" ]; then
 fi
 
 if [ "$IS_NOTABLE" = true ]; then
-  echo "[cortex-memory] Notable change detected in ${FILE_PATH}: ${REASON}"
-  echo "[cortex-memory] Consider persisting to Cortex Memory:"
-  echo "[cortex-memory]   create_memory_node({ content: '<describe the change>', content_type: 'fact', metadata: { category: '${CATEGORY}', tags: ['${FILENAME}'], source_file: '${FILE_PATH}' } })"
+  echo "[cortex-memory] Notable change: ${FILE_PATH} — ${REASON}"
+
+  # Auto-save to Cortex via CLI (fire-and-forget, backgrounded)
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  CLI_PATH="${SCRIPT_DIR}/../../cortex/dist/cli.bundle.js"
+
+  if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
+    # Derive agent_id (same convention as resolve-config.sh)
+    AGENT_ID="$(basename "${CLAUDE_PROJECT_DIR:-.}")"
+    TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    PAYLOAD=$(jq -n \
+      --arg agent_id "$AGENT_ID" \
+      --arg content "File modified: ${FILE_PATH} — ${REASON}" \
+      --arg category "$CATEGORY" \
+      --arg filename "$FILENAME" \
+      --arg filepath "$FILE_PATH" \
+      --arg ts "$TIMESTAMP" \
+      '{
+        agent_id: $agent_id,
+        content: $content,
+        content_type: "observation",
+        metadata: {
+          category: $category,
+          tags: [$filename, "auto-captured"],
+          source_file: $filepath,
+          captured_at: $ts
+        }
+      }')
+    node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null &
+  fi
 fi
 
 exit 0

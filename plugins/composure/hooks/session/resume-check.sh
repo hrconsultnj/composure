@@ -28,14 +28,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
 
-# ── Auto-sync composureVersion on every resume ──
-PLUGIN_VERSION=$(jq -r '.version // ""' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
-PROJECT_VERSION=$(jq -r '.composureVersion // ""' "$ACTIVE_CONFIG" 2>/dev/null)
-if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" != "$PROJECT_VERSION" ]; then
-  jq --arg v "$PLUGIN_VERSION" '.composureVersion = $v' "$ACTIVE_CONFIG" > "${ACTIVE_CONFIG}.tmp" \
-    && mv "${ACTIVE_CONFIG}.tmp" "$ACTIVE_CONFIG" 2>/dev/null
-  printf '[composure] Config synced: composureVersion %s → %s\n' "$PROJECT_VERSION" "$PLUGIN_VERSION"
-fi
+# Version sync moved to session-boot.sh — no longer duplicated here
 
 TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
 GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
@@ -96,15 +89,10 @@ if [ "$GRAPH_STALE" -eq 1 ]; then
   [ -n "$COMPOSURE_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ] && MCP_AVAILABLE=1
 
   if [ "$MCP_AVAILABLE" -eq 1 ]; then
-    cat <<'EOMSG'
-[composure:MANDATORY] Code graph is stale or missing. You MUST call build_or_update_graph({ full_rebuild: true }) BEFORE doing any other work — no exceptions. Do NOT use Explore agents for structural questions when graph MCP tools exist. The graph costs 15 seconds and 0 tokens. An explore agent costs 5-20K tokens per query.
-
-After building, use graph tools FIRST for: file imports (query_graph), callers/dependents (get_impact_radius), finding code (semantic_search_nodes), function sizes (find_large_functions), string references (query_graph pattern: "references_of" with target as search string, optional scope/context_lines/max_results), dependency chains (query_graph pattern: "dependency_chain" with target + target_to). Only use Explore agents for understanding INTENT (business logic, why something was coded a certain way) — never for STRUCTURE.
-EOMSG
+    echo '[composure:MANDATORY] Code graph stale — run build_or_update_graph({ full_rebuild: true }) before other work.'
+    echo '[composure:hint] Graph for structure (query_graph, get_impact_radius, semantic_search_nodes). Explore agents only for intent/business-logic.'
   else
-    cat <<'EOMSG'
-[composure:MANDATORY] Code graph is stale or missing, and the composure-graph MCP server may not be connected. Run /composure:build-graph to attempt the build. If the MCP tool is unavailable, tell the user to restart Claude Code — the plugin auto-registers the MCP server via .mcp.json.
-EOMSG
+    echo '[composure:MANDATORY] Code graph stale + MCP may be disconnected. Run /composure:build-graph or restart Claude Code.'
   fi
 fi
 
