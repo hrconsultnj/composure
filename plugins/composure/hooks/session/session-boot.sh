@@ -146,9 +146,11 @@ if [ "$EVENT" = "startup" ]; then
 [composure:stack] Detected: ${LANGS} | frontend=${FRONTEND} | backend=${BACKEND:-none}
 Architecture: ${CATEGORY} (${ENTRY})
 Non-trivial work → /composure:blueprint | Routine → /composure:app-architecture
+[composure:conventions] Context7 → background sub-agent + cache to .claude/research/. CLI-first for Graph + Cortex (batch bash over MCP). Research reports → tasks-plans/research/.
 EOF
 else
   echo "[composure:stack] ${LANGS} | ${FRONTEND} | arch=${CATEGORY}"
+  echo "[composure:conventions] Context7 → sub-agent + cache. CLI-first for Graph + Cortex."
 fi
 
 # ── 4. Cortex memory injection ───────────────────────────────

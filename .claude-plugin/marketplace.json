@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Composure Suite — code quality, security, CI/CD, testing, design, and AI memory for Claude Code.",
-    "version": "1.47.22"
+    "version": "1.47.23"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
       "description": "Core orchestration — architecture skills, code graph, Cortex memory, decomposition hooks, task queue. The hub of the Composure Suite. Full docs: composure-pro.com",
-      "version": "1.47.22",
+      "version": "1.47.23",
       "category": "development",
       "keywords": [
         "architecture",
