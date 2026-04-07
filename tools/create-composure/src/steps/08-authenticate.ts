@@ -23,15 +23,17 @@ function findAuthBinary(): string | null {
   const binPath = join(home, ".composure", "bin", "composure-auth.mjs");
   if (existsSync(binPath)) return binPath;
 
-  // 2. Direct path in plugin cache (fresh install, symlinks just created)
-  const cachePath = join(
-    home, ".claude", "plugins", "cache", "composure-suite", "composure"
-  );
-  if (existsSync(cachePath)) {
+  // 2. Direct path in plugin cache — scan all marketplaces dynamically
+  const cacheBase = join(home, ".claude", "plugins", "cache");
+  if (existsSync(cacheBase)) {
     try {
-      for (const version of readdirSync(cachePath)) {
-        const candidate = join(cachePath, version, "bin", "composure-auth.mjs");
-        if (existsSync(candidate)) return candidate;
+      for (const marketplace of readdirSync(cacheBase)) {
+        const composureCache = join(cacheBase, marketplace, "composure");
+        if (!existsSync(composureCache)) continue;
+        for (const version of readdirSync(composureCache)) {
+          const candidate = join(composureCache, version, "bin", "composure-auth.mjs");
+          if (existsSync(candidate)) return candidate;
+        }
       }
     } catch {
       // Non-fatal

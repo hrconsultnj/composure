@@ -10,23 +10,26 @@ export async function selectTools(
   detected: DetectedTools,
   nonInteractive: boolean,
 ): Promise<string[]> {
-  // In non-interactive mode, return all detected tools
-  if (nonInteractive) {
-    return Object.entries(detected)
-      .filter(([, v]) => v.found)
-      .map(([k]) => k);
+  const detectedTools = Object.entries(detected)
+    .filter(([, v]) => v.found)
+    .map(([k]) => k);
+
+  // Auto-apply to all detected tools — no menu needed
+  // Only prompt if no tools detected (so user can pick manually)
+  if (nonInteractive || detectedTools.length > 0) {
+    return detectedTools;
   }
 
   const choices = [
-    { title: "Claude Code CLI", value: "claude", selected: detected.claude.found },
-    { title: "Cursor IDE", value: "cursor", selected: detected.cursor.found },
-    { title: "Windsurf", value: "windsurf", selected: detected.windsurf.found },
-    { title: "Gemini CLI", value: "gemini", selected: detected.gemini.found },
-    { title: "Codex CLI", value: "codex", selected: detected.codex.found },
-    { title: "Aider", value: "aider", selected: detected.aider.found },
-    { title: "Cline (VS Code)", value: "cline", selected: detected.cline.found },
-    { title: "Roo Code (VS Code)", value: "roo", selected: detected.roo.found },
+    { title: "Claude Code CLI", value: "claude", selected: false },
+    { title: "Cursor IDE", value: "cursor", selected: false },
+    { title: "Windsurf", value: "windsurf", selected: false },
+    { title: "Gemini CLI", value: "gemini", selected: false },
+    { title: "Codex CLI", value: "codex", selected: false },
+    { title: "Aider", value: "aider", selected: false },
+    { title: "Cline (VS Code)", value: "cline", selected: false },
+    { title: "Roo Code (VS Code)", value: "roo", selected: false },
   ];
 
-  return promptMultiSelect("Which AI tools should Composure work with?", choices);
+  return promptMultiSelect("No AI tools auto-detected. Select which to configure:", choices);
 }

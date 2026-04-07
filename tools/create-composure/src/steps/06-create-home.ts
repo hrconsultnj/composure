@@ -26,19 +26,24 @@ export async function createHome(): Promise<string> {
   // This ensures cross-project memory is ready from the first session
   const cortexDb = join(home, "cortex", "cortex.db");
   if (!existsSync(cortexDb)) {
-    // Find the cortex CLI in the plugin cache
-    const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "composure-suite", "composure");
+    // Find the cortex CLI in the plugin cache — scan all marketplaces dynamically
+    const cacheBase = join(homedir(), ".claude", "plugins", "cache");
     try {
       const { readdirSync } = await import("node:fs");
-      const versions = readdirSync(pluginCacheBase).sort().reverse();
-      for (const version of versions) {
-        const cortexCli = join(pluginCacheBase, version, "cortex", "dist", "cli.bundle.js");
-        if (existsSync(cortexCli)) {
-          // Create DB by running a no-op search (initializes schema)
-          await execSafe("node", ["--experimental-sqlite", cortexCli, "search_memory", '{"agent_id":"__init__","limit":1}']);
-          logger.success("Cortex global memory initialized");
-          break;
+      let found = false;
+      for (const marketplace of readdirSync(cacheBase)) {
+        const composureCache = join(cacheBase, marketplace, "composure");
+        if (!existsSync(composureCache)) continue;
+        for (const version of readdirSync(composureCache).sort().reverse()) {
+          const cortexCli = join(composureCache, version, "cortex", "dist", "cli.bundle.js");
+          if (existsSync(cortexCli)) {
+            await execSafe("node", ["--experimental-sqlite", cortexCli, "search_memory", '{"agent_id":"__init__","limit":1}']);
+            logger.success("Cortex global memory initialized");
+            found = true;
+            break;
+          }
         }
+        if (found) break;
       }
     } catch {
       // Cortex will initialize on first session start — not a blocker

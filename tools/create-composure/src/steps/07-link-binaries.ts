@@ -2,7 +2,7 @@
  * Step 07 — Find installed plugin bin/ directory and create symlinks.
  */
 
-import { existsSync, symlinkSync, lstatSync, readdirSync, copyFileSync } from "node:fs";
+import { existsSync, symlinkSync, lstatSync, readdirSync, copyFileSync, unlinkSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import { logger } from "../lib/logger.js";
@@ -16,21 +16,39 @@ const BINARIES = [
 
 /**
  * Search known locations for the plugin bin directory.
+ * Dynamically scans marketplace and cache dirs — no hardcoded marketplace names.
  */
 function findPluginBin(): string | null {
   const home = homedir();
-  const candidates = [
-    join(home, ".claude/plugins/marketplaces/composure-suite/plugins/composure/bin"),
-  ];
+  const candidates: string[] = [];
 
-  // Also glob the cache path pattern
-  const cachePath = join(home, ".claude/plugins/cache/composure-suite/composure");
-  if (existsSync(cachePath)) {
+  // 1. Scan ALL marketplaces for a composure plugin with bin/
+  const marketplacesDir = join(home, ".claude", "plugins", "marketplaces");
+  if (existsSync(marketplacesDir)) {
     try {
-      for (const entry of readdirSync(cachePath)) {
-        const binPath = join(cachePath, entry, "bin");
+      for (const marketplace of readdirSync(marketplacesDir)) {
+        const binPath = join(marketplacesDir, marketplace, "plugins", "composure", "bin");
         if (existsSync(binPath)) {
           candidates.push(binPath);
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  // 2. Scan cache for any composure plugin version with bin/
+  const cacheDir = join(home, ".claude", "plugins", "cache");
+  if (existsSync(cacheDir)) {
+    try {
+      for (const marketplace of readdirSync(cacheDir)) {
+        const composureCache = join(cacheDir, marketplace, "composure");
+        if (!existsSync(composureCache)) continue;
+        for (const version of readdirSync(composureCache)) {
+          const binPath = join(composureCache, version, "bin");
+          if (existsSync(binPath)) {
+            candidates.push(binPath);
+          }
         }
       }
     } catch {
@@ -66,21 +84,39 @@ export async function linkBinaries(): Promise<{ linked: number }> {
     if (!existsSync(source)) continue;
 
     try {
-      // Skip if symlink already points to the right place
-      if (existsSync(target) && lstatSync(target).isSymbolicLink()) {
-        linked++;
-        continue;
+      // Check for existing symlink (including broken ones)
+      let needsLink = true;
+      try {
+        const stat = lstatSync(target);
+        if (stat.isSymbolicLink()) {
+          const currentTarget = readlinkSync(target);
+          if (currentTarget === source) {
+            // Already points to the right place
+            linked++;
+            needsLink = false;
+          } else {
+            // Stale or broken symlink — remove and relink
+            unlinkSync(target);
+          }
+        } else if (existsSync(target)) {
+          // Regular file — leave it
+          linked++;
+          needsLink = false;
+        }
+      } catch {
+        // lstatSync failed — target doesn't exist at all, needs link
       }
 
-      if (isWindows) {
-        // On Windows, copy instead of symlink (avoids permission issues)
-        copyFileSync(source, target);
-      } else {
-        symlinkSync(source, target);
+      if (needsLink) {
+        if (isWindows) {
+          copyFileSync(source, target);
+        } else {
+          symlinkSync(source, target);
+        }
+        linked++;
       }
-      linked++;
     } catch {
-      // Non-fatal — symlink may already exist or permissions issue
+      // Non-fatal — permissions or other issue
     }
   }
 
