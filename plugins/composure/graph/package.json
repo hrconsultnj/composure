@@ -1,6 +1,6 @@
 {
   "name": "@composure/code-review-graph",
-  "version": "1.47.20",
+  "version": "1.47.21",
   "private": true,
   "type": "module",
   "main": "dist/server.js",

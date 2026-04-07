@@ -92,10 +92,18 @@ export async function installPlugins(options: {
     return { installed: alreadyInstalled, skipped: false, alreadyInstalled };
   }
 
-  // Ensure marketplace is registered
+  // Ensure marketplace is registered (composure-suite, formerly my-claude-plugins)
   await execSafe("claude", [
     "plugin", "marketplace", "add", "hrconsultnj/claude-plugins",
   ]);
+
+  // Migration: detect old @my-claude-plugins references
+  const hasLegacyMarketplace = [...currentPlugins.keys()].some(k => k.includes("@my-claude-plugins"));
+  if (hasLegacyMarketplace) {
+    logger.info("Migrating plugins from @my-claude-plugins → @composure-suite...");
+    // The marketplace rename happens server-side — plugins at the old name
+    // will resolve to the new name on next update. No action needed from user.
+  }
 
   const installed = [...alreadyInstalled];
 
