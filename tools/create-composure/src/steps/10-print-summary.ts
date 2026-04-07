@@ -35,12 +35,16 @@ export function printSummary(data: SummaryData): void {
     : "not yet (run /composure:auth login)";
 
   console.log(`
-${kleur.green().bold("Composure installed")}
+${kleur.green().bold("Composure Suite installed")}
 
   ${kleur.bold("Tools configured:")}   ${toolNames || "none selected"}
-  ${kleur.bold("Plugins:")}            ${pluginNames || (data.claudeInstalled ? "none (check claude plugin install)" : "pending (install Claude Code first)")}
+  ${kleur.bold("Suite:")}              ${pluginNames || (data.claudeInstalled ? "none (check claude plugin install)" : "pending (install Claude Code first)")}
   ${kleur.bold("Auth:")}               ${authStatus}
   ${kleur.bold("Global home:")}        ${kleur.cyan(data.composureHome)}
+
+  ${kleur.gray("Composure (orchestration, code graph, Cortex memory)")}
+  ${kleur.gray("+ Sentinel (security) + Shipyard (CI/CD) + Testbench (testing)")}
+  ${kleur.gray("+ Design Forge (ux-researcher, product-planner, ui-designer)")}
 `);
 
   if (data.generatedAdapters.length > 0) {
@@ -65,8 +69,8 @@ ${kleur.green().bold("Composure installed")}
     }
   }
 
-  steps.push("Open any project in Claude Code — Composure auto-initializes");
-  steps.push("Run /composure:initialize for deep stack detection + docs");
+  steps.push("Open any project in Claude Code — the full suite auto-initializes");
+  steps.push("Run /composure:health to verify everything is working");
 
   for (const [i, step] of steps.entries()) {
     console.log(`    ${kleur.bold(`${i + 1}.`)} ${step}`);

@@ -7,7 +7,7 @@ const program = new Command();
 
 program
   .name("create-composure")
-  .description("Install Composure — universal code quality enforcement for AI coding tools")
+  .description("Install the Composure Suite — code quality, security, CI/CD, testing, and design for AI coding tools")
   .version("1.0.0");
 
 program
