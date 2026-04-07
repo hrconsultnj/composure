@@ -258,4 +258,20 @@ if [ -f "${PROJECT_DIR}/.claude/no-bandaids.json" ] && [ ! -f "${PROJECT_DIR}/.c
   printf '[composure:upgrade] Configs in legacy .claude/ — run `composure-auth upgrade` to migrate.\n'
 fi
 
+# ── Prune plugin cache (keep latest 2 versions per plugin) ──
+# Also cleans temp_local_ directories left by plugin installs
+CACHE_BASE="${HOME}/.claude/plugins/cache/composure-suite"
+if [ -d "$CACHE_BASE" ]; then
+  for plugin_dir in "$CACHE_BASE"/*/; do
+    [ ! -d "$plugin_dir" ] && continue
+    count=0
+    for ver in $(ls "$(basename "$plugin_dir" | xargs -I{} echo "$CACHE_BASE/{}")" 2>/dev/null | sort -t. -k1,1nr -k2,2nr -k3,3nr); do
+      [ ! -d "${plugin_dir}${ver}" ] && continue
+      count=$((count + 1))
+      [ "$count" -gt 2 ] && rm -rf "${plugin_dir}${ver}"
+    done
+  done
+  rm -rf "${HOME}/.claude/plugins/cache/temp_local_"* 2>/dev/null
+fi
+
 exit 0

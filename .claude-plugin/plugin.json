@@ -1,7 +1,7 @@
 {
   "name": "composure",
   "description": "Multi-tenant SaaS architecture plugin with decomposition enforcement, code quality hooks, task tracking, and structural code graph for impact-aware reviews.",
-  "version": "1.47.21",
+  "version": "1.47.22",
   "author": {
     "name": "Helder Rodrigues",
     "url": "https://github.com/hrconsultnj"
