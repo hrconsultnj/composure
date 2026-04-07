@@ -28,7 +28,15 @@ function generatePrefix(prefix) {
     return prefix.toUpperCase() + result;
 }
 function now() {
-    return new Date().toISOString();
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const offset = -d.getTimezoneOffset();
+    const sign = offset >= 0 ? "+" : "-";
+    const abs = Math.abs(offset);
+    return (`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+        `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+        `.${String(d.getMilliseconds()).padStart(3, "0")}` +
+        `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`);
 }
 export class SqliteAdapter {
     type = "sqlite";
@@ -75,8 +83,8 @@ export class SqliteAdapter {
         total_thoughts INTEGER DEFAULT 0,
         conclusion TEXT,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_thinking_steps (
@@ -91,7 +99,7 @@ export class SqliteAdapter {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT (datetime('now', 'localtime'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -106,8 +114,8 @@ export class SqliteAdapter {
         chunk_index INTEGER DEFAULT 0,
         parent_node_id TEXT,
         status TEXT DEFAULT 'active',
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_edges (
@@ -118,7 +126,7 @@ export class SqliteAdapter {
         relationship_type TEXT NOT NULL,
         weight REAL DEFAULT 1.0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
         UNIQUE(from_node_id, to_node_id, relationship_type)
       );
 
@@ -152,7 +160,7 @@ export class SqliteAdapter {
         graph_file_path TEXT,
         link_type TEXT DEFAULT 'about',
         agent_id TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now', 'localtime')),
         CHECK (memory_node_id IS NOT NULL OR thinking_session_id IS NOT NULL)
       );
       CREATE INDEX IF NOT EXISTS idx_graph_links_qualified ON ai_graph_links(graph_qualified_name);
@@ -404,7 +412,7 @@ export class SqliteAdapter {
             graph_file_path: filePath,
             link_type: linkType,
             agent_id: params.agent_id,
-            created_at: new Date().toISOString(),
+            created_at: now(),
         };
     }
     async searchByGraphEntity(params) {
