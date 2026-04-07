@@ -1,0 +1,21 @@
+{
+  "id": "rs_long_prompt_nudge",
+  "version": 1,
+  "domain": {
+    "name": "Long Prompt Detection",
+    "description": "Nudge agent to create tasks when prompt complexity is high",
+    "industry": "internal"
+  },
+  "triggers": {
+    "word_count_threshold": 120,
+    "arrow_markers_threshold": 3,
+    "numbered_items_threshold": 3,
+    "topic_shift_threshold": 3,
+    "explicit_concerns_threshold": 3,
+    "signal_gate": 2
+  },
+  "nudge_template": "This prompt contains {concern_count} distinct concerns. Start with /composure:blueprint to plan and break this down — it will classify the work, check for research, and create tracked tasks. If this is a simple list of independent items, use TaskCreate to track them directly.",
+  "code_block_exclusion": true,
+  "enabled": true,
+  "evaluation": { "mode": "user_prompt_submit", "log_level": "none" }
+}
