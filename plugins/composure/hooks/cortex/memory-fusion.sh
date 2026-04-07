@@ -51,44 +51,110 @@ fi
 FILENAME=$(basename "$FILE_PATH")
 EXTENSION="${FILENAME##*.}"
 
-# Detect if this is a high-value change worth remembering
+# ── Reflex triggers ────────────────────────────────────────────
+# Principle: if changing this file could break OTHER parts of the
+# codebase or represents a structural decision, it's notable.
+# Tests and self-contained changes are skipped.
+
 IS_NOTABLE=false
 CATEGORY=""
 REASON=""
 
+# Skip tests early — never auto-capture test file edits
 case "$FILE_PATH" in
-  *migration*.sql|*supabase/migrations/*)
-    IS_NOTABLE=true
-    CATEGORY="architecture"
-    REASON="Database migration modified — schema changes affect all consumers"
+  *test*|*spec*|*__tests__*|*__mocks__*|*fixtures*|*stubs*)
+    exit 0
     ;;
-  *auth*|*login*|*session*|*jwt*|*oauth*)
+esac
+
+case "$FILE_PATH" in
+
+  # ── Security (highest priority) ──────────────────────────────
+  *auth*|*login*|*session*|*jwt*|*oauth*|*token*|*credential*)
     IS_NOTABLE=true
     CATEGORY="security"
     REASON="Auth-related file modified — security-sensitive area"
     ;;
-  *payment*|*billing*|*stripe*|*checkout*)
+  *payment*|*billing*|*stripe*|*checkout*|*subscription*)
     IS_NOTABLE=true
     CATEGORY="security"
     REASON="Payment-related file modified — PCI-sensitive area"
     ;;
-  *webhook*|*api/*)
+  *rls*|*policy*|*policies*|*permission*|*rbac*|*acl*)
+    IS_NOTABLE=true
+    CATEGORY="security"
+    REASON="Access control modified — tenant isolation or permission rules"
+    ;;
+  *secret*|*.env|*.env.*|*credentials*)
+    IS_NOTABLE=true
+    CATEGORY="security"
+    REASON="Secrets or environment config modified — deployment-sensitive"
+    ;;
+
+  # ── Architecture (structural changes) ────────────────────────
+  *migration*.sql|*supabase/migrations/*|*drizzle/migrations/*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Database migration modified — schema changes affect all consumers"
+    ;;
+  *schema.prisma|*schema.graphql|*.proto|*drizzle.config*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Data model definition modified — contract change for consumers"
+    ;;
+  *webhook*|*/api/*|*/routes/*|*server/*)
     IS_NOTABLE=true
     CATEGORY="architecture"
     REASON="API endpoint or webhook modified — may affect external consumers"
     ;;
-  *config*|*.env*|*secrets*)
+  *middleware*|*/middleware/*|*/proxy.ts|*/proxy.js)
     IS_NOTABLE=true
     CATEGORY="architecture"
-    REASON="Configuration file modified — may affect deployment"
+    REASON="Middleware/proxy modified — cross-cutting request interception (Next.js 16+ uses proxy.ts)"
     ;;
-  *test*|*spec*|*__tests__*)
-    # Tests are important but not notable enough for memory
-    IS_NOTABLE=false
+  */app/*/page.*|*/app/*/layout.*|*/app/*/loading.*|*/app/*/error.*|*/pages/*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Route or layout modified — navigation structure change"
     ;;
+  */store/*|*/stores/*|*/context/*|*/providers/*|*zustand*|*redux*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="State management modified — global state affects multiple consumers"
+    ;;
+
+  # ── Deployment (infrastructure) ──────────────────────────────
+  *config*|*rc.*|*.config.*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Configuration file modified — may affect build or deployment"
+    ;;
+  *Dockerfile*|*docker-compose*|*.dockerignore)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Container config modified — deployment infrastructure change"
+    ;;
+  *.github/workflows/*|*.gitlab-ci*|*bitbucket-pipelines*)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="CI/CD pipeline modified — deployment flow change"
+    ;;
+
+  # ── Dependencies ─────────────────────────────────────────────
+  */package.json)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Package dependencies modified — may affect build or security"
+    ;;
+  *pnpm-lock.yaml|*yarn.lock|*package-lock.json|*bun.lockb)
+    IS_NOTABLE=true
+    CATEGORY="architecture"
+    REASON="Lock file modified — dependency resolution changed"
+    ;;
+
 esac
 
-# Also flag large files (>200 lines of changes)
+# ── Size-based fallback (catches anything large) ───────────────
 if [ "$IS_NOTABLE" = false ] && [ -f "$FILE_PATH" ]; then
   LINE_COUNT=$(wc -l < "$FILE_PATH" 2>/dev/null | tr -d ' ')
   if [ "${LINE_COUNT:-0}" -gt 400 ]; then
@@ -128,7 +194,64 @@ if [ "$IS_NOTABLE" = true ]; then
           captured_at: $ts
         }
       }')
-    node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null &
+
+    # Create memory node and capture its ID for graph linking
+    NODE_RESULT=$(node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null)
+    NODE_ID=$(echo "$NODE_RESULT" | jq -r '.node_id // empty' 2>/dev/null)
+
+    # Link to graph entities if graph DB exists
+    if [ -n "$NODE_ID" ]; then
+      GRAPH_CLI="${SCRIPT_DIR}/../../graph/dist/cli.js"
+      PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
+      GRAPH_DB="${PROJECT_ROOT}/.code-review-graph/graph.db"
+
+      if [ -f "$GRAPH_CLI" ] && [ -f "$GRAPH_DB" ]; then
+        # Query graph for entities at this file path
+        GRAPH_RESULT=$(node "$GRAPH_CLI" query_graph "{\"pattern\":\"file_summary\",\"target\":\"${FILE_PATH}\",\"repo_root\":\"${PROJECT_ROOT}\"}" 2>/dev/null)
+        ENTITY_COUNT=$(echo "$GRAPH_RESULT" | jq -r '.results | length // 0' 2>/dev/null)
+
+        if [ "${ENTITY_COUNT:-0}" -gt 0 ]; then
+          # Get memory content preview for graph-side link
+          CONTENT_PREVIEW="File modified: ${FILENAME} — ${REASON}"
+
+          # Link memory node to each graph entity in BOTH databases
+          echo "$GRAPH_RESULT" | jq -r '.results[]? | .qualified_name // empty' 2>/dev/null | head -10 | while IFS= read -r QNAME; do
+            [ -z "$QNAME" ] && continue
+
+            # Cortex side: ai_graph_links (memory → graph)
+            LINK_PAYLOAD=$(jq -n \
+              --arg agent_id "$AGENT_ID" \
+              --arg memory_node_id "$NODE_ID" \
+              --arg qualified "$QNAME" \
+              --arg filepath "$FILE_PATH" \
+              '{
+                agent_id: $agent_id,
+                memory_node_id: $memory_node_id,
+                graph_qualified_name: $qualified,
+                graph_file_path: $filepath,
+                link_type: "about"
+              }')
+            node --experimental-sqlite "$CLI_PATH" create_graph_link "$LINK_PAYLOAD" 2>/dev/null
+
+            # Graph side: memory_links (graph → memory)
+            GRAPH_LINK_PAYLOAD=$(jq -n \
+              --arg agent_id "$AGENT_ID" \
+              --arg node_id "$NODE_ID" \
+              --arg qualified "$QNAME" \
+              --arg preview "$CONTENT_PREVIEW" \
+              '{
+                agent_id: $agent_id,
+                cortex_memory_node_id: $node_id,
+                node_qualified_name: $qualified,
+                content_preview: $preview,
+                link_type: "about",
+                repo_root: "'"$PROJECT_ROOT"'"
+              }')
+            node "$GRAPH_CLI" create_memory_link "$GRAPH_LINK_PAYLOAD" 2>/dev/null
+          done
+        fi
+      fi
+    fi &
   fi
 fi
 

@@ -213,3 +213,35 @@ export interface CreateEdgeParams {
   weight?: number;
   metadata?: Record<string, unknown>;
 }
+
+// ── Graph ↔ Memory Link Types ────────────────────────────────────
+
+export type GraphLinkType = "about" | "decided" | "reviewed" | "refactored" | "blocked_by";
+
+export interface GraphLink {
+  id: string;
+  memory_node_id: string | null;
+  thinking_session_id: string | null;
+  graph_qualified_name: string;
+  graph_file_path: string | null;
+  link_type: GraphLinkType;
+  agent_id: string;
+  created_at: string;
+}
+
+export interface CreateGraphLinkParams {
+  agent_id: string;
+  graph_qualified_name: string;
+  graph_file_path?: string;
+  link_type?: GraphLinkType;
+  memory_node_id?: string;
+  thinking_session_id?: string;
+}
+
+export interface SearchByGraphEntityParams {
+  agent_id: string;
+  graph_qualified_name?: string;
+  graph_file_path?: string;
+  link_type?: GraphLinkType;
+  limit?: number;
+}

@@ -11,7 +11,7 @@ Run tests and parse the output into actionable failure reports with source conte
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill testbench run {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill testbench run {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

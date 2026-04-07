@@ -13,7 +13,7 @@ Read `.composure/no-bandaids.json` (or `.claude/no-bandaids.json` for existing p
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure app-architecture {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure app-architecture {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
@@ -29,4 +29,4 @@ This skill has category-specific content:
 - `mobile/` — 7 files
 - `sdks/` — 2 files
 
-Fetch category content: `"~/.composure/bin/composure-fetch.mjs" skill composure app-architecture {category}/{filename}`
+Fetch category content: `"$HOME/.composure/bin/composure-fetch.mjs" skill composure app-architecture {category}/{filename}`

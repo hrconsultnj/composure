@@ -11,7 +11,7 @@ Perform a focused, token-efficient code review of only the changed code and its 
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure review {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure review {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

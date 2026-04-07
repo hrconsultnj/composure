@@ -11,7 +11,7 @@ Analyze HTTP security headers for a given URL. Grades based on actual exploitabl
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill sentinel headers {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill sentinel headers {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

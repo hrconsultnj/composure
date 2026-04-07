@@ -11,7 +11,7 @@ Inspect an installed package's source code for behavioral signals that indicate 
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill sentinel package-risk {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill sentinel package-risk {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

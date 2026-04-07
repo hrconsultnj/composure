@@ -11,7 +11,7 @@ Validate CI/CD workflow files for syntax errors, common mistakes, and best pract
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill shipyard ci-validate {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill shipyard ci-validate {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

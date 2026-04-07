@@ -19,6 +19,9 @@ import type {
   CreateNodeParams,
   UpdateNodeParams,
   CreateEdgeParams,
+  GraphLink,
+  CreateGraphLinkParams,
+  SearchByGraphEntityParams,
 } from "../core/types.js";
 
 export interface CreateSessionOptions {
@@ -75,6 +78,11 @@ export interface StorageAdapter {
 
   // Memory — Traversal
   traverseGraph(start_node_id: string, depth: number, relationship_types?: string[]): Promise<{ nodes: MemoryNode[]; edges: MemoryEdge[] }>;
+
+  // Graph ↔ Memory Links
+  createGraphLink(params: CreateGraphLinkParams): Promise<GraphLink>;
+  searchByGraphEntity(params: SearchByGraphEntityParams): Promise<{ links: GraphLink[]; nodes: MemoryNode[]; sessions: ThinkingSession[] }>;
+  deleteGraphLinksForNode(memory_node_id: string): Promise<number>;
 
   // Lifecycle
   close(): void;

@@ -11,7 +11,7 @@ Lightweight refresh for an already-initialized project. Unlike `/initialize`, th
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure update-project {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure update-project {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

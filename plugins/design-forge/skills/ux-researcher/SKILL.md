@@ -10,7 +10,7 @@ AI-powered design research agent that autonomously gathers intelligence through 
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill design-forge ux-researcher {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill design-forge ux-researcher {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

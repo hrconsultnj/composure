@@ -11,7 +11,7 @@ Perform a comprehensive, graph-powered code review of a pull request. Uses verif
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure review-pr {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure review-pr {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

@@ -11,7 +11,7 @@ Generate a structured changelog from git history, enriched with code graph entit
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure changelog {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure changelog {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

@@ -333,6 +333,70 @@ export class SupabaseAdapter implements StorageAdapter {
     };
   }
 
+  // ── Graph ↔ Memory Links ─────────────────────────────────────
+  // Supabase implementation: requires ai_graph_links table in the remote DB.
+  // For now, these are stubs that return errors until the migration is applied.
+
+  async createGraphLink(params: import("../core/types.js").CreateGraphLinkParams): Promise<import("../core/types.js").GraphLink> {
+    const id = crypto.randomUUID();
+    const { data, error } = await this.client
+      .from("ai_graph_links")
+      .insert({
+        id,
+        memory_node_id: params.memory_node_id ?? null,
+        thinking_session_id: params.thinking_session_id ?? null,
+        graph_qualified_name: params.graph_qualified_name,
+        graph_file_path: params.graph_file_path ?? null,
+        link_type: params.link_type ?? "about",
+        agent_id: params.agent_id,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`createGraphLink: ${error.message}`);
+    return data as import("../core/types.js").GraphLink;
+  }
+
+  async searchByGraphEntity(params: import("../core/types.js").SearchByGraphEntityParams): Promise<{
+    links: import("../core/types.js").GraphLink[];
+    nodes: import("../core/types.js").MemoryNode[];
+    sessions: import("../core/types.js").ThinkingSession[];
+  }> {
+    let query = this.client.from("ai_graph_links").select().eq("agent_id", params.agent_id);
+    if (params.graph_qualified_name) query = query.eq("graph_qualified_name", params.graph_qualified_name);
+    if (params.graph_file_path) query = query.eq("graph_file_path", params.graph_file_path);
+    if (params.link_type) query = query.eq("link_type", params.link_type);
+    const { data: links, error } = await query.order("created_at", { ascending: false }).limit(params.limit ?? 20);
+    if (error) throw new Error(`searchByGraphEntity: ${error.message}`);
+
+    const typedLinks = (links ?? []) as import("../core/types.js").GraphLink[];
+    const nodeIds = [...new Set(typedLinks.filter((l) => l.memory_node_id).map((l) => l.memory_node_id!))];
+    const sessionIds = [...new Set(typedLinks.filter((l) => l.thinking_session_id).map((l) => l.thinking_session_id!))];
+
+    const nodes: import("../core/types.js").MemoryNode[] = [];
+    if (nodeIds.length > 0) {
+      const { data } = await this.client.from("ai_memory_nodes").select().in("id", nodeIds);
+      if (data) nodes.push(...(data as import("../core/types.js").MemoryNode[]));
+    }
+
+    const sessions: import("../core/types.js").ThinkingSession[] = [];
+    if (sessionIds.length > 0) {
+      const { data } = await this.client.from("ai_thinking_sessions").select().in("id", sessionIds);
+      if (data) sessions.push(...(data as import("../core/types.js").ThinkingSession[]));
+    }
+
+    return { links: typedLinks, nodes, sessions };
+  }
+
+  async deleteGraphLinksForNode(memory_node_id: string): Promise<number> {
+    const { data, error } = await this.client
+      .from("ai_graph_links")
+      .delete()
+      .eq("memory_node_id", memory_node_id)
+      .select();
+    if (error) throw new Error(`deleteGraphLinksForNode: ${error.message}`);
+    return data?.length ?? 0;
+  }
+
   // ── Lifecycle ────────────────────────────────────────────────
 
   close(): void {

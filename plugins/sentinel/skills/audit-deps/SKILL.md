@@ -11,7 +11,7 @@ Run a focused dependency vulnerability audit using the project's detected packag
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill sentinel audit-deps {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill sentinel audit-deps {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

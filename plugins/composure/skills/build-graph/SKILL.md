@@ -11,7 +11,7 @@ Build or incrementally update the persistent code knowledge graph, generate a st
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure build-graph {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure build-graph {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

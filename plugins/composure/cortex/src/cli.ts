@@ -55,6 +55,11 @@ const commands: Record<string, CommandHandler> = {
   traverse_memory_graph: (a, args) => memory.traverseGraph(a, args as any),
   generate_memory_html: (a, args) => memory.generateMemoryHtml(a, args as any),
 
+  // Graph ↔ Memory Links
+  create_graph_link: (a, args) => memory.createGraphLink(a, args as any),
+  search_by_graph_entity: (a, args) => memory.searchByGraphEntity(a, args as any),
+  delete_graph_links_for_node: (a, args) => memory.deleteGraphLinksForNode(a, args as any),
+
   // Sync
   sync_up: async (_a, args) => {
     const local = new SqliteAdapter();

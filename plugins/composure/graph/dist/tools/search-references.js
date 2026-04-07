@@ -5,7 +5,8 @@
  * then enriches each match with graph context: containing node, entity
  * membership, importer count, and file role classification.
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { GraphStore } from "../store.js";
 import { findProjectRoot, getDbPath } from "../incremental.js";
@@ -18,8 +19,6 @@ function classifyFileRole(filePath) {
         return "component";
     if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
         return "route";
-    if (/\/hooks\//.test(filePath))
-        return "hook";
     if (/\.(test|spec)\./.test(filePath))
         return "test";
     if (/\/lib\//.test(filePath))
@@ -36,65 +35,97 @@ function classifyFileRole(filePath) {
         return "reference";
     return "source";
 }
+/** Convert a simple glob pattern to a regex for path filtering. */
+function globToRegex(glob) {
+    const escaped = glob
+        .replace(/\./g, "\\.") // escape dots
+        .replace(/\*\*\//g, "(.*/)?") // **/ → optional path prefix
+        .replace(/\*/g, "[^/]*"); // * → non-slash chars
+    return new RegExp(escaped + "$");
+}
+/** Find ripgrep binary. Returns absolute path or null. */
 function findRg() {
-    // Check common locations for ripgrep binary
     const candidates = [
         "/usr/local/bin/rg",
         "/opt/homebrew/bin/rg",
         `${process.env.HOME}/.cargo/bin/rg`,
     ];
     for (const p of candidates) {
-        try {
-            if (require("node:fs").existsSync(p))
-                return p;
-        }
-        catch { /* skip */ }
+        if (existsSync(p))
+            return p;
     }
-    return "rg"; // hope it's in PATH
+    // Check if rg is in PATH by trying a no-op
+    try {
+        execFileSync("rg", ["--version"], { encoding: "utf-8", stdio: "pipe" });
+        return "rg";
+    }
+    catch {
+        return null;
+    }
 }
 function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
-    const target = scope ? resolve(root, scope) : root;
-    // Try ripgrep first, fall back to grep
+    const rgPath = findRg();
+    if (rgPath) {
+        return searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults);
+    }
+    return searchWithGrep(root, pattern, scope, contextLines, maxResults);
+}
+function searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults) {
+    const args = [
+        "--no-heading", "-n",
+        ...(contextLines > 0 ? [`-C${contextLines}`] : []),
+        "--max-count", String(maxResults),
+        "--glob", "!node_modules",
+        "--glob", "!.git",
+        "--glob", "!dist",
+        "--glob", "!*.map",
+        ...(scope ? ["--glob", scope] : []),
+        pattern,
+        root,
+    ];
     try {
-        const rg = findRg();
-        const cmd = [
-            rg, "--no-heading", "-n",
-            contextLines > 0 ? `-C${contextLines}` : "",
-            "--max-count", String(maxResults),
-            "--glob", "!node_modules",
-            "--glob", "!.git",
-            "--glob", "!dist",
-            "--glob", "!*.map",
-            JSON.stringify(pattern),
-            JSON.stringify(target),
-        ].filter(Boolean).join(" ");
-        const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+        const output = execFileSync(rgPath, args, {
+            encoding: "utf-8",
+            maxBuffer: 1024 * 1024,
+            stdio: ["pipe", "pipe", "pipe"],
+        });
         return parseRipgrepOutput(output, root, contextLines);
     }
     catch (err) {
-        // If rg not found, fall back to grep
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("not found") || msg.includes("ENOENT")) {
-            return searchWithGrep(root, pattern, target, contextLines, maxResults);
-        }
         // rg exits with code 1 when no matches — that's fine
+        const e = err;
+        if (e.status === 1)
+            return [];
+        // rg exits with code 2 for errors — check if there's partial output
+        if (e.stdout)
+            return parseRipgrepOutput(e.stdout, root, contextLines);
         return [];
     }
 }
-function searchWithGrep(root, pattern, target, contextLines, maxResults) {
-    const cmd = [
-        "grep", "-rn",
-        contextLines > 0 ? `-C${contextLines}` : "",
+function searchWithGrep(root, pattern, scope, contextLines, maxResults) {
+    const args = [
+        "-rn",
+        ...(contextLines > 0 ? [`-C${contextLines}`] : []),
         "--include=*.ts", "--include=*.tsx", "--include=*.js", "--include=*.jsx",
         "--include=*.md", "--include=*.sh", "--include=*.json",
         "--exclude-dir=node_modules", "--exclude-dir=.git", "--exclude-dir=dist",
         `-m${maxResults}`,
-        JSON.stringify(pattern),
-        JSON.stringify(target),
-    ].filter(Boolean).join(" ");
+        pattern,
+        root,
+    ];
     try {
-        const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
-        return parseRipgrepOutput(output, root, contextLines); // grep format is compatible
+        const output = execFileSync("grep", args, {
+            encoding: "utf-8",
+            maxBuffer: 1024 * 1024,
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+        let matches = parseRipgrepOutput(output, root, contextLines);
+        // Post-filter by scope glob if provided (grep can't handle path globs)
+        if (scope) {
+            const re = globToRegex(scope);
+            matches = matches.filter((m) => re.test(m.file));
+        }
+        return matches;
     }
     catch {
         return [];

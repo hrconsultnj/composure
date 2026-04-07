@@ -11,7 +11,7 @@ Guided workflow for building custom MCP servers that connect external services t
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure mcp-builder {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure mcp-builder {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

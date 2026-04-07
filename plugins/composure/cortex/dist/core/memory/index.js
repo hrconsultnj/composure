@@ -4,4 +4,5 @@ export { searchMemory, searchSemantic, searchWithText } from "./search.js";
 export { traverseGraph } from "./traverse.js";
 export { generateEmbedding, generateEmbeddings, getEmbeddingConfig } from "./embed.js";
 export { generateMemoryHtml } from "./visualize.js";
+export { createGraphLink, searchByGraphEntity, deleteGraphLinksForNode } from "./graph-links.js";
 //# sourceMappingURL=index.js.map

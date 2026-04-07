@@ -33897,8 +33897,10 @@ async function summarizeSession(adapter2, params) {
 var memory_exports = {};
 __export(memory_exports, {
   createEdge: () => createEdge,
+  createGraphLink: () => createGraphLink,
   createNode: () => createNode,
   deleteEdge: () => deleteEdge,
+  deleteGraphLinksForNode: () => deleteGraphLinksForNode,
   deleteNode: () => deleteNode,
   generateEmbedding: () => generateEmbedding,
   generateEmbeddings: () => generateEmbeddings,
@@ -33906,6 +33908,7 @@ __export(memory_exports, {
   getEdgesForNode: () => getEdgesForNode,
   getEmbeddingConfig: () => getEmbeddingConfig,
   getNode: () => getNode,
+  searchByGraphEntity: () => searchByGraphEntity,
   searchMemory: () => searchMemory,
   searchSemantic: () => searchSemantic,
   searchWithText: () => searchWithText,
@@ -34357,6 +34360,69 @@ simulation.on('tick', () => {
     return {
       status: "error",
       error: `Failed to generate memory visualization: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+}
+
+// dist/core/memory/graph-links.js
+async function createGraphLink(adapter2, params) {
+  if (!params.memory_node_id && !params.thinking_session_id) {
+    return {
+      status: "error",
+      error: "Either memory_node_id or thinking_session_id is required"
+    };
+  }
+  try {
+    const link = await adapter2.createGraphLink(params);
+    return {
+      status: "ok",
+      link_id: link.id,
+      graph_qualified_name: link.graph_qualified_name,
+      link_type: link.link_type,
+      message: `Linked ${link.memory_node_id ? "memory node" : "thinking session"} to graph entity`
+    };
+  } catch (err) {
+    return {
+      status: "error",
+      error: `Failed to create graph link: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+}
+async function searchByGraphEntity(adapter2, params) {
+  if (!params.graph_qualified_name && !params.graph_file_path) {
+    return {
+      status: "error",
+      error: "Either graph_qualified_name or graph_file_path is required"
+    };
+  }
+  try {
+    const result = await adapter2.searchByGraphEntity(params);
+    return {
+      status: "ok",
+      summary: `Found ${result.links.length} links (${result.nodes.length} memory nodes, ${result.sessions.length} thinking sessions)`,
+      links: result.links,
+      nodes: result.nodes,
+      sessions: result.sessions
+    };
+  } catch (err) {
+    return {
+      status: "error",
+      error: `Failed to search by graph entity: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+}
+async function deleteGraphLinksForNode(adapter2, params) {
+  try {
+    const count = await adapter2.deleteGraphLinksForNode(params.memory_node_id);
+    return {
+      status: "ok",
+      deleted: count,
+      message: `Deleted ${count} graph links for memory node ${params.memory_node_id}`
+    };
+  } catch (err) {
+    return {
+      status: "error",
+      error: `Failed to delete graph links: ${err instanceof Error ? err.message : String(err)}`
     };
   }
 }
@@ -42902,6 +42968,58 @@ var SupabaseAdapter = class {
       edges: allEdges
     };
   }
+  // ── Graph ↔ Memory Links ─────────────────────────────────────
+  // Supabase implementation: requires ai_graph_links table in the remote DB.
+  // For now, these are stubs that return errors until the migration is applied.
+  async createGraphLink(params) {
+    const id = crypto.randomUUID();
+    const { data, error: error2 } = await this.client.from("ai_graph_links").insert({
+      id,
+      memory_node_id: params.memory_node_id ?? null,
+      thinking_session_id: params.thinking_session_id ?? null,
+      graph_qualified_name: params.graph_qualified_name,
+      graph_file_path: params.graph_file_path ?? null,
+      link_type: params.link_type ?? "about",
+      agent_id: params.agent_id
+    }).select().single();
+    if (error2)
+      throw new Error(`createGraphLink: ${error2.message}`);
+    return data;
+  }
+  async searchByGraphEntity(params) {
+    let query = this.client.from("ai_graph_links").select().eq("agent_id", params.agent_id);
+    if (params.graph_qualified_name)
+      query = query.eq("graph_qualified_name", params.graph_qualified_name);
+    if (params.graph_file_path)
+      query = query.eq("graph_file_path", params.graph_file_path);
+    if (params.link_type)
+      query = query.eq("link_type", params.link_type);
+    const { data: links, error: error2 } = await query.order("created_at", { ascending: false }).limit(params.limit ?? 20);
+    if (error2)
+      throw new Error(`searchByGraphEntity: ${error2.message}`);
+    const typedLinks = links ?? [];
+    const nodeIds = [...new Set(typedLinks.filter((l) => l.memory_node_id).map((l) => l.memory_node_id))];
+    const sessionIds = [...new Set(typedLinks.filter((l) => l.thinking_session_id).map((l) => l.thinking_session_id))];
+    const nodes = [];
+    if (nodeIds.length > 0) {
+      const { data } = await this.client.from("ai_memory_nodes").select().in("id", nodeIds);
+      if (data)
+        nodes.push(...data);
+    }
+    const sessions = [];
+    if (sessionIds.length > 0) {
+      const { data } = await this.client.from("ai_thinking_sessions").select().in("id", sessionIds);
+      if (data)
+        sessions.push(...data);
+    }
+    return { links: typedLinks, nodes, sessions };
+  }
+  async deleteGraphLinksForNode(memory_node_id) {
+    const { data, error: error2 } = await this.client.from("ai_graph_links").delete().eq("memory_node_id", memory_node_id).select();
+    if (error2)
+      throw new Error(`deleteGraphLinksForNode: ${error2.message}`);
+    return data?.length ?? 0;
+  }
   // ── Lifecycle ────────────────────────────────────────────────
   close() {
   }
@@ -43034,6 +43152,23 @@ var SqliteAdapter = class _SqliteAdapter {
       CREATE INDEX IF NOT EXISTS idx_memory_edges_to ON ai_memory_edges(to_node_id);
       CREATE INDEX IF NOT EXISTS idx_local_entity_feed_project ON local_entity_feed(project);
       CREATE INDEX IF NOT EXISTS idx_local_entity_feed_task ON local_entity_feed(task_id) WHERE task_id IS NOT NULL;
+
+      -- Graph \u2194 Memory linking table
+      CREATE TABLE IF NOT EXISTS ai_graph_links (
+        id TEXT PRIMARY KEY,
+        memory_node_id TEXT REFERENCES ai_memory_nodes(id) ON DELETE CASCADE,
+        thinking_session_id TEXT REFERENCES ai_thinking_sessions(id) ON DELETE CASCADE,
+        graph_qualified_name TEXT NOT NULL,
+        graph_file_path TEXT,
+        link_type TEXT DEFAULT 'about',
+        agent_id TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        CHECK (memory_node_id IS NOT NULL OR thinking_session_id IS NOT NULL)
+      );
+      CREATE INDEX IF NOT EXISTS idx_graph_links_qualified ON ai_graph_links(graph_qualified_name);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_memory ON ai_graph_links(memory_node_id);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_session ON ai_graph_links(thinking_session_id);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_agent ON ai_graph_links(agent_id);
     `);
     try {
       this.db.exec("ALTER TABLE ai_thinking_sessions ADD COLUMN feed_id TEXT REFERENCES local_entity_feed(id)");
@@ -43246,6 +43381,67 @@ var SqliteAdapter = class _SqliteAdapter {
         nodes.push(node);
     }
     return { nodes, edges: allEdges };
+  }
+  // ── Graph ↔ Memory Links ─────────────────────────────────────
+  async createGraphLink(params) {
+    const id = crypto.randomUUID();
+    const memoryNodeId = params.memory_node_id ?? null;
+    const sessionId = params.thinking_session_id ?? null;
+    const linkType = params.link_type ?? "about";
+    const filePath = params.graph_file_path ?? null;
+    this.db.exec(`INSERT INTO ai_graph_links (id, memory_node_id, thinking_session_id, graph_qualified_name, graph_file_path, link_type, agent_id)
+       VALUES ('${id}', ${memoryNodeId ? `'${memoryNodeId}'` : "NULL"}, ${sessionId ? `'${sessionId}'` : "NULL"}, '${params.graph_qualified_name}', ${filePath ? `'${filePath}'` : "NULL"}, '${linkType}', '${params.agent_id}')`);
+    return {
+      id,
+      memory_node_id: memoryNodeId,
+      thinking_session_id: sessionId,
+      graph_qualified_name: params.graph_qualified_name,
+      graph_file_path: filePath,
+      link_type: linkType,
+      agent_id: params.agent_id,
+      created_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  async searchByGraphEntity(params) {
+    const limit = params.limit ?? 20;
+    const conditions = [`agent_id = '${params.agent_id}'`];
+    if (params.graph_qualified_name)
+      conditions.push(`graph_qualified_name = '${params.graph_qualified_name}'`);
+    if (params.graph_file_path)
+      conditions.push(`graph_file_path = '${params.graph_file_path}'`);
+    if (params.link_type)
+      conditions.push(`link_type = '${params.link_type}'`);
+    const where = conditions.join(" AND ");
+    const rows = this.db.prepare(`SELECT * FROM ai_graph_links WHERE ${where} ORDER BY created_at DESC LIMIT ${limit}`).all();
+    const links = rows.map((r) => ({
+      id: r.id,
+      memory_node_id: r.memory_node_id,
+      thinking_session_id: r.thinking_session_id,
+      graph_qualified_name: r.graph_qualified_name,
+      graph_file_path: r.graph_file_path,
+      link_type: r.link_type,
+      agent_id: r.agent_id,
+      created_at: r.created_at
+    }));
+    const nodeIds = [...new Set(links.filter((l) => l.memory_node_id).map((l) => l.memory_node_id))];
+    const nodes = [];
+    for (const nid of nodeIds) {
+      const node = await this.getNode(nid);
+      if (node)
+        nodes.push(node);
+    }
+    const sessionIds = [...new Set(links.filter((l) => l.thinking_session_id).map((l) => l.thinking_session_id))];
+    const sessions = [];
+    for (const sid of sessionIds) {
+      const result = await this.getSession(sid);
+      if (result)
+        sessions.push(result.session);
+    }
+    return { links, nodes, sessions };
+  }
+  async deleteGraphLinksForNode(memory_node_id) {
+    const result = this.db.prepare(`DELETE FROM ai_graph_links WHERE memory_node_id = '${memory_node_id}'`).run();
+    return result.changes ?? 0;
   }
   // ── Lifecycle ────────────────────────────────────────────────
   close() {

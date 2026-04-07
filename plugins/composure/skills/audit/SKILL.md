@@ -11,7 +11,7 @@ Comprehensive codebase assessment that produces a scored health report with lett
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure audit {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure audit {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

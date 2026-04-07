@@ -6,13 +6,7 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-}) : x)(function(x) {
-  if (typeof require !== "undefined") return require.apply(this, arguments);
-  throw Error('Dynamic require of "' + x + '" is not supported');
-});
-var __commonJS = (cb, mod) => function __require2() {
+var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target, all) => {
@@ -21324,6 +21318,24 @@ CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
 CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
 CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
 CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
+
+-- Graph \u2192 Memory bridge (reverse direction of Cortex ai_graph_links)
+CREATE TABLE IF NOT EXISTS memory_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    node_qualified_name TEXT NOT NULL,
+    cortex_memory_node_id TEXT,
+    cortex_session_id TEXT,
+    link_type TEXT DEFAULT 'about',
+    agent_id TEXT NOT NULL,
+    content_preview TEXT,
+    created_at REAL NOT NULL,
+    CHECK (cortex_memory_node_id IS NOT NULL OR cortex_session_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ml_node ON memory_links(node_qualified_name);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_mem ON memory_links(cortex_memory_node_id);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_sess ON memory_links(cortex_session_id);
+CREATE INDEX IF NOT EXISTS idx_ml_agent ON memory_links(agent_id);
 `;
 var GraphStore = class {
   db;
@@ -21353,6 +21365,22 @@ var GraphStore = class {
     this.db.close();
   }
   commit() {
+  }
+  // ── Memory Links (Graph → Cortex bridge) ──────────────────────
+  createMemoryLink(params) {
+    const now = Date.now() / 1e3;
+    const result = this.db.prepare(`INSERT INTO memory_links (node_qualified_name, cortex_memory_node_id, cortex_session_id, link_type, agent_id, content_preview, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(params.node_qualified_name, params.cortex_memory_node_id ?? null, params.cortex_session_id ?? null, params.link_type ?? "about", params.agent_id, params.content_preview ?? null, now);
+    return result.lastInsertRowid;
+  }
+  getMemoryLinksForNode(node_qualified_name) {
+    return this.db.prepare("SELECT * FROM memory_links WHERE node_qualified_name = ? ORDER BY created_at DESC").all(node_qualified_name);
+  }
+  getMemoryLinksForFile(file_path) {
+    return this.db.prepare(`SELECT ml.* FROM memory_links ml
+       JOIN nodes n ON ml.node_qualified_name = n.qualified_name
+       WHERE n.file_path = ?
+       ORDER BY ml.created_at DESC`).all(file_path);
   }
   // ── Metadata ───────────────────────────────────────────────────
   setMetadata(key, value) {
@@ -28908,7 +28936,8 @@ async function buildOrUpdateGraph(params) {
 }
 
 // dist/tools/search-references.js
-import { execSync } from "node:child_process";
+import { execFileSync as execFileSync2 } from "node:child_process";
+import { existsSync as existsSync5 } from "node:fs";
 import { relative as relative3, resolve as resolve5 } from "node:path";
 function classifyFileRole(filePath) {
   if (/\/skills\//.test(filePath))
@@ -28919,8 +28948,6 @@ function classifyFileRole(filePath) {
     return "component";
   if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
     return "route";
-  if (/\/hooks\//.test(filePath))
-    return "hook";
   if (/\.(test|spec)\./.test(filePath))
     return "test";
   if (/\/lib\//.test(filePath))
@@ -28937,6 +28964,10 @@ function classifyFileRole(filePath) {
     return "reference";
   return "source";
 }
+function globToRegex(glob) {
+  const escaped = glob.replace(/\./g, "\\.").replace(/\*\*\//g, "(.*/)?").replace(/\*/g, "[^/]*");
+  return new RegExp(escaped + "$");
+}
 function findRg() {
   const candidates = [
     "/usr/local/bin/rg",
@@ -28944,51 +28975,62 @@ function findRg() {
     `${process.env.HOME}/.cargo/bin/rg`
   ];
   for (const p of candidates) {
-    try {
-      if (__require("node:fs").existsSync(p))
-        return p;
-    } catch {
-    }
+    if (existsSync5(p))
+      return p;
   }
-  return "rg";
+  try {
+    execFileSync2("rg", ["--version"], { encoding: "utf-8", stdio: "pipe" });
+    return "rg";
+  } catch {
+    return null;
+  }
 }
 function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
-  const target = scope ? resolve5(root, scope) : root;
+  const rgPath = findRg();
+  if (rgPath) {
+    return searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults);
+  }
+  return searchWithGrep(root, pattern, scope, contextLines, maxResults);
+}
+function searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults) {
+  const args2 = [
+    "--no-heading",
+    "-n",
+    ...contextLines > 0 ? [`-C${contextLines}`] : [],
+    "--max-count",
+    String(maxResults),
+    "--glob",
+    "!node_modules",
+    "--glob",
+    "!.git",
+    "--glob",
+    "!dist",
+    "--glob",
+    "!*.map",
+    ...scope ? ["--glob", scope] : [],
+    pattern,
+    root
+  ];
   try {
-    const rg = findRg();
-    const cmd = [
-      rg,
-      "--no-heading",
-      "-n",
-      contextLines > 0 ? `-C${contextLines}` : "",
-      "--max-count",
-      String(maxResults),
-      "--glob",
-      "!node_modules",
-      "--glob",
-      "!.git",
-      "--glob",
-      "!dist",
-      "--glob",
-      "!*.map",
-      JSON.stringify(pattern),
-      JSON.stringify(target)
-    ].filter(Boolean).join(" ");
-    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+    const output = execFileSync2(rgPath, args2, {
+      encoding: "utf-8",
+      maxBuffer: 1024 * 1024,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
     return parseRipgrepOutput(output, root, contextLines);
   } catch (err2) {
-    const msg = err2 instanceof Error ? err2.message : String(err2);
-    if (msg.includes("not found") || msg.includes("ENOENT")) {
-      return searchWithGrep(root, pattern, target, contextLines, maxResults);
-    }
+    const e = err2;
+    if (e.status === 1)
+      return [];
+    if (e.stdout)
+      return parseRipgrepOutput(e.stdout, root, contextLines);
     return [];
   }
 }
-function searchWithGrep(root, pattern, target, contextLines, maxResults) {
-  const cmd = [
-    "grep",
+function searchWithGrep(root, pattern, scope, contextLines, maxResults) {
+  const args2 = [
     "-rn",
-    contextLines > 0 ? `-C${contextLines}` : "",
+    ...contextLines > 0 ? [`-C${contextLines}`] : [],
     "--include=*.ts",
     "--include=*.tsx",
     "--include=*.js",
@@ -29000,12 +29042,21 @@ function searchWithGrep(root, pattern, target, contextLines, maxResults) {
     "--exclude-dir=.git",
     "--exclude-dir=dist",
     `-m${maxResults}`,
-    JSON.stringify(pattern),
-    JSON.stringify(target)
-  ].filter(Boolean).join(" ");
+    pattern,
+    root
+  ];
   try {
-    const output = execSync(cmd, { encoding: "utf-8", maxBuffer: 1024 * 1024 });
-    return parseRipgrepOutput(output, root, contextLines);
+    const output = execFileSync2("grep", args2, {
+      encoding: "utf-8",
+      maxBuffer: 1024 * 1024,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    let matches = parseRipgrepOutput(output, root, contextLines);
+    if (scope) {
+      const re = globToRegex(scope);
+      matches = matches.filter((m) => re.test(m.file));
+    }
+    return matches;
   } catch {
     return [];
   }
@@ -30807,7 +30858,7 @@ function entityScope(params) {
 }
 
 // dist/tools/run-audit.js
-import { existsSync as existsSync6, readFileSync as readFileSync16 } from "node:fs";
+import { existsSync as existsSync7, readFileSync as readFileSync16 } from "node:fs";
 import { join as join7, relative as relative9 } from "node:path";
 
 // dist/audit-store.js
@@ -30932,8 +30983,8 @@ function rowToScore(row) {
 }
 
 // dist/tools/audit-analyzers.js
-import { execFileSync as execFileSync2 } from "node:child_process";
-import { existsSync as existsSync5, readFileSync as readFileSync15 } from "node:fs";
+import { execFileSync as execFileSync3 } from "node:child_process";
+import { existsSync as existsSync6, readFileSync as readFileSync15 } from "node:fs";
 import { join as join6, relative as relative7 } from "node:path";
 var IMPACTS = {
   FILE_400: 5,
@@ -30959,7 +31010,7 @@ var IMPACTS = {
 };
 function execSafe(cmd, args2, cwd) {
   try {
-    return execFileSync2(cmd, args2, {
+    return execFileSync3(cmd, args2, {
       cwd,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -30970,11 +31021,11 @@ function execSafe(cmd, args2, cwd) {
   }
 }
 function findPkgManager(root) {
-  if (existsSync5(join6(root, "pnpm-lock.yaml")))
+  if (existsSync6(join6(root, "pnpm-lock.yaml")))
     return "pnpm";
-  if (existsSync5(join6(root, "yarn.lock")))
+  if (existsSync6(join6(root, "yarn.lock")))
     return "yarn";
-  if (existsSync5(join6(root, "package-lock.json")))
+  if (existsSync6(join6(root, "package-lock.json")))
     return "npm";
   return null;
 }
@@ -31025,7 +31076,7 @@ var NEXTJS_CONVENTION_FILES = /* @__PURE__ */ new Set([
 ]);
 function analyzeFileOrganization(store, runId, repoRoot) {
   const configPath = join6(repoRoot, ".claude", "no-bandaids.json");
-  if (!existsSync5(configPath))
+  if (!existsSync6(configPath))
     return 0;
   try {
     const config2 = JSON.parse(readFileSync15(configPath, "utf-8"));
@@ -31462,7 +31513,7 @@ function analyzeCodeQuality(store, runId, repoRoot) {
     findingCount++;
   }
   const tasksPath = join7(repoRoot, "tasks-plans", "tasks.md");
-  if (existsSync6(tasksPath)) {
+  if (existsSync7(tasksPath)) {
     try {
       const content = readFileSync16(tasksPath, "utf-8");
       const openCount = (content.match(/^- \[ \]/gm) || []).length;
@@ -31565,7 +31616,7 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync7, readFileSync as readFileSync17, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { existsSync as existsSync8, readFileSync as readFileSync17, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
 import { basename as basename12, dirname as dirname10, join as join8 } from "node:path";
 function findTemplateDir() {
   const candidates = [
@@ -31574,7 +31625,7 @@ function findTemplateDir() {
     process.env.CLAUDE_PLUGIN_ROOT ? join8(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
   ].filter(Boolean);
   for (const dir of candidates) {
-    if (existsSync7(join8(dir, "audit-header.html")))
+    if (existsSync8(join8(dir, "audit-header.html")))
       return dir;
   }
   return null;
@@ -31690,7 +31741,7 @@ function generateAuditHtml(params) {
       html = html.replaceAll(placeholder, value);
     }
     const outputDir = join8(root, "tasks-plans", "audits");
-    if (!existsSync7(outputDir))
+    if (!existsSync8(outputDir))
       mkdirSync2(outputDir, { recursive: true });
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
     const outputPath = params.output_path ?? join8(outputDir, `audit-${timestamp}.html`);

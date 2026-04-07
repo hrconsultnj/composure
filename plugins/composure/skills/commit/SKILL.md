@@ -10,7 +10,7 @@ Commit changes while enforcing task queue hygiene. Offers pre-commit verificatio
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure commit {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure commit {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

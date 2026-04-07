@@ -11,7 +11,7 @@ Assess the project's security surface and bootstrap Sentinel configuration by de
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill sentinel assess {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill sentinel assess {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

@@ -165,6 +165,23 @@ export class SqliteAdapter implements StorageAdapter {
       CREATE INDEX IF NOT EXISTS idx_memory_edges_to ON ai_memory_edges(to_node_id);
       CREATE INDEX IF NOT EXISTS idx_local_entity_feed_project ON local_entity_feed(project);
       CREATE INDEX IF NOT EXISTS idx_local_entity_feed_task ON local_entity_feed(task_id) WHERE task_id IS NOT NULL;
+
+      -- Graph ↔ Memory linking table
+      CREATE TABLE IF NOT EXISTS ai_graph_links (
+        id TEXT PRIMARY KEY,
+        memory_node_id TEXT REFERENCES ai_memory_nodes(id) ON DELETE CASCADE,
+        thinking_session_id TEXT REFERENCES ai_thinking_sessions(id) ON DELETE CASCADE,
+        graph_qualified_name TEXT NOT NULL,
+        graph_file_path TEXT,
+        link_type TEXT DEFAULT 'about',
+        agent_id TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        CHECK (memory_node_id IS NOT NULL OR thinking_session_id IS NOT NULL)
+      );
+      CREATE INDEX IF NOT EXISTS idx_graph_links_qualified ON ai_graph_links(graph_qualified_name);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_memory ON ai_graph_links(memory_node_id);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_session ON ai_graph_links(thinking_session_id);
+      CREATE INDEX IF NOT EXISTS idx_graph_links_agent ON ai_graph_links(agent_id);
     `);
 
     // Schema migration: add feed_id column to ai_thinking_sessions if missing
@@ -415,6 +432,85 @@ export class SqliteAdapter implements StorageAdapter {
     }
 
     return { nodes, edges: allEdges };
+  }
+
+  // ── Graph ↔ Memory Links ─────────────────────────────────────
+
+  async createGraphLink(params: import("../core/types.js").CreateGraphLinkParams): Promise<import("../core/types.js").GraphLink> {
+    const id = crypto.randomUUID();
+    const memoryNodeId = params.memory_node_id ?? null;
+    const sessionId = params.thinking_session_id ?? null;
+    const linkType = params.link_type ?? "about";
+    const filePath = params.graph_file_path ?? null;
+
+    this.db.exec(
+      `INSERT INTO ai_graph_links (id, memory_node_id, thinking_session_id, graph_qualified_name, graph_file_path, link_type, agent_id)
+       VALUES ('${id}', ${memoryNodeId ? `'${memoryNodeId}'` : "NULL"}, ${sessionId ? `'${sessionId}'` : "NULL"}, '${params.graph_qualified_name}', ${filePath ? `'${filePath}'` : "NULL"}, '${linkType}', '${params.agent_id}')`
+    );
+
+    return {
+      id,
+      memory_node_id: memoryNodeId,
+      thinking_session_id: sessionId,
+      graph_qualified_name: params.graph_qualified_name,
+      graph_file_path: filePath,
+      link_type: linkType as import("../core/types.js").GraphLinkType,
+      agent_id: params.agent_id,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  async searchByGraphEntity(params: import("../core/types.js").SearchByGraphEntityParams): Promise<{
+    links: import("../core/types.js").GraphLink[];
+    nodes: import("../core/types.js").MemoryNode[];
+    sessions: import("../core/types.js").ThinkingSession[];
+  }> {
+    const limit = params.limit ?? 20;
+    const conditions: string[] = [`agent_id = '${params.agent_id}'`];
+    if (params.graph_qualified_name) conditions.push(`graph_qualified_name = '${params.graph_qualified_name}'`);
+    if (params.graph_file_path) conditions.push(`graph_file_path = '${params.graph_file_path}'`);
+    if (params.link_type) conditions.push(`link_type = '${params.link_type}'`);
+
+    const where = conditions.join(" AND ");
+    const rows = this.db.prepare(
+      `SELECT * FROM ai_graph_links WHERE ${where} ORDER BY created_at DESC LIMIT ${limit}`
+    ).all() as Array<Record<string, unknown>>;
+
+    const links: import("../core/types.js").GraphLink[] = rows.map((r) => ({
+      id: r.id as string,
+      memory_node_id: r.memory_node_id as string | null,
+      thinking_session_id: r.thinking_session_id as string | null,
+      graph_qualified_name: r.graph_qualified_name as string,
+      graph_file_path: r.graph_file_path as string | null,
+      link_type: r.link_type as import("../core/types.js").GraphLinkType,
+      agent_id: r.agent_id as string,
+      created_at: r.created_at as string,
+    }));
+
+    // Fetch linked memory nodes
+    const nodeIds = [...new Set(links.filter((l) => l.memory_node_id).map((l) => l.memory_node_id!))];
+    const nodes: import("../core/types.js").MemoryNode[] = [];
+    for (const nid of nodeIds) {
+      const node = await this.getNode(nid);
+      if (node) nodes.push(node);
+    }
+
+    // Fetch linked thinking sessions
+    const sessionIds = [...new Set(links.filter((l) => l.thinking_session_id).map((l) => l.thinking_session_id!))];
+    const sessions: import("../core/types.js").ThinkingSession[] = [];
+    for (const sid of sessionIds) {
+      const result = await this.getSession(sid);
+      if (result) sessions.push(result.session);
+    }
+
+    return { links, nodes, sessions };
+  }
+
+  async deleteGraphLinksForNode(memory_node_id: string): Promise<number> {
+    const result = this.db.prepare(
+      `DELETE FROM ai_graph_links WHERE memory_node_id = '${memory_node_id}'`
+    ).run();
+    return (result as { changes: number }).changes ?? 0;
   }
 
   // ── Lifecycle ────────────────────────────────────────────────

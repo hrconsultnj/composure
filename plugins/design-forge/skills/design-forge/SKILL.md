@@ -10,7 +10,7 @@ Design Forge provides production-ready components AND design methodology for bui
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill design-forge design-forge {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill design-forge design-forge {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
@@ -45,4 +45,4 @@ This skill has category-specific content:
 
 - `taxonomy/` — 20 files
 
-Fetch category content: `"~/.composure/bin/composure-fetch.mjs" skill design-forge design-forge {category}/{filename}`
+Fetch category content: `"$HOME/.composure/bin/composure-fetch.mjs" skill design-forge design-forge {category}/{filename}`

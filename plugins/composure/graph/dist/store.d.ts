@@ -15,6 +15,34 @@ export declare class GraphStore {
     getDb(): DatabaseSync;
     close(): void;
     commit(): void;
+    createMemoryLink(params: {
+        node_qualified_name: string;
+        cortex_memory_node_id?: string;
+        cortex_session_id?: string;
+        link_type?: string;
+        agent_id: string;
+        content_preview?: string;
+    }): number;
+    getMemoryLinksForNode(node_qualified_name: string): Array<{
+        id: number;
+        node_qualified_name: string;
+        cortex_memory_node_id: string | null;
+        cortex_session_id: string | null;
+        link_type: string;
+        agent_id: string;
+        content_preview: string | null;
+        created_at: number;
+    }>;
+    getMemoryLinksForFile(file_path: string): Array<{
+        id: number;
+        node_qualified_name: string;
+        cortex_memory_node_id: string | null;
+        cortex_session_id: string | null;
+        link_type: string;
+        agent_id: string;
+        content_preview: string | null;
+        created_at: number;
+    }>;
     setMetadata(key: string, value: string): void;
     getMetadata(key: string): string | null;
     upsertNode(node: NodeInfo, fileHash?: string): number;

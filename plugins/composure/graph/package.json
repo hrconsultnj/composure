@@ -1,10 +1,11 @@
 {
   "name": "@composure/code-review-graph",
-  "version": "1.47.17",
+  "version": "1.47.18",
   "private": true,
   "type": "module",
   "main": "dist/server.js",
   "bin": {
+    "composure-graph-cli": "dist/cli.js",
     "composure-graph-update": "dist/update.js",
     "composure-graph-view": "dist/view-graph.js"
   },

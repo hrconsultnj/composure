@@ -11,7 +11,7 @@ Bootstrap Composure project-level configuration by detecting the tech stack, que
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure initialize {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure initialize {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

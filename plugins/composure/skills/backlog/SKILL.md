@@ -96,5 +96,5 @@ Read backlog items and create TaskCreate entries for the current session.
 Load processing steps through the fetch command:
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure backlog {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure backlog {step-filename}
 ```

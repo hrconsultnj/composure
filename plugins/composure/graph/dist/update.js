@@ -5018,6 +5018,24 @@ CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
 CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
 CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
 CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
+
+-- Graph \u2192 Memory bridge (reverse direction of Cortex ai_graph_links)
+CREATE TABLE IF NOT EXISTS memory_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    node_qualified_name TEXT NOT NULL,
+    cortex_memory_node_id TEXT,
+    cortex_session_id TEXT,
+    link_type TEXT DEFAULT 'about',
+    agent_id TEXT NOT NULL,
+    content_preview TEXT,
+    created_at REAL NOT NULL,
+    CHECK (cortex_memory_node_id IS NOT NULL OR cortex_session_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ml_node ON memory_links(node_qualified_name);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_mem ON memory_links(cortex_memory_node_id);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_sess ON memory_links(cortex_session_id);
+CREATE INDEX IF NOT EXISTS idx_ml_agent ON memory_links(agent_id);
 `;
 var GraphStore = class {
   db;
@@ -5047,6 +5065,22 @@ var GraphStore = class {
     this.db.close();
   }
   commit() {
+  }
+  // ── Memory Links (Graph → Cortex bridge) ──────────────────────
+  createMemoryLink(params) {
+    const now = Date.now() / 1e3;
+    const result = this.db.prepare(`INSERT INTO memory_links (node_qualified_name, cortex_memory_node_id, cortex_session_id, link_type, agent_id, content_preview, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(params.node_qualified_name, params.cortex_memory_node_id ?? null, params.cortex_session_id ?? null, params.link_type ?? "about", params.agent_id, params.content_preview ?? null, now);
+    return result.lastInsertRowid;
+  }
+  getMemoryLinksForNode(node_qualified_name) {
+    return this.db.prepare("SELECT * FROM memory_links WHERE node_qualified_name = ? ORDER BY created_at DESC").all(node_qualified_name);
+  }
+  getMemoryLinksForFile(file_path) {
+    return this.db.prepare(`SELECT ml.* FROM memory_links ml
+       JOIN nodes n ON ml.node_qualified_name = n.qualified_name
+       WHERE n.file_path = ?
+       ORDER BY ml.created_at DESC`).all(file_path);
   }
   // ── Metadata ───────────────────────────────────────────────────
   setMetadata(key, value) {

@@ -46,6 +46,10 @@ const commands = {
     search_memory_text: (a, args) => memory.searchWithText(a, args),
     traverse_memory_graph: (a, args) => memory.traverseGraph(a, args),
     generate_memory_html: (a, args) => memory.generateMemoryHtml(a, args),
+    // Graph ↔ Memory Links
+    create_graph_link: (a, args) => memory.createGraphLink(a, args),
+    search_by_graph_entity: (a, args) => memory.searchByGraphEntity(a, args),
+    delete_graph_links_for_node: (a, args) => memory.deleteGraphLinksForNode(a, args),
     // Sync
     sync_up: async (_a, args) => {
         const local = new SqliteAdapter();

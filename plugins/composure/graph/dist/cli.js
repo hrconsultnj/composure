@@ -1,18 +1,539 @@
 #!/usr/bin/env node
 import { createRequire } from 'module'; const require = createRequire(import.meta.url);
 
-// dist/view-graph.js
-import { existsSync as existsSync5 } from "node:fs";
+// dist/store.js
+import { DatabaseSync } from "node:sqlite";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+// dist/serialization.js
+function makeQualifiedName(node) {
+  if (node.kind === "File")
+    return node.file_path;
+  if (node.parent_name)
+    return `${node.file_path}::${node.parent_name}.${node.name}`;
+  return `${node.file_path}::${node.name}`;
+}
+function rowToNode(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    qualified_name: row.qualified_name,
+    file_path: row.file_path,
+    line_start: row.line_start,
+    line_end: row.line_end,
+    language: row.language ?? "",
+    parent_name: row.parent_name ?? null,
+    params: row.params ?? null,
+    return_type: row.return_type ?? null,
+    modifiers: row.modifiers ?? null,
+    summary: row.summary ?? null,
+    is_test: row.is_test === 1,
+    file_hash: row.file_hash ?? null,
+    extra: JSON.parse(row.extra ?? "{}"),
+    updated_at: row.updated_at
+  };
+}
+function rowToEdge(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    source_qualified: row.source_qualified,
+    target_qualified: row.target_qualified,
+    file_path: row.file_path,
+    line: row.line,
+    extra: JSON.parse(row.extra ?? "{}"),
+    updated_at: row.updated_at
+  };
+}
+function nodeToDict(n) {
+  return {
+    name: n.name,
+    kind: n.kind,
+    qualified_name: n.qualified_name,
+    file_path: n.file_path,
+    line_start: n.line_start,
+    line_end: n.line_end,
+    lines: n.line_end - n.line_start + 1,
+    language: n.language,
+    parent_name: n.parent_name,
+    params: n.params,
+    return_type: n.return_type,
+    ...n.summary ? { summary: n.summary } : {},
+    is_test: n.is_test
+  };
+}
+function edgeToDict(e) {
+  return {
+    kind: e.kind,
+    source: e.source_qualified,
+    target: e.target_qualified,
+    file_path: e.file_path,
+    line: e.line
+  };
+}
+
+// dist/store-queries.js
+function getNode(db, qualifiedName) {
+  const row = db.prepare("SELECT * FROM nodes WHERE qualified_name = ?").get(qualifiedName);
+  return row ? rowToNode(row) : null;
+}
+function getNodesByFile(db, filePath) {
+  const rows = db.prepare("SELECT * FROM nodes WHERE file_path = ?").all(filePath);
+  return rows.map(rowToNode);
+}
+function getAllFiles(db) {
+  const rows = db.prepare("SELECT DISTINCT file_path FROM nodes ORDER BY file_path").all();
+  return rows.map((r) => r.file_path);
+}
+function searchNodes(db, query, limit = 20) {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0)
+    return [];
+  const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ? OR summary LIKE ?)");
+  const params = [];
+  for (const w of words) {
+    params.push(`%${w}%`, `%${w}%`, `%${w}%`);
+  }
+  const sql = `SELECT * FROM nodes WHERE ${conditions.join(" AND ")} LIMIT ?`;
+  params.push(limit);
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(rowToNode);
+}
+function getNodesBySize(db, minLines, maxLines, kind, filePathPattern, limit = 50) {
+  const conditions = [
+    "(line_end - line_start + 1) >= ?"
+  ];
+  const params = [minLines];
+  if (maxLines != null) {
+    conditions.push("(line_end - line_start + 1) <= ?");
+    params.push(maxLines);
+  }
+  if (kind) {
+    conditions.push("kind = ?");
+    params.push(kind);
+  }
+  if (filePathPattern) {
+    const likePattern = filePathPattern.replace(/\*\*/g, "%").replace(/\*/g, "%").replace(/\?/g, "_");
+    conditions.push("file_path LIKE ?");
+    params.push(likePattern);
+  }
+  const sql = `
+    SELECT * FROM nodes
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY (line_end - line_start + 1) DESC
+    LIMIT ?
+  `;
+  params.push(limit);
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(rowToNode);
+}
+function getEdgesBySource(db, qualifiedName) {
+  const rows = db.prepare("SELECT * FROM edges WHERE source_qualified = ?").all(qualifiedName);
+  return rows.map(rowToEdge);
+}
+function getEdgesByTarget(db, qualifiedName) {
+  const rows = db.prepare("SELECT * FROM edges WHERE target_qualified = ?").all(qualifiedName);
+  return rows.map(rowToEdge);
+}
+function searchEdgesByTargetName(db, name2, kind = "CALLS") {
+  const rows = db.prepare("SELECT * FROM edges WHERE kind = ? AND (target_qualified LIKE ? OR target_qualified = ?)").all(kind, `%::${name2}`, name2);
+  return rows.map(rowToEdge);
+}
+function getAllEdges(db) {
+  const rows = db.prepare("SELECT * FROM edges").all();
+  return rows.map(rowToEdge);
+}
+function getEdgesAmong(db, qualifiedNames) {
+  if (qualifiedNames.size === 0)
+    return [];
+  db.exec("CREATE TEMP TABLE IF NOT EXISTS _qn_filter (qn TEXT PRIMARY KEY)");
+  db.exec("DELETE FROM _qn_filter");
+  const insert = db.prepare("INSERT OR IGNORE INTO _qn_filter (qn) VALUES (?)");
+  db.exec("BEGIN");
+  for (const n of qualifiedNames)
+    insert.run(n);
+  db.exec("COMMIT");
+  const rows = db.prepare(`SELECT e.* FROM edges e
+       WHERE e.source_qualified IN (SELECT qn FROM _qn_filter)
+         AND e.target_qualified IN (SELECT qn FROM _qn_filter)`).all();
+  db.exec("DELETE FROM _qn_filter");
+  return rows.map(rowToEdge);
+}
+function getAllEntities(db) {
+  return db.prepare(`SELECT e.name, e.display_name, e.source,
+              COUNT(em.node_qualified_name) as member_count
+       FROM entities e
+       LEFT JOIN entity_members em ON em.entity_name = e.name
+       GROUP BY e.name
+       ORDER BY member_count DESC`).all();
+}
+function getEntityMembers(db, entityName, minConfidence = 0.5) {
+  const rows = db.prepare(`SELECT n.*, em.role, em.confidence
+       FROM entity_members em
+       JOIN nodes n ON n.qualified_name = em.node_qualified_name
+       WHERE em.entity_name = ? AND em.confidence >= ?
+       ORDER BY em.role, n.file_path`).all(entityName, minConfidence);
+  return rows.map((r) => ({
+    node: rowToNode(r),
+    role: r.role,
+    confidence: r.confidence
+  }));
+}
+function getEntitiesForNode(db, qualifiedName) {
+  return db.prepare(`SELECT entity_name, role, confidence
+       FROM entity_members
+       WHERE node_qualified_name = ?`).all(qualifiedName);
+}
+function getEntityRoleCounts(db, entityName) {
+  const rows = db.prepare(`SELECT role, COUNT(*) as c FROM entity_members
+       WHERE entity_name = ? GROUP BY role`).all(entityName);
+  const result = {};
+  for (const r of rows)
+    result[r.role] = r.c;
+  return result;
+}
+function getStats(db, getMetadata) {
+  const totalNodes = db.prepare("SELECT COUNT(*) as c FROM nodes").get().c;
+  const totalEdges = db.prepare("SELECT COUNT(*) as c FROM edges").get().c;
+  const nodesByKind = {};
+  const nkRows = db.prepare("SELECT kind, COUNT(*) as c FROM nodes GROUP BY kind").all();
+  for (const r of nkRows)
+    nodesByKind[r.kind] = r.c;
+  const edgesByKind = {};
+  const ekRows = db.prepare("SELECT kind, COUNT(*) as c FROM edges GROUP BY kind").all();
+  for (const r of ekRows)
+    edgesByKind[r.kind] = r.c;
+  const langRows = db.prepare("SELECT DISTINCT language FROM nodes WHERE language IS NOT NULL AND language != ''").all();
+  const languages = langRows.map((r) => r.language);
+  const filesCount = db.prepare("SELECT COUNT(DISTINCT file_path) as c FROM nodes").get().c;
+  const lastUpdated = getMetadata("last_updated");
+  return {
+    total_nodes: totalNodes,
+    total_edges: totalEdges,
+    nodes_by_kind: nodesByKind,
+    edges_by_kind: edgesByKind,
+    languages,
+    files_count: filesCount,
+    last_updated: lastUpdated
+  };
+}
+
+// dist/store.js
+var SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS nodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    qualified_name TEXT NOT NULL UNIQUE,
+    file_path TEXT NOT NULL,
+    line_start INTEGER,
+    line_end INTEGER,
+    language TEXT,
+    parent_name TEXT,
+    params TEXT,
+    return_type TEXT,
+    modifiers TEXT,
+    summary TEXT,
+    is_test INTEGER DEFAULT 0,
+    file_hash TEXT,
+    extra TEXT DEFAULT '{}',
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    source_qualified TEXT NOT NULL,
+    target_qualified TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    line INTEGER DEFAULT 0,
+    extra TEXT DEFAULT '{}',
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path);
+CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
+CREATE INDEX IF NOT EXISTS idx_nodes_qualified ON nodes(qualified_name);
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
+CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
+CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
+CREATE INDEX IF NOT EXISTS idx_edges_kind_target ON edges(kind, target_qualified);
+CREATE INDEX IF NOT EXISTS idx_edges_kind_source ON edges(kind, source_qualified);
+CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
+
+CREATE TABLE IF NOT EXISTS entities (
+    name TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS entity_members (
+    entity_name TEXT NOT NULL REFERENCES entities(name),
+    node_qualified_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (entity_name, node_qualified_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
+CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
+
+CREATE TABLE IF NOT EXISTS audit_findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    finding_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    node_qualified_name TEXT,
+    file_path TEXT,
+    title TEXT NOT NULL,
+    detail TEXT DEFAULT '{}',
+    score_impact REAL DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS test_coverage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    node_qualified_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    has_test_edge INTEGER DEFAULT 0,
+    coverage_pct REAL,
+    test_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_run_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    raw_score REAL NOT NULL,
+    weight REAL NOT NULL,
+    adjusted_weight REAL NOT NULL,
+    grade TEXT NOT NULL,
+    grade_color TEXT NOT NULL,
+    finding_count INTEGER DEFAULT 0,
+    created_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_af_run ON audit_findings(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_af_category ON audit_findings(category);
+CREATE INDEX IF NOT EXISTS idx_af_severity ON audit_findings(severity);
+CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
+CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
+CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
+CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
+
+-- Graph \u2192 Memory bridge (reverse direction of Cortex ai_graph_links)
+CREATE TABLE IF NOT EXISTS memory_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    node_qualified_name TEXT NOT NULL,
+    cortex_memory_node_id TEXT,
+    cortex_session_id TEXT,
+    link_type TEXT DEFAULT 'about',
+    agent_id TEXT NOT NULL,
+    content_preview TEXT,
+    created_at REAL NOT NULL,
+    CHECK (cortex_memory_node_id IS NOT NULL OR cortex_session_id IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ml_node ON memory_links(node_qualified_name);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_mem ON memory_links(cortex_memory_node_id);
+CREATE INDEX IF NOT EXISTS idx_ml_cortex_sess ON memory_links(cortex_session_id);
+CREATE INDEX IF NOT EXISTS idx_ml_agent ON memory_links(agent_id);
+`;
+var GraphStore = class {
+  db;
+  constructor(dbPath) {
+    const dir = dirname(dbPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      const gitignorePath = `${dir}/.gitignore`;
+      if (!existsSync(gitignorePath)) {
+        writeFileSync(gitignorePath, "*\n");
+      }
+    }
+    this.db = new DatabaseSync(dbPath);
+    this.db.exec("PRAGMA journal_mode = WAL");
+    this.db.exec("PRAGMA busy_timeout = 30000");
+    this.db.exec(SCHEMA_SQL);
+    try {
+      this.db.exec("ALTER TABLE nodes ADD COLUMN summary TEXT");
+    } catch {
+    }
+  }
+  /** Expose the raw database for audit-store and other modules. */
+  getDb() {
+    return this.db;
+  }
+  close() {
+    this.db.close();
+  }
+  commit() {
+  }
+  // ── Memory Links (Graph → Cortex bridge) ──────────────────────
+  createMemoryLink(params) {
+    const now = Date.now() / 1e3;
+    const result = this.db.prepare(`INSERT INTO memory_links (node_qualified_name, cortex_memory_node_id, cortex_session_id, link_type, agent_id, content_preview, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(params.node_qualified_name, params.cortex_memory_node_id ?? null, params.cortex_session_id ?? null, params.link_type ?? "about", params.agent_id, params.content_preview ?? null, now);
+    return result.lastInsertRowid;
+  }
+  getMemoryLinksForNode(node_qualified_name) {
+    return this.db.prepare("SELECT * FROM memory_links WHERE node_qualified_name = ? ORDER BY created_at DESC").all(node_qualified_name);
+  }
+  getMemoryLinksForFile(file_path) {
+    return this.db.prepare(`SELECT ml.* FROM memory_links ml
+       JOIN nodes n ON ml.node_qualified_name = n.qualified_name
+       WHERE n.file_path = ?
+       ORDER BY ml.created_at DESC`).all(file_path);
+  }
+  // ── Metadata ───────────────────────────────────────────────────
+  setMetadata(key, value) {
+    this.db.prepare("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)").run(key, value);
+  }
+  getMetadata(key) {
+    const row = this.db.prepare("SELECT value FROM metadata WHERE key = ?").get(key);
+    return row?.value ?? null;
+  }
+  // ── Node CRUD ──────────────────────────────────────────────────
+  upsertNode(node, fileHash2) {
+    const qn = makeQualifiedName(node);
+    const now = Date.now() / 1e3;
+    const stmt = this.db.prepare(`
+      INSERT INTO nodes (kind, name, qualified_name, file_path, line_start, line_end,
+                         language, parent_name, params, return_type, modifiers, summary,
+                         is_test, file_hash, extra, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(qualified_name) DO UPDATE SET
+        kind=excluded.kind, name=excluded.name, file_path=excluded.file_path,
+        line_start=excluded.line_start, line_end=excluded.line_end,
+        language=excluded.language, parent_name=excluded.parent_name,
+        params=excluded.params, return_type=excluded.return_type,
+        modifiers=excluded.modifiers, summary=excluded.summary, is_test=excluded.is_test,
+        file_hash=excluded.file_hash, extra=excluded.extra, updated_at=excluded.updated_at
+    `);
+    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.summary ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
+    return Number(info2.lastInsertRowid);
+  }
+  upsertEdge(edge) {
+    const now = Date.now() / 1e3;
+    const stmt = this.db.prepare(`
+      INSERT INTO edges (kind, source_qualified, target_qualified, file_path, line, extra, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT DO NOTHING
+    `);
+    const info2 = stmt.run(edge.kind, edge.source, edge.target, edge.file_path, edge.line, JSON.stringify(edge.extra ?? {}), now);
+    return Number(info2.lastInsertRowid);
+  }
+  removeFileData(filePath) {
+    this.db.prepare("DELETE FROM nodes WHERE file_path = ?").run(filePath);
+    this.db.prepare("DELETE FROM edges WHERE file_path = ?").run(filePath);
+  }
+  storeFileNodesEdges(filePath, nodes, edges, fileHash2) {
+    this.db.exec("BEGIN");
+    try {
+      this.removeFileData(filePath);
+      for (const node of nodes) {
+        this.upsertNode(node, fileHash2);
+      }
+      for (const edge of edges) {
+        this.upsertEdge(edge);
+      }
+      this.db.exec("COMMIT");
+    } catch (err2) {
+      this.db.exec("ROLLBACK");
+      throw err2;
+    }
+  }
+  // ── Entity CRUD ────────────────────────────────────────────────
+  upsertEntity(name2, displayName2, source) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entities (name, display_name, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET
+           display_name=excluded.display_name, source=excluded.source, updated_at=excluded.updated_at`).run(name2, displayName2, source, now);
+  }
+  upsertEntityMember(entityName, nodeQualifiedName, role, confidence) {
+    const now = Date.now() / 1e3;
+    this.db.prepare(`INSERT INTO entity_members (entity_name, node_qualified_name, role, confidence, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(entity_name, node_qualified_name) DO UPDATE SET
+           role=excluded.role,
+           confidence=CASE WHEN excluded.confidence > entity_members.confidence
+                          THEN excluded.confidence ELSE entity_members.confidence END,
+           updated_at=excluded.updated_at`).run(entityName, nodeQualifiedName, role, confidence, now);
+  }
+  removeEntityData() {
+    this.db.exec("DELETE FROM entity_members");
+    this.db.exec("DELETE FROM entities");
+  }
+  // ── Query delegation (implementations in store-queries.ts) ─────
+  getNode(qualifiedName) {
+    return getNode(this.db, qualifiedName);
+  }
+  getNodesByFile(filePath) {
+    return getNodesByFile(this.db, filePath);
+  }
+  getAllFiles() {
+    return getAllFiles(this.db);
+  }
+  searchNodes(query, limit = 20) {
+    return searchNodes(this.db, query, limit);
+  }
+  getNodesBySize(minLines, maxLines, kind, filePathPattern, limit = 50) {
+    return getNodesBySize(this.db, minLines, maxLines, kind, filePathPattern, limit);
+  }
+  getEdgesBySource(qualifiedName) {
+    return getEdgesBySource(this.db, qualifiedName);
+  }
+  getEdgesByTarget(qualifiedName) {
+    return getEdgesByTarget(this.db, qualifiedName);
+  }
+  searchEdgesByTargetName(name2, kind = "CALLS") {
+    return searchEdgesByTargetName(this.db, name2, kind);
+  }
+  getAllEdges() {
+    return getAllEdges(this.db);
+  }
+  getEdgesAmong(qualifiedNames) {
+    return getEdgesAmong(this.db, qualifiedNames);
+  }
+  getAllEntities() {
+    return getAllEntities(this.db);
+  }
+  getEntityMembers(entityName, minConfidence = 0.5) {
+    return getEntityMembers(this.db, entityName, minConfidence);
+  }
+  getEntitiesForNode(qualifiedName) {
+    return getEntitiesForNode(this.db, qualifiedName);
+  }
+  getEntityRoleCounts(entityName) {
+    return getEntityRoleCounts(this.db, entityName);
+  }
+  getStats() {
+    return getStats(this.db, this.getMetadata.bind(this));
+  }
+};
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
-import { dirname as dirname7, join as join4, relative as relative2, resolve as resolve4 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
+import { dirname as dirname8, join as join4, relative as relative2, resolve as resolve4 } from "node:path";
 
 // dist/parser.js
 import { createHash } from "node:crypto";
 import { readFileSync as readFileSync2 } from "node:fs";
-import { basename, dirname as dirname2, extname, join as join2 } from "node:path";
+import { basename, dirname as dirname3, extname, join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // node_modules/.pnpm/web-tree-sitter@0.26.7/node_modules/web-tree-sitter/web-tree-sitter.js
@@ -1589,13 +2110,13 @@ async function Module2(moduleArg = {}) {
       }
       readAsync = /* @__PURE__ */ __name(async (url) => {
         if (isFileURI(url)) {
-          return new Promise((resolve6, reject) => {
+          return new Promise((resolve9, reject) => {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url, true);
             xhr.responseType = "arraybuffer";
             xhr.onload = () => {
               if (xhr.status == 200 || xhr.status == 0 && xhr.response) {
-                resolve6(xhr.response);
+                resolve9(xhr.response);
                 return;
               }
               reject(xhr.status);
@@ -1791,9 +2312,9 @@ async function Module2(moduleArg = {}) {
     __name(receiveInstantiationResult, "receiveInstantiationResult");
     var info2 = getWasmImports();
     if (Module["instantiateWasm"]) {
-      return new Promise((resolve6, reject) => {
+      return new Promise((resolve9, reject) => {
         Module["instantiateWasm"](info2, (mod, inst) => {
-          resolve6(receiveInstance(mod, inst));
+          resolve9(receiveInstance(mod, inst));
         });
       });
     }
@@ -3124,8 +3645,8 @@ async function Module2(moduleArg = {}) {
   if (runtimeInitialized) {
     moduleRtn = Module;
   } else {
-    moduleRtn = new Promise((resolve6, reject) => {
-      readyPromiseResolve = resolve6;
+    moduleRtn = new Promise((resolve9, reject) => {
+      readyPromiseResolve = resolve9;
       readyPromiseReject = reject;
     });
   }
@@ -3987,8 +4508,481 @@ var Query = class {
 };
 
 // dist/parser-helpers.js
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, resolve, join } from "node:path";
+import { existsSync as existsSync2, readFileSync, statSync } from "node:fs";
+import { dirname as dirname2, resolve, join } from "node:path";
+var CLASS_TYPES = /* @__PURE__ */ new Set(["class_declaration", "class"]);
+var FUNCTION_TYPES = /* @__PURE__ */ new Set([
+  "function_declaration",
+  "method_definition",
+  "arrow_function"
+]);
+var IMPORT_TYPES = /* @__PURE__ */ new Set(["import_statement"]);
+var CALL_TYPES = /* @__PURE__ */ new Set(["call_expression", "new_expression"]);
+var TYPE_TYPES = /* @__PURE__ */ new Set([
+  "type_alias_declaration",
+  "interface_declaration",
+  "enum_declaration"
+]);
+var TEST_FILE_PATTERNS = [
+  /\.test\./,
+  /\.spec\./,
+  /__tests__\//,
+  /\/tests?\//
+];
+var TEST_FUNCTION_NAMES = /* @__PURE__ */ new Set([
+  "describe",
+  "it",
+  "test",
+  "beforeEach",
+  "afterEach",
+  "beforeAll",
+  "afterAll"
+]);
+function isTestFile(filePath) {
+  return TEST_FILE_PATTERNS.some((p) => p.test(filePath));
+}
+function isTestFunction(name2, filePath) {
+  if (isTestFile(filePath)) {
+    if (TEST_FUNCTION_NAMES.has(name2))
+      return true;
+    if (name2.startsWith("test"))
+      return true;
+  }
+  return false;
+}
+function qualify(name2, filePath, enclosingClass) {
+  if (enclosingClass)
+    return `${filePath}::${enclosingClass}.${name2}`;
+  return `${filePath}::${name2}`;
+}
+function getNodeText(node) {
+  return node.text;
+}
+function getName(node, _kind) {
+  for (const child of node.children) {
+    if (child.type === "identifier" || child.type === "type_identifier" || child.type === "property_identifier") {
+      return getNodeText(child);
+    }
+  }
+  return null;
+}
+function getArrowFunctionName(node) {
+  const parent = node.parent;
+  if (!parent)
+    return null;
+  if (parent.type === "variable_declarator") {
+    const nameNode = parent.childForFieldName("name");
+    if (nameNode)
+      return getNodeText(nameNode);
+  }
+  return null;
+}
+function getParams(node) {
+  for (const child of node.children) {
+    if (child.type === "formal_parameters" || child.type === "parameters") {
+      return getNodeText(child);
+    }
+  }
+  return null;
+}
+function getReturnType(node) {
+  for (const child of node.children) {
+    if (child.type === "type_annotation" || child.type === "return_type") {
+      return getNodeText(child);
+    }
+  }
+  return null;
+}
+function getBases(node) {
+  const bases = [];
+  for (const child of node.children) {
+    if (child.type === "extends_clause" || child.type === "implements_clause") {
+      for (const sub of child.children) {
+        if (sub.type === "identifier" || sub.type === "type_identifier" || sub.type === "nested_identifier") {
+          bases.push(getNodeText(sub));
+        }
+      }
+    }
+  }
+  return bases;
+}
+function extractImportTarget(node) {
+  for (const child of node.children) {
+    if (child.type === "string" || child.type === "string_fragment") {
+      return getNodeText(child).replace(/^['"]|['"]$/g, "");
+    }
+  }
+  return null;
+}
+function collectJsImportNames(clauseNode, module2, importMap) {
+  for (const child of clauseNode.children) {
+    if (child.type === "identifier") {
+      importMap.set(getNodeText(child), module2);
+    } else if (child.type === "named_imports") {
+      for (const spec of child.children) {
+        if (spec.type === "import_specifier") {
+          const names = [];
+          for (const s of spec.children) {
+            if (s.type === "identifier" || s.type === "property_identifier") {
+              names.push(getNodeText(s));
+            }
+          }
+          if (names.length > 0) {
+            importMap.set(names[names.length - 1], module2);
+          }
+        }
+      }
+    } else if (child.type === "namespace_import") {
+      for (const sub of child.children) {
+        if (sub.type === "identifier") {
+          importMap.set(getNodeText(sub), module2);
+        }
+      }
+    }
+  }
+}
+function getCallName(node) {
+  const fn = node.childForFieldName("function") ?? node.children[0];
+  if (!fn)
+    return null;
+  if (fn.type === "identifier")
+    return getNodeText(fn);
+  if (fn.type === "member_expression") {
+    const prop = fn.childForFieldName("property");
+    if (prop)
+      return getNodeText(prop);
+  }
+  return null;
+}
+var aliasCache = /* @__PURE__ */ new Map();
+function loadPathAliases(projectRoot) {
+  const cached = aliasCache.get(projectRoot);
+  if (cached)
+    return cached;
+  const aliases = [];
+  const candidates = ["tsconfig.json", "tsconfig.base.json", "jsconfig.json"];
+  for (const name2 of candidates) {
+    const configPath = join(projectRoot, name2);
+    if (!existsSync2(configPath))
+      continue;
+    try {
+      const raw = readFileSync(configPath, "utf-8");
+      const cleaned = raw.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      const config = JSON.parse(cleaned);
+      const paths = config?.compilerOptions?.paths;
+      if (!paths)
+        continue;
+      for (const [pattern, targets] of Object.entries(paths)) {
+        const prefix = pattern.replace(/\*$/, "");
+        aliases.push({ prefix, targets: targets.map((t) => t.replace(/\*$/, "")) });
+      }
+      break;
+    } catch {
+      continue;
+    }
+  }
+  aliasCache.set(projectRoot, aliases);
+  return aliases;
+}
+function resolveAlias(module2, callerFilePath) {
+  let dir = dirname2(callerFilePath);
+  let projectRoot = null;
+  for (let i2 = 0; i2 < 20; i2++) {
+    if (existsSync2(join(dir, "tsconfig.json")) || existsSync2(join(dir, "package.json"))) {
+      projectRoot = dir;
+      break;
+    }
+    const parent = dirname2(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  if (!projectRoot)
+    return null;
+  const aliases = loadPathAliases(projectRoot);
+  for (const { prefix, targets } of aliases) {
+    if (module2.startsWith(prefix)) {
+      const rest = module2.slice(prefix.length);
+      for (const target of targets) {
+        const resolved = resolve(projectRoot, target, rest);
+        const extensions = [".ts", ".tsx", ".js", ".jsx"];
+        if (existsSync2(resolved) && !isDirectory(resolved))
+          return resolved;
+        for (const ext of extensions) {
+          if (existsSync2(resolved + ext))
+            return resolved + ext;
+        }
+        for (const ext of extensions) {
+          const indexPath = resolve(resolved, `index${ext}`);
+          if (existsSync2(indexPath))
+            return indexPath;
+        }
+      }
+    }
+  }
+  return null;
+}
+function resolveModuleToFile(module2, callerFilePath) {
+  if (module2.startsWith(".")) {
+    const callerDir = dirname2(callerFilePath);
+    const base = resolve(callerDir, module2);
+    const extensions = [".ts", ".tsx", ".js", ".jsx"];
+    if (existsSync2(base) && !isDirectory(base))
+      return base;
+    for (const ext of extensions) {
+      const target = base + ext;
+      if (existsSync2(target))
+        return target;
+    }
+    const strippedBase = base.replace(/\.jsx?$/, "");
+    if (strippedBase !== base) {
+      for (const ext of extensions) {
+        const target = strippedBase + ext;
+        if (existsSync2(target))
+          return target;
+      }
+    }
+    for (const ext of extensions) {
+      const target = resolve(base, `index${ext}`);
+      if (existsSync2(target))
+        return target;
+    }
+    return null;
+  }
+  return resolveAlias(module2, callerFilePath);
+}
+function isDirectory(p) {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// dist/parser-handlers.js
+function extractJsDocSummary(node) {
+  const parent = node.parent;
+  const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+  if (!isExported)
+    return void 0;
+  const exportNode = parent?.type === "export_statement" ? parent : parent?.parent;
+  const commentNode = exportNode?.previousNamedSibling ?? node.previousNamedSibling;
+  if (!commentNode || commentNode.type !== "comment")
+    return void 0;
+  const text = getNodeText(commentNode);
+  if (!text.startsWith("/**"))
+    return void 0;
+  const content = text.replace(/^\/\*\*\s*/, "").replace(/\s*\*\/$/, "").split("\n").map((line) => line.replace(/^\s*\*\s?/, "").trim()).filter((line) => line && !line.startsWith("@")).join(" ").trim();
+  if (!content)
+    return void 0;
+  const firstSentence = content.match(/^(.+?\.)\s/)?.[1] ?? content;
+  return firstSentence.length > 150 ? firstSentence.slice(0, 147) + "..." : firstSentence;
+}
+function heuristicSummary(node, name2, params) {
+  const parent = node.parent;
+  const isExported = parent?.type === "export_statement" || parent?.type === "lexical_declaration" && parent?.parent?.type === "export_statement";
+  if (!isExported)
+    return void 0;
+  const words = name2.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toLowerCase().split(/\s+/);
+  if (words.length <= 1)
+    return void 0;
+  let summary = words.join(" ");
+  if (words[0] === "use" && words.length <= 3) {
+    summary += " hook";
+  }
+  return summary;
+}
+function handleClass(walk, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
+  const name2 = getName(child, "class");
+  if (!name2)
+    return false;
+  nodes.push({
+    kind: "Class",
+    name: name2,
+    file_path: filePath,
+    line_start: child.startPosition.row + 1,
+    line_end: child.endPosition.row + 1,
+    language,
+    parent_name: enclosingClass ?? void 0,
+    is_test: false
+  });
+  edges.push({
+    kind: "CONTAINS",
+    source: filePath,
+    target: qualify(name2, filePath, enclosingClass),
+    file_path: filePath,
+    line: child.startPosition.row + 1
+  });
+  for (const base of getBases(child)) {
+    edges.push({
+      kind: "INHERITS",
+      source: qualify(name2, filePath, enclosingClass),
+      target: base,
+      file_path: filePath,
+      line: child.startPosition.row + 1
+    });
+  }
+  walk(child, language, filePath, nodes, edges, name2, null, importMap, definedNames, depth + 1);
+  return true;
+}
+function handleType(child, filePath, nodes, edges, enclosingClass, language) {
+  const name2 = getName(child, "type");
+  if (!name2)
+    return false;
+  nodes.push({
+    kind: "Type",
+    name: name2,
+    file_path: filePath,
+    line_start: child.startPosition.row + 1,
+    line_end: child.endPosition.row + 1,
+    language,
+    parent_name: enclosingClass ?? void 0,
+    is_test: false
+  });
+  const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
+  edges.push({
+    kind: "CONTAINS",
+    source: container,
+    target: qualify(name2, filePath, enclosingClass),
+    file_path: filePath,
+    line: child.startPosition.row + 1
+  });
+  return true;
+}
+function handleFunction(walk, child, nodeType, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
+  const name2 = nodeType === "arrow_function" ? getArrowFunctionName(child) : getName(child, "function");
+  if (!name2)
+    return false;
+  const isTest = isTestFunction(name2, filePath);
+  const qualified = qualify(name2, filePath, enclosingClass);
+  const params = getParams(child) ?? void 0;
+  const summary = isTest ? void 0 : extractJsDocSummary(child) ?? heuristicSummary(child, name2, params);
+  nodes.push({
+    kind: isTest ? "Test" : "Function",
+    name: name2,
+    file_path: filePath,
+    line_start: child.startPosition.row + 1,
+    line_end: child.endPosition.row + 1,
+    language,
+    parent_name: enclosingClass ?? void 0,
+    params,
+    return_type: getReturnType(child) ?? void 0,
+    summary,
+    is_test: isTest
+  });
+  const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
+  edges.push({
+    kind: "CONTAINS",
+    source: container,
+    target: qualified,
+    file_path: filePath,
+    line: child.startPosition.row + 1
+  });
+  walk(child, language, filePath, nodes, edges, enclosingClass, name2, importMap, definedNames, depth + 1);
+  return true;
+}
+function handleLexicalDeclaration(walk, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth) {
+  for (const decl of child.children) {
+    if (decl.type !== "variable_declarator")
+      continue;
+    const nameNode = decl.childForFieldName("name");
+    const valueNode = decl.childForFieldName("value");
+    if (!nameNode || valueNode?.type !== "arrow_function")
+      continue;
+    const name2 = getNodeText(nameNode);
+    const isTest = isTestFunction(name2, filePath);
+    const qualified = qualify(name2, filePath, enclosingClass);
+    const arrowParams = getParams(valueNode) ?? void 0;
+    const summary = isTest ? void 0 : extractJsDocSummary(child) ?? heuristicSummary(child, name2, arrowParams);
+    nodes.push({
+      kind: isTest ? "Test" : "Function",
+      name: name2,
+      file_path: filePath,
+      line_start: valueNode.startPosition.row + 1,
+      line_end: valueNode.endPosition.row + 1,
+      language,
+      parent_name: enclosingClass ?? void 0,
+      params: arrowParams,
+      return_type: getReturnType(valueNode) ?? void 0,
+      summary,
+      is_test: isTest
+    });
+    const container = enclosingClass ? qualify(enclosingClass, filePath, null) : filePath;
+    edges.push({
+      kind: "CONTAINS",
+      source: container,
+      target: qualified,
+      file_path: filePath,
+      line: valueNode.startPosition.row + 1
+    });
+    walk(valueNode, language, filePath, nodes, edges, enclosingClass, name2, importMap, definedNames, depth + 1);
+  }
+}
+function handleImport(child, filePath, edges) {
+  const module2 = extractImportTarget(child);
+  if (!module2)
+    return;
+  const resolved = resolveModuleToFile(module2, filePath);
+  edges.push({
+    kind: "IMPORTS_FROM",
+    source: filePath,
+    target: resolved ?? module2,
+    file_path: filePath,
+    line: child.startPosition.row + 1
+  });
+}
+function handleCall(resolveTarget2, child, filePath, enclosingClass, enclosingFunc, importMap, definedNames, edges) {
+  const callName = getCallName(child);
+  if (!callName || !enclosingFunc)
+    return;
+  const caller = qualify(enclosingFunc, filePath, enclosingClass);
+  const target = resolveTarget2(callName, filePath, importMap, definedNames);
+  edges.push({
+    kind: "CALLS",
+    source: caller,
+    target,
+    file_path: filePath,
+    line: child.startPosition.row + 1
+  });
+}
+function resolveCallTargets(nodes, edges, filePath) {
+  const symbols = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    if (node.kind === "Function" || node.kind === "Class" || node.kind === "Type" || node.kind === "Test") {
+      const qn = qualify(node.name, filePath, node.parent_name ?? null);
+      if (!symbols.has(node.name))
+        symbols.set(node.name, qn);
+    }
+  }
+  for (let i2 = 0; i2 < edges.length; i2++) {
+    const edge = edges[i2];
+    if (edge.kind === "CALLS" && !edge.target.includes("::")) {
+      const resolved = symbols.get(edge.target);
+      if (resolved)
+        edges[i2] = { ...edge, target: resolved };
+    }
+  }
+}
+function generateTestEdges(nodes, edges) {
+  const testQNames = /* @__PURE__ */ new Set();
+  for (const n of nodes) {
+    if (n.is_test)
+      testQNames.add(qualify(n.name, n.file_path, n.parent_name ?? null));
+  }
+  const newEdges = [];
+  for (const edge of edges) {
+    if (edge.kind === "CALLS" && testQNames.has(edge.source)) {
+      newEdges.push({
+        kind: "TESTED_BY",
+        source: edge.target,
+        target: edge.source,
+        file_path: edge.file_path,
+        line: edge.line
+      });
+    }
+  }
+  edges.push(...newEdges);
+}
 
 // dist/parser.js
 var EXT_TO_LANG = {
@@ -3998,61 +4992,2733 @@ var EXT_TO_LANG = {
   ".jsx": "jsx"
 };
 var PARSEABLE_EXTENSIONS = new Set(Object.keys(EXT_TO_LANG));
-var __dirname = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
+var SQL_EXTENSIONS = /* @__PURE__ */ new Set([".sql", ".prisma"]);
+var PKG_FILENAMES = /* @__PURE__ */ new Set(["package.json", "pnpm-workspace.yaml", "turbo.json"]);
+var CONFIG_FILENAMES_QUICK = /* @__PURE__ */ new Set([
+  "tsconfig.json",
+  "tsconfig.base.json",
+  "tsconfig.app.json",
+  ".env.example",
+  ".env.local.example",
+  ".env.template",
+  "vercel.json"
+]);
+var CONFIG_PREFIXES = ["next.config", "tailwind.config"];
+function isConfigFile(filePath) {
+  const name2 = basename(filePath);
+  if (CONFIG_FILENAMES_QUICK.has(name2))
+    return true;
+  for (const prefix of CONFIG_PREFIXES) {
+    if (name2.startsWith(prefix))
+      return true;
+  }
+  if (/^\.env\.(example|template|local\.example|sample)$/.test(name2))
+    return true;
+  return false;
+}
+var MD_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".mdx"]);
+var SH_EXTENSIONS = /* @__PURE__ */ new Set([".sh"]);
+var YAML_EXTENSIONS = /* @__PURE__ */ new Set([".yaml", ".yml"]);
+var TF_EXTENSIONS = /* @__PURE__ */ new Set([".tf"]);
+function isDockerfileName(filePath) {
+  const name2 = basename(filePath);
+  return name2 === "Dockerfile" || name2.startsWith("Dockerfile.") || name2.toLowerCase() === "dockerfile";
+}
+function isParseable(filePath) {
+  const ext = extname(filePath).toLowerCase();
+  if (PARSEABLE_EXTENSIONS.has(ext) || SQL_EXTENSIONS.has(ext))
+    return true;
+  if (SH_EXTENSIONS.has(ext))
+    return true;
+  if (PKG_FILENAMES.has(basename(filePath)))
+    return true;
+  if (isConfigFile(filePath))
+    return true;
+  if (MD_EXTENSIONS.has(ext))
+    return true;
+  if (basename(filePath) === "hooks.json" && filePath.includes("/hooks/"))
+    return true;
+  if (YAML_EXTENSIONS.has(ext))
+    return true;
+  if (TF_EXTENSIONS.has(ext))
+    return true;
+  if (isDockerfileName(filePath))
+    return true;
+  return false;
+}
+function detectLanguage(filePath) {
+  return EXT_TO_LANG[extname(filePath).toLowerCase()] ?? null;
+}
+function fileHash(filePath) {
+  const content = readFileSync2(filePath);
+  return createHash("sha256").update(content).digest("hex");
+}
+var __dirname2 = typeof import.meta.url !== "undefined" ? fileURLToPath(new URL(".", import.meta.url)) : process.cwd();
 var WASM_PATHS = {
-  typescript: join2(__dirname, "tree-sitter-typescript.wasm"),
-  tsx: join2(__dirname, "tree-sitter-tsx.wasm"),
-  javascript: join2(__dirname, "tree-sitter-javascript.wasm"),
-  jsx: join2(__dirname, "tree-sitter-javascript.wasm")
+  typescript: join2(__dirname2, "tree-sitter-typescript.wasm"),
+  tsx: join2(__dirname2, "tree-sitter-tsx.wasm"),
+  javascript: join2(__dirname2, "tree-sitter-javascript.wasm"),
+  jsx: join2(__dirname2, "tree-sitter-javascript.wasm")
+};
+var parserInitialized = false;
+var CodeParser = class _CodeParser {
+  languages = /* @__PURE__ */ new Map();
+  moduleCache = /* @__PURE__ */ new Map();
+  async init() {
+    if (!parserInitialized) {
+      await Parser.init();
+      parserInitialized = true;
+    }
+    for (const [lang, wasmPath] of Object.entries(WASM_PATHS)) {
+      if (!this.languages.has(lang)) {
+        try {
+          const language = await Language.load(wasmPath);
+          this.languages.set(lang, language);
+        } catch {
+        }
+      }
+    }
+  }
+  getParser(language) {
+    const lang = this.languages.get(language);
+    if (!lang)
+      return null;
+    const parser = new Parser();
+    parser.setLanguage(lang);
+    return parser;
+  }
+  parseFile(filePath) {
+    let source;
+    try {
+      source = readFileSync2(filePath);
+    } catch {
+      return { nodes: [], edges: [] };
+    }
+    return this.parseBytes(filePath, source);
+  }
+  parseBytes(filePath, source) {
+    const language = detectLanguage(filePath);
+    if (!language)
+      return { nodes: [], edges: [] };
+    const parser = this.getParser(language);
+    if (!parser)
+      return { nodes: [], edges: [] };
+    const tree = parser.parse(source.toString());
+    if (!tree)
+      return { nodes: [], edges: [] };
+    const nodes = [];
+    const edges = [];
+    const testFile = isTestFile(filePath);
+    const lineCount7 = source.toString().split("\n").length;
+    nodes.push({
+      kind: "File",
+      name: basename(filePath),
+      file_path: filePath,
+      line_start: 1,
+      line_end: lineCount7,
+      language,
+      is_test: testFile
+    });
+    const importMap = /* @__PURE__ */ new Map();
+    const definedNames = /* @__PURE__ */ new Set();
+    this.collectFileScope(tree.rootNode, importMap, definedNames);
+    const walkFn = this.extractFromTree.bind(this);
+    walkFn(tree.rootNode, language, filePath, nodes, edges, null, null, importMap, definedNames, 0);
+    resolveCallTargets(nodes, edges, filePath);
+    if (testFile) {
+      generateTestEdges(nodes, edges);
+    }
+    return { nodes, edges };
+  }
+  // ── File scope pre-scan ──────────────────────────────────────────
+  collectFileScope(root, importMap, definedNames) {
+    for (const child of root.children) {
+      const nodeType = child.type;
+      let target = child;
+      if (nodeType === "export_statement") {
+        for (const inner of child.children) {
+          if (CLASS_TYPES.has(inner.type) || FUNCTION_TYPES.has(inner.type) || TYPE_TYPES.has(inner.type) || inner.type === "lexical_declaration") {
+            target = inner;
+            break;
+          }
+        }
+      }
+      if (CLASS_TYPES.has(target.type) || FUNCTION_TYPES.has(target.type)) {
+        const name2 = getName(target, CLASS_TYPES.has(target.type) ? "class" : "function");
+        if (name2)
+          definedNames.add(name2);
+      }
+      if (target.type === "lexical_declaration") {
+        for (const decl of target.children) {
+          if (decl.type === "variable_declarator") {
+            const nameNode = decl.childForFieldName("name");
+            const valueNode = decl.childForFieldName("value");
+            if (nameNode && valueNode?.type === "arrow_function") {
+              definedNames.add(getNodeText(nameNode));
+            }
+          }
+        }
+      }
+      if (TYPE_TYPES.has(target.type)) {
+        const name2 = getName(target, "type");
+        if (name2)
+          definedNames.add(name2);
+      }
+      if (IMPORT_TYPES.has(nodeType)) {
+        const module2 = extractImportTarget(child);
+        if (module2) {
+          for (const c of child.children) {
+            if (c.type === "import_clause") {
+              collectJsImportNames(c, module2, importMap);
+            }
+          }
+        }
+      }
+    }
+  }
+  // ── Recursive AST walk ───────────────────────────────────────────
+  static MAX_DEPTH = 180;
+  extractFromTree(root, language, filePath, nodes, edges, enclosingClass, enclosingFunc, importMap, definedNames, depth) {
+    if (depth > _CodeParser.MAX_DEPTH)
+      return;
+    const walkFn = this.extractFromTree.bind(this);
+    const resolveCallFn = this.resolveCallTarget.bind(this);
+    for (const child of root.children) {
+      const nodeType = child.type;
+      if (nodeType === "export_statement") {
+        walkFn(child, language, filePath, nodes, edges, enclosingClass, enclosingFunc, importMap, definedNames, depth + 1);
+        continue;
+      }
+      if (CLASS_TYPES.has(nodeType)) {
+        if (handleClass(walkFn, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth))
+          continue;
+      }
+      if (TYPE_TYPES.has(nodeType)) {
+        if (handleType(child, filePath, nodes, edges, enclosingClass, language))
+          continue;
+      }
+      if (FUNCTION_TYPES.has(nodeType)) {
+        if (handleFunction(walkFn, child, nodeType, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth))
+          continue;
+      }
+      if (nodeType === "lexical_declaration") {
+        handleLexicalDeclaration(walkFn, child, language, filePath, nodes, edges, enclosingClass, importMap, definedNames, depth);
+      }
+      if (IMPORT_TYPES.has(nodeType)) {
+        handleImport(child, filePath, edges);
+        continue;
+      }
+      if (CALL_TYPES.has(nodeType)) {
+        handleCall(resolveCallFn, child, filePath, enclosingClass, enclosingFunc, importMap, definedNames, edges);
+      }
+      walkFn(child, language, filePath, nodes, edges, enclosingClass, enclosingFunc, importMap, definedNames, depth + 1);
+    }
+  }
+  // ── Call target resolution ───────────────────────────────────────
+  resolveCallTarget(callName, filePath, importMap, definedNames) {
+    if (definedNames.has(callName))
+      return qualify(callName, filePath, null);
+    if (importMap.has(callName)) {
+      const resolved = this.resolveModuleCached(importMap.get(callName), filePath);
+      if (resolved)
+        return qualify(callName, resolved, null);
+    }
+    return callName;
+  }
+  resolveModuleCached(module2, callerFilePath) {
+    const cacheKey = `${dirname3(callerFilePath)}:${module2}`;
+    if (this.moduleCache.has(cacheKey))
+      return this.moduleCache.get(cacheKey);
+    const resolved = resolveModuleToFile(module2, callerFilePath);
+    if (this.moduleCache.size > 15e3)
+      this.moduleCache.clear();
+    this.moduleCache.set(cacheKey, resolved);
+    return resolved;
+  }
 };
 
 // dist/sql-parser.js
 import { readFileSync as readFileSync3 } from "node:fs";
 import { basename as basename2, extname as extname2 } from "node:path";
+function qualify2(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineAt(content, charIndex) {
+  let line = 1;
+  for (let i2 = 0; i2 < charIndex && i2 < content.length; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function lineCount(content) {
+  return content.split("\n").length;
+}
+var SQL_EXTENSIONS2 = /* @__PURE__ */ new Set([".sql"]);
+var PRISMA_EXTENSIONS = /* @__PURE__ */ new Set([".prisma"]);
+function isSqlParseable(filePath) {
+  const ext = extname2(filePath).toLowerCase();
+  return SQL_EXTENSIONS2.has(ext) || PRISMA_EXTENSIONS.has(ext);
+}
+function parseSqlFile(filePath) {
+  let content;
+  try {
+    content = readFileSync3(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const ext = extname2(filePath).toLowerCase();
+  if (ext === ".prisma") {
+    return parsePrismaSchema(filePath, content);
+  }
+  return parseSql(filePath, content);
+}
+function parseSql(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount(content);
+  const isMigration = filePath.includes("migration");
+  nodes.push({
+    kind: isMigration ? "Migration" : "File",
+    name: basename2(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "sql",
+    is_test: false,
+    extra: isMigration ? { migration: true } : void 0
+  });
+  const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?["']?(\w+)["']?\s*\(([\s\S]*?)(?:\n\);|\n\))/gi;
+  for (const match of content.matchAll(tableRegex)) {
+    const tableName = match[1];
+    const tableBody = match[2];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Table",
+      name: tableName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      is_test: false,
+      extra: { columns: [] }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+    parseColumns(tableBody, tableName, filePath, line, nodes, edges);
+    parseForeignKeys(tableBody, tableName, filePath, line, edges);
+  }
+  const alterAddColRegex = /ALTER\s+TABLE\s+(?:(?:IF\s+EXISTS|ONLY)\s+)?(?:public\.)?["']?(\w+)["']?\s+ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s+(\w[\w\s[\]]*?)(?:;|\s+(?:DEFAULT|NOT|UNIQUE|CHECK|REFERENCES|CONSTRAINT|PRIMARY))/gi;
+  for (const match of content.matchAll(alterAddColRegex)) {
+    const tableName = match[1];
+    const colName = match[2];
+    const colType = match[3].trim();
+    const line = lineAt(content, match.index);
+    nodes.push({
+      kind: "Column",
+      name: colName,
+      file_path: filePath,
+      line_start: line,
+      line_end: line,
+      language: "sql",
+      parent_name: tableName,
+      return_type: colType,
+      is_test: false
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(colName, filePath, tableName),
+      file_path: filePath,
+      line
+    });
+  }
+  const alterFkRegex = /ALTER\s+TABLE\s+(?:(?:IF\s+EXISTS|ONLY)\s+)?(?:public\.)?["']?(\w+)["']?\s+ADD\s+CONSTRAINT\s+\w+\s+FOREIGN\s+KEY\s*\(["']?(\w+)["']?\)\s*REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of content.matchAll(alterFkRegex)) {
+    const sourceTable = match[1];
+    const _column = match[2];
+    const targetTable = match[3];
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(sourceTable, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { column: _column, type: "foreign_key" }
+    });
+  }
+  const indexRegex = /CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)["']?\s+ON\s+(?:public\.)?["']?(\w+)["']?\s*(?:USING\s+\w+\s*)?\(([^)]+)\)/gi;
+  for (const match of content.matchAll(indexRegex)) {
+    const indexName = match[1];
+    const tableName = match[2];
+    const columns = match[3].trim();
+    const line = lineAt(content, match.index);
+    const isUnique = /UNIQUE/i.test(match[0]);
+    nodes.push({
+      kind: "Index",
+      name: indexName,
+      file_path: filePath,
+      line_start: line,
+      line_end: line,
+      language: "sql",
+      parent_name: tableName,
+      params: columns,
+      is_test: false,
+      extra: { unique: isUnique, columns: columns.split(",").map((c) => c.trim()) }
+    });
+    edges.push({
+      kind: "INDEXES",
+      source: qualify2(indexName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const enableRlsRegex = /ALTER\s+TABLE\s+(?:public\.)?["']?(\w+)["']?\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/gi;
+  const rlsTables = /* @__PURE__ */ new Set();
+  for (const match of content.matchAll(enableRlsRegex)) {
+    rlsTables.add(match[1]);
+  }
+  const policyRegex = /CREATE\s+POLICY\s+["']?(\w+)["']?\s+ON\s+(?:public\.)?["']?(\w+)["']?\s+(?:AS\s+\w+\s+)?(?:FOR\s+(\w+)\s+)?(?:TO\s+([\w,\s]+)\s+)?(?:USING\s*\(([\s\S]*?)\))?(?:\s*WITH\s+CHECK\s*\(([\s\S]*?)\))?/gi;
+  for (const match of content.matchAll(policyRegex)) {
+    const policyName = match[1];
+    const tableName = match[2];
+    const operation = match[3] ?? "ALL";
+    const roles = match[4]?.trim() ?? "public";
+    const usingExpr = match[5]?.trim();
+    const checkExpr = match[6]?.trim();
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "RLSPolicy",
+      name: policyName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      parent_name: tableName,
+      modifiers: `${operation} TO ${roles}`,
+      is_test: false,
+      extra: {
+        operation: operation.toUpperCase(),
+        roles: roles.split(",").map((r) => r.trim()),
+        using: usingExpr ?? null,
+        check: checkExpr ?? null,
+        uses_auth_uid: !!(usingExpr?.includes("auth.uid()") || checkExpr?.includes("auth.uid()")),
+        uses_feed: !!(usingExpr?.includes("feed") || checkExpr?.includes("feed"))
+      }
+    });
+    edges.push({
+      kind: "SECURES",
+      source: qualify2(policyName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const funcRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?["']?(\w+)["']?\s*\(([^)]*)\)\s*RETURNS\s+([\w\s]+?)(?:\s+AS|\s+LANGUAGE|\s+\$\$)/gi;
+  for (const match of content.matchAll(funcRegex)) {
+    const funcName = match[1];
+    const params = match[2].trim();
+    const returnType = match[3].trim();
+    const line = lineAt(content, match.index);
+    const afterMatch = content.slice(match.index + match[0].length);
+    const endMarker = afterMatch.search(/\$\$\s*;|\bEND\b\s*;/i);
+    const endLine = endMarker >= 0 ? lineAt(content, match.index + match[0].length + endMarker) : line;
+    nodes.push({
+      kind: "DbFunction",
+      name: funcName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "sql",
+      params: params || void 0,
+      return_type: returnType,
+      is_test: false,
+      extra: {
+        is_trigger: returnType.toLowerCase().includes("trigger")
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(funcName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  const triggerRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+["']?(\w+)["']?\s+(?:BEFORE|AFTER|INSTEAD\s+OF)\s+\w+[\s\w]*?\s+ON\s+(?:public\.)?["']?(\w+)["']?[\s\S]*?EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of content.matchAll(triggerRegex)) {
+    const _triggerName = match[1];
+    const tableName = match[2];
+    const funcName = match[3];
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "CALLS",
+      source: qualify2(funcName, filePath, null),
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { trigger: _triggerName }
+    });
+  }
+  const grantRegex = /GRANT\s+([\w,\s]+)\s+ON\s+(?:TABLE\s+)?(?:public\.)?["']?(\w+)["']?\s+TO\s+([\w,\s]+)/gi;
+  for (const match of content.matchAll(grantRegex)) {
+    const permissions = match[1].trim();
+    const tableName = match[2];
+    const grantees = match[3].trim();
+    const line = lineAt(content, match.index);
+    edges.push({
+      kind: "SECURES",
+      source: `grant::${grantees}`,
+      target: qualify2(tableName, filePath, null),
+      file_path: filePath,
+      line,
+      extra: { type: "grant", permissions, grantees: grantees.split(",").map((g) => g.trim()) }
+    });
+  }
+  return { nodes, edges };
+}
+function parseColumns(tableBody, tableName, filePath, tableStartLine, nodes, edges) {
+  const lines = tableBody.split("\n");
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2].trim();
+    if (!line || line.startsWith("--"))
+      continue;
+    if (/^\s*(CONSTRAINT|PRIMARY\s+KEY|UNIQUE|CHECK|FOREIGN\s+KEY|EXCLUDE)/i.test(line))
+      continue;
+    const colMatch = line.match(/^["']?(\w+)["']?\s+(\w[\w\s[\]()]*?)(?:\s+(?:NOT\s+NULL|NULL|DEFAULT|UNIQUE|CHECK|REFERENCES|PRIMARY|GENERATED|CONSTRAINT)|,?\s*$)/i);
+    if (!colMatch)
+      continue;
+    const colName = colMatch[1];
+    const colType = colMatch[2].trim();
+    if (/^(CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN|EXCLUDE|LIKE)$/i.test(colName))
+      continue;
+    const colLine = tableStartLine + i2 + 1;
+    nodes.push({
+      kind: "Column",
+      name: colName,
+      file_path: filePath,
+      line_start: colLine,
+      line_end: colLine,
+      language: "sql",
+      parent_name: tableName,
+      return_type: colType,
+      is_test: false,
+      extra: {
+        nullable: !/NOT\s+NULL/i.test(line),
+        has_default: /DEFAULT/i.test(line)
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(colName, filePath, tableName),
+      file_path: filePath,
+      line: colLine
+    });
+    const tableNode = nodes.find((n) => n.kind === "Table" && n.name === tableName);
+    if (tableNode?.extra) {
+      tableNode.extra.columns.push(colName);
+    }
+  }
+}
+function parseForeignKeys(tableBody, tableName, filePath, tableStartLine, edges) {
+  const inlineRefRegex = /["']?(\w+)["']?\s+\w+.*?REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of tableBody.matchAll(inlineRefRegex)) {
+    const column = match[1];
+    const targetTable = match[2];
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line: tableStartLine,
+      extra: { column, type: "foreign_key" }
+    });
+  }
+  const constraintFkRegex = /FOREIGN\s+KEY\s*\(["']?(\w+)["']?\)\s*REFERENCES\s+(?:public\.)?["']?(\w+)["']?/gi;
+  for (const match of tableBody.matchAll(constraintFkRegex)) {
+    const column = match[1];
+    const targetTable = match[2];
+    edges.push({
+      kind: "REFERENCES",
+      source: qualify2(tableName, filePath, null),
+      target: qualify2(targetTable, filePath, null),
+      file_path: filePath,
+      line: tableStartLine,
+      extra: { column, type: "foreign_key" }
+    });
+  }
+}
+function parsePrismaSchema(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount(content);
+  nodes.push({
+    kind: "File",
+    name: basename2(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "prisma",
+    is_test: false
+  });
+  const modelRegex = /model\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
+  for (const match of content.matchAll(modelRegex)) {
+    const modelName = match[1];
+    const modelBody = match[2];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Table",
+      name: modelName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "prisma",
+      is_test: false,
+      extra: { columns: [], orm: "prisma" }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(modelName, filePath, null),
+      file_path: filePath,
+      line
+    });
+    const fieldLines = modelBody.split("\n");
+    for (let i2 = 0; i2 < fieldLines.length; i2++) {
+      const fieldLine = fieldLines[i2].trim();
+      if (!fieldLine || fieldLine.startsWith("//") || fieldLine.startsWith("@@"))
+        continue;
+      const fieldMatch = fieldLine.match(/^(\w+)\s+(\w+[\w[\]?]*)/);
+      if (!fieldMatch)
+        continue;
+      const fieldName = fieldMatch[1];
+      const fieldType = fieldMatch[2];
+      const fieldLineNum = line + i2 + 1;
+      nodes.push({
+        kind: "Column",
+        name: fieldName,
+        file_path: filePath,
+        line_start: fieldLineNum,
+        line_end: fieldLineNum,
+        language: "prisma",
+        parent_name: modelName,
+        return_type: fieldType,
+        is_test: false
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify2(modelName, filePath, null),
+        target: qualify2(fieldName, filePath, modelName),
+        file_path: filePath,
+        line: fieldLineNum
+      });
+      if (fieldLine.includes("@relation")) {
+        const relTarget = fieldType.replace("?", "").replace("[]", "");
+        edges.push({
+          kind: "REFERENCES",
+          source: qualify2(modelName, filePath, null),
+          target: qualify2(relTarget, filePath, null),
+          file_path: filePath,
+          line: fieldLineNum,
+          extra: { column: fieldName, type: "relation" }
+        });
+      }
+      const tableNode = nodes.find((n) => n.kind === "Table" && n.name === modelName);
+      if (tableNode?.extra) {
+        tableNode.extra.columns.push(fieldName);
+      }
+    }
+  }
+  const enumRegex = /enum\s+(\w+)\s*\{([\s\S]*?)\n\}/g;
+  for (const match of content.matchAll(enumRegex)) {
+    const enumName = match[1];
+    const line = lineAt(content, match.index);
+    const endLine = lineAt(content, match.index + match[0].length);
+    nodes.push({
+      kind: "Type",
+      name: enumName,
+      file_path: filePath,
+      line_start: line,
+      line_end: endLine,
+      language: "prisma",
+      is_test: false,
+      extra: { prisma_enum: true }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify2(enumName, filePath, null),
+      file_path: filePath,
+      line
+    });
+  }
+  return { nodes, edges };
+}
 
 // dist/pkg-parser.js
-import { readFileSync as readFileSync4, existsSync as existsSync2 } from "node:fs";
-import { basename as basename3, dirname as dirname3, join as join3 } from "node:path";
+import { readFileSync as readFileSync4, existsSync as existsSync3 } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join3 } from "node:path";
+var PKG_FILES = /* @__PURE__ */ new Set(["package.json"]);
+var WORKSPACE_FILES = /* @__PURE__ */ new Set(["pnpm-workspace.yaml", "turbo.json"]);
+function isPkgParseable(filePath) {
+  const name2 = basename3(filePath);
+  return PKG_FILES.has(name2) || WORKSPACE_FILES.has(name2);
+}
+function qualify3(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount2(content) {
+  return content.split("\n").length;
+}
+function parsePkgFile(filePath) {
+  let content;
+  try {
+    content = readFileSync4(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const name2 = basename3(filePath);
+  if (name2 === "package.json") {
+    return parsePackageJson(filePath, content);
+  }
+  if (name2 === "pnpm-workspace.yaml") {
+    return parsePnpmWorkspace(filePath, content);
+  }
+  if (name2 === "turbo.json") {
+    return parseTurboJson(filePath, content);
+  }
+  return { nodes: [], edges: [] };
+}
+function parsePackageJson(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  let pkg;
+  try {
+    pkg = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const pkgName = pkg.name ?? basename3(dirname4(filePath));
+  const pkgVersion = pkg.version ?? "0.0.0";
+  const isWorkspaceRoot = !!pkg.workspaces;
+  const isMonorepoRoot = isWorkspaceRoot || existsSync3(join3(dirname4(filePath), "turbo.json"));
+  nodes.push({
+    kind: isMonorepoRoot ? "Workspace" : "Package",
+    name: pkgName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    return_type: pkgVersion,
+    is_test: false,
+    extra: {
+      version: pkgVersion,
+      private: pkg.private ?? false,
+      isWorkspaceRoot: isMonorepoRoot,
+      depCount: Object.keys(pkg.dependencies ?? {}).length,
+      devDepCount: Object.keys(pkg.devDependencies ?? {}).length,
+      peerDepCount: Object.keys(pkg.peerDependencies ?? {}).length
+    }
+  });
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false
+  });
+  edges.push({
+    kind: "CONTAINS",
+    source: filePath,
+    target: qualify3(pkgName, filePath, null),
+    file_path: filePath,
+    line: 1
+  });
+  parseDeps(pkg.dependencies, "production", pkgName, filePath, nodes, edges);
+  parseDeps(pkg.devDependencies, "development", pkgName, filePath, nodes, edges);
+  parseDeps(pkg.peerDependencies, "peer", pkgName, filePath, nodes, edges);
+  if (pkg.scripts) {
+    for (const [scriptName, scriptCmd] of Object.entries(pkg.scripts)) {
+      nodes.push({
+        kind: "Script",
+        name: scriptName,
+        file_path: filePath,
+        line_start: findJsonLine(content, `"${scriptName}"`),
+        line_end: findJsonLine(content, `"${scriptName}"`),
+        language: "json",
+        parent_name: pkgName,
+        params: scriptCmd,
+        is_test: /test|spec|jest|vitest|playwright/i.test(scriptName),
+        extra: {
+          command: scriptCmd,
+          isTypeGen: /generate|gen\s+types|codegen|prisma\s+generate/i.test(scriptCmd),
+          isBuild: /^build$/i.test(scriptName),
+          isLint: /lint|eslint/i.test(scriptName)
+        }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify3(pkgName, filePath, null),
+        target: qualify3(scriptName, filePath, pkgName),
+        file_path: filePath,
+        line: findJsonLine(content, `"${scriptName}"`)
+      });
+    }
+  }
+  if (pkg.workspaces) {
+    const patterns = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces.packages ?? [];
+    for (const pattern of patterns) {
+      nodes.push({
+        kind: "Workspace",
+        name: pattern,
+        file_path: filePath,
+        line_start: findJsonLine(content, `"${pattern}"`),
+        line_end: findJsonLine(content, `"${pattern}"`),
+        language: "json",
+        parent_name: pkgName,
+        is_test: false,
+        extra: { glob: pattern }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: qualify3(pkgName, filePath, null),
+        target: qualify3(pattern, filePath, pkgName),
+        file_path: filePath,
+        line: findJsonLine(content, `"${pattern}"`)
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function parseDeps(deps, depType, pkgName, filePath, nodes, edges) {
+  if (!deps)
+    return;
+  for (const [depName, versionRange] of Object.entries(deps)) {
+    nodes.push({
+      kind: "Package",
+      name: depName,
+      file_path: filePath,
+      line_start: 0,
+      line_end: 0,
+      language: "json",
+      parent_name: pkgName,
+      return_type: versionRange,
+      is_test: false,
+      extra: {
+        version: versionRange,
+        depType,
+        isFramework: isFrameworkDep(depName),
+        isInternal: versionRange.startsWith("workspace:")
+      }
+    });
+    edges.push({
+      kind: "DEPENDS_ON",
+      source: qualify3(pkgName, filePath, null),
+      target: `pkg::${depName}`,
+      file_path: filePath,
+      line: 0,
+      extra: {
+        version: versionRange,
+        depType,
+        isInternal: versionRange.startsWith("workspace:")
+      }
+    });
+  }
+}
+var FRAMEWORK_DEPS = /* @__PURE__ */ new Set([
+  "next",
+  "react",
+  "react-dom",
+  "vue",
+  "nuxt",
+  "svelte",
+  "@sveltejs/kit",
+  "angular",
+  "@angular/core",
+  "astro",
+  "vite",
+  "expo",
+  "expo-router",
+  "react-native",
+  "electron",
+  "@supabase/supabase-js",
+  "@supabase/ssr",
+  "prisma",
+  "@prisma/client",
+  "drizzle-orm",
+  "express",
+  "fastify",
+  "hono",
+  "nestjs",
+  "tailwindcss",
+  "@tailwindcss/postcss",
+  "@tanstack/react-query",
+  "@tanstack/vue-query",
+  "typescript",
+  "zod",
+  "vitest",
+  "jest",
+  "playwright",
+  "@playwright/test"
+]);
+function isFrameworkDep(name2) {
+  return FRAMEWORK_DEPS.has(name2);
+}
+function parsePnpmWorkspace(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "yaml",
+    is_test: false
+  });
+  const packagePatterns = [];
+  const inPackages = content.includes("packages:");
+  if (inPackages) {
+    const packageLines = content.match(/^\s+-\s+['"]?([^'"#\n]+)['"]?/gm);
+    if (packageLines) {
+      for (const line of packageLines) {
+        const match = line.match(/^\s+-\s+['"]?([^'"#\n]+)['"]?/);
+        if (match) {
+          packagePatterns.push(match[1].trim());
+        }
+      }
+    }
+  }
+  for (const pattern of packagePatterns) {
+    nodes.push({
+      kind: "Workspace",
+      name: pattern,
+      file_path: filePath,
+      line_start: findYamlLine(content, pattern),
+      line_end: findYamlLine(content, pattern),
+      language: "yaml",
+      is_test: false,
+      extra: { glob: pattern, source: "pnpm-workspace" }
+    });
+  }
+  return { nodes, edges };
+}
+function parseTurboJson(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount2(content);
+  let turbo;
+  try {
+    turbo = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  nodes.push({
+    kind: "File",
+    name: basename3(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: { turbo: true }
+  });
+  const tasks = turbo.tasks ?? turbo.pipeline ?? {};
+  for (const taskName of Object.keys(tasks)) {
+    const taskConfig = tasks[taskName];
+    nodes.push({
+      kind: "Script",
+      name: taskName,
+      file_path: filePath,
+      line_start: findJsonLine(content, `"${taskName}"`),
+      line_end: findJsonLine(content, `"${taskName}"`),
+      language: "json",
+      is_test: false,
+      extra: {
+        turboTask: true,
+        dependsOn: taskConfig?.dependsOn ?? [],
+        outputs: taskConfig?.outputs ?? [],
+        cache: taskConfig?.cache ?? true
+      }
+    });
+    const dependsOn = taskConfig?.dependsOn ?? [];
+    for (const dep of dependsOn) {
+      edges.push({
+        kind: "DEPENDS_ON",
+        source: qualify3(taskName, filePath, null),
+        target: dep.startsWith("^") ? `turbo::${dep}` : qualify3(dep, filePath, null),
+        file_path: filePath,
+        line: findJsonLine(content, `"${taskName}"`),
+        extra: { topological: dep.startsWith("^") }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function findJsonLine(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 0;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function findYamlLine(content, needle) {
+  return findJsonLine(content, needle);
+}
 
 // dist/config-parser.js
 import { readFileSync as readFileSync5 } from "node:fs";
 import { basename as basename4, extname as extname3 } from "node:path";
+var CONFIG_FILENAMES = /* @__PURE__ */ new Set([
+  "tsconfig.json",
+  "tsconfig.base.json",
+  "tsconfig.app.json",
+  ".env.example",
+  ".env.local.example",
+  ".env.template",
+  "vercel.json"
+]);
+var CONFIG_PREFIXES2 = [
+  "next.config",
+  "tailwind.config"
+];
+function isConfigParseable(filePath) {
+  const name2 = basename4(filePath);
+  if (CONFIG_FILENAMES.has(name2))
+    return true;
+  for (const prefix of CONFIG_PREFIXES2) {
+    if (name2.startsWith(prefix))
+      return true;
+  }
+  if (/^\.env\.(example|template|local\.example|sample)$/.test(name2))
+    return true;
+  return false;
+}
+function qualify4(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount3(content) {
+  return content.split("\n").length;
+}
+function findLine(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 0;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function stripJsonComments(input) {
+  let result = "";
+  let i2 = 0;
+  const len = input.length;
+  while (i2 < len) {
+    if (input[i2] === '"') {
+      result += '"';
+      i2++;
+      while (i2 < len && input[i2] !== '"') {
+        if (input[i2] === "\\") {
+          result += input[i2] + (input[i2 + 1] ?? "");
+          i2 += 2;
+        } else {
+          result += input[i2];
+          i2++;
+        }
+      }
+      if (i2 < len) {
+        result += '"';
+        i2++;
+      }
+      continue;
+    }
+    if (input[i2] === "/" && input[i2 + 1] === "/") {
+      while (i2 < len && input[i2] !== "\n")
+        i2++;
+      continue;
+    }
+    if (input[i2] === "/" && input[i2 + 1] === "*") {
+      i2 += 2;
+      while (i2 < len && !(input[i2] === "*" && input[i2 + 1] === "/"))
+        i2++;
+      i2 += 2;
+      continue;
+    }
+    result += input[i2];
+    i2++;
+  }
+  return result.replace(/,(\s*[}\]])/g, "$1");
+}
+function parseConfigFile(filePath) {
+  let content;
+  try {
+    content = readFileSync5(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const name2 = basename4(filePath);
+  if (name2.startsWith("tsconfig"))
+    return parseTsConfig(filePath, content);
+  if (name2.startsWith("next.config"))
+    return parseNextConfig(filePath, content);
+  if (name2.startsWith("tailwind.config"))
+    return parseTailwindConfig(filePath, content);
+  if (name2.startsWith(".env"))
+    return parseEnvFile(filePath, content);
+  if (name2 === "vercel.json")
+    return parseVercelJson(filePath, content);
+  return { nodes: [], edges: [] };
+}
+function parseTsConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  let config;
+  try {
+    config = JSON.parse(stripJsonComments(content));
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const compilerOptions = config.compilerOptions ?? {};
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: {
+      configType: "tsconfig",
+      strict: compilerOptions.strict ?? false,
+      target: compilerOptions.target ?? null,
+      module: compilerOptions.module ?? null,
+      moduleResolution: compilerOptions.moduleResolution ?? null,
+      jsx: compilerOptions.jsx ?? null,
+      extends: config.extends ?? null,
+      paths: compilerOptions.paths ? Object.keys(compilerOptions.paths) : [],
+      include: config.include ?? [],
+      exclude: config.exclude ?? []
+    }
+  });
+  const paths = compilerOptions.paths;
+  if (paths) {
+    for (const [alias, targets] of Object.entries(paths)) {
+      nodes.push({
+        kind: "Type",
+        name: alias,
+        file_path: filePath,
+        line_start: findLine(content, `"${alias}"`),
+        line_end: findLine(content, `"${alias}"`),
+        language: "json",
+        parent_name: "tsconfig",
+        return_type: Array.isArray(targets) ? targets[0] : String(targets),
+        is_test: false,
+        extra: { configType: "path-alias", targets }
+      });
+      edges.push({
+        kind: "CONTAINS",
+        source: filePath,
+        target: qualify4(alias, filePath, "tsconfig"),
+        file_path: filePath,
+        line: findLine(content, `"${alias}"`)
+      });
+    }
+  }
+  if (config.extends) {
+    edges.push({
+      kind: "DEPENDS_ON",
+      source: filePath,
+      target: `config::${config.extends}`,
+      file_path: filePath,
+      line: findLine(content, `"extends"`),
+      extra: { type: "extends" }
+    });
+  }
+  return { nodes, edges };
+}
+function parseNextConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  const experimental = content.match(/experimental\s*:\s*\{([^}]*)\}/s);
+  const experimentalFlags = [];
+  if (experimental) {
+    const flagMatches = experimental[1].matchAll(/(\w+)\s*:\s*true/g);
+    for (const m of flagMatches)
+      experimentalFlags.push(m[1]);
+  }
+  const hasImages = /images\s*:/i.test(content);
+  const hasRedirects = /redirects\s*\(/i.test(content) || /redirects\s*:/i.test(content);
+  const hasHeaders = /headers\s*\(/i.test(content) || /headers\s*:/i.test(content);
+  const hasRewrites = /rewrites\s*\(/i.test(content) || /rewrites\s*:/i.test(content);
+  const hasWebpack = /webpack\s*\(/i.test(content) || /webpack\s*:/i.test(content);
+  const hasTurbopack = /turbopack/i.test(content);
+  const hasOutput = content.match(/output\s*:\s*['"](\w+)['"]/);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: extname3(filePath) === ".ts" ? "typescript" : "javascript",
+    is_test: false,
+    extra: {
+      configType: "next.config",
+      experimentalFlags,
+      hasImages,
+      hasRedirects,
+      hasHeaders,
+      hasRewrites,
+      hasWebpack,
+      hasTurbopack,
+      output: hasOutput?.[1] ?? null
+    }
+  });
+  return { nodes, edges };
+}
+function parseTailwindConfig(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  const contentPaths = [];
+  const contentMatch = content.match(/content\s*:\s*\[([\s\S]*?)\]/);
+  if (contentMatch) {
+    const pathMatches = contentMatch[1].matchAll(/['"]([^'"]+)['"]/g);
+    for (const m of pathMatches)
+      contentPaths.push(m[1]);
+  }
+  const plugins = [];
+  const pluginMatch = content.match(/plugins\s*:\s*\[([\s\S]*?)\]/);
+  if (pluginMatch) {
+    const pluginMatches = pluginMatch[1].matchAll(/require\(['"]([^'"]+)['"]\)|(\w+)\(/g);
+    for (const m of pluginMatches)
+      plugins.push(m[1] ?? m[2]);
+  }
+  const hasExtend = /extend\s*:/i.test(content);
+  const hasCustomColors = /colors\s*:/i.test(content);
+  const hasCustomFonts = /fontFamily\s*:/i.test(content);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: extname3(filePath) === ".ts" ? "typescript" : "javascript",
+    is_test: false,
+    extra: {
+      configType: "tailwind.config",
+      contentPaths,
+      plugins,
+      hasExtend,
+      hasCustomColors,
+      hasCustomFonts
+    }
+  });
+  return { nodes, edges };
+}
+function parseEnvFile(filePath, content) {
+  const nodes = [];
+  const edges = [];
+  const lines = lineCount3(content);
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "env",
+    is_test: false,
+    extra: { configType: "env" }
+  });
+  const envVars = [];
+  const contentLines = content.split("\n");
+  for (let i2 = 0; i2 < contentLines.length; i2++) {
+    const line = contentLines[i2].trim();
+    if (!line || line.startsWith("#"))
+      continue;
+    const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (!match)
+      continue;
+    const varName = match[1];
+    const value = match[2];
+    const hasDefault = value.length > 0 && value !== '""' && value !== "''";
+    const lineNum = i2 + 1;
+    envVars.push({ name: varName, line: lineNum, hasDefault });
+    nodes.push({
+      kind: "Type",
+      name: varName,
+      file_path: filePath,
+      line_start: lineNum,
+      line_end: lineNum,
+      language: "env",
+      parent_name: "env",
+      is_test: false,
+      extra: {
+        configType: "env-var",
+        hasDefault,
+        isPublic: varName.startsWith("NEXT_PUBLIC_") || varName.startsWith("EXPO_PUBLIC_"),
+        category: categorizeEnvVar(varName)
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify4(varName, filePath, "env"),
+      file_path: filePath,
+      line: lineNum
+    });
+  }
+  return { nodes, edges };
+}
+function categorizeEnvVar(name2) {
+  if (/SUPABASE/i.test(name2))
+    return "supabase";
+  if (/DATABASE|DB_|POSTGRES/i.test(name2))
+    return "database";
+  if (/AUTH|SECRET|JWT|SESSION/i.test(name2))
+    return "auth";
+  if (/STRIPE|PAYMENT/i.test(name2))
+    return "payment";
+  if (/REDIS|CACHE/i.test(name2))
+    return "cache";
+  if (/SMTP|EMAIL|RESEND|SENDGRID/i.test(name2))
+    return "email";
+  if (/API_KEY|API_SECRET|TOKEN/i.test(name2))
+    return "api-key";
+  if (/S3|STORAGE|BUCKET|CLOUDINARY/i.test(name2))
+    return "storage";
+  if (/NEXT_PUBLIC_|EXPO_PUBLIC_/i.test(name2))
+    return "public";
+  if (/URL|HOST|PORT|DOMAIN/i.test(name2))
+    return "connection";
+  return "other";
+}
+function parseVercelJson(filePath, content) {
+  const nodes = [];
+  const lines = lineCount3(content);
+  let config;
+  try {
+    config = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  nodes.push({
+    kind: "File",
+    name: basename4(filePath),
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines,
+    language: "json",
+    is_test: false,
+    extra: {
+      configType: "vercel",
+      framework: config.framework ?? null,
+      buildCommand: config.buildCommand ?? null,
+      outputDirectory: config.outputDirectory ?? null,
+      hasRewrites: !!config.rewrites,
+      hasRedirects: !!config.redirects,
+      hasHeaders: !!config.headers,
+      hasCrons: !!config.crons,
+      regions: config.regions ?? []
+    }
+  });
+  return { nodes, edges: [] };
+}
 
 // dist/md-parser.js
 import { readFileSync as readFileSync6 } from "node:fs";
-import { basename as basename5, dirname as dirname4, extname as extname4 } from "node:path";
+import { basename as basename5, dirname as dirname5, extname as extname4 } from "node:path";
+var MD_EXTENSIONS2 = /* @__PURE__ */ new Set([".md", ".mdx"]);
+var INDEXED_MD_NAMES = /* @__PURE__ */ new Set([
+  "claude.md",
+  "readme.md",
+  "changelog.md",
+  "contributing.md",
+  "architecture.md",
+  "design.md",
+  "decisions.md"
+]);
+var INDEXED_MD_DIRS = [
+  "/docs/",
+  "/doc/",
+  "/documentation/",
+  "/decisions/",
+  "/adr/",
+  "/adrs/",
+  "/appendices/",
+  "/appendix/",
+  "/specs/",
+  "/spec/",
+  "/tasks-plans/",
+  "/.claude/"
+];
+function isMdParseable(filePath) {
+  const ext = extname4(filePath).toLowerCase();
+  if (!MD_EXTENSIONS2.has(ext))
+    return false;
+  const name2 = basename5(filePath).toLowerCase();
+  const lowerPath = filePath.toLowerCase();
+  if (INDEXED_MD_NAMES.has(name2))
+    return true;
+  for (const dir of INDEXED_MD_DIRS) {
+    if (lowerPath.includes(dir))
+      return true;
+  }
+  const rel = lowerPath;
+  if (!rel.includes("node_modules") && !rel.includes(".git/") && !rel.includes("dist/")) {
+    const parts2 = filePath.split("/");
+    const mdIndex = parts2.findIndex((p) => p.toLowerCase().endsWith(".md"));
+    if (mdIndex >= 0 && mdIndex <= parts2.length - 1) {
+      return true;
+    }
+  }
+  return false;
+}
+function qualify5(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function classifySection(heading, body2) {
+  const h = heading.toLowerCase();
+  const b = body2.toLowerCase().slice(0, 500);
+  if (/\b(rule|constraint|must|never|always|critical|important)\b/i.test(h))
+    return "rule";
+  if (/\b(rule|constraint)\b/i.test(h) || b.includes("must") && b.includes("never"))
+    return "rule";
+  if (/\b(convention|pattern|standard|practice|style)\b/i.test(h))
+    return "convention";
+  if (/\b(decision|adr|status:\s*(accepted|deprecated|proposed))\b/i.test(h + " " + b))
+    return "decision";
+  if (/\b(reference|resource|link|see also)\b/i.test(h))
+    return "reference";
+  if (/\b(setup|install|getting started|quickstart|prerequisite)\b/i.test(h))
+    return "setup";
+  if (/\b(overview|about|introduction|what is|summary)\b/i.test(h))
+    return "overview";
+  if (/\b(api|endpoint|route|method)\b/i.test(h))
+    return "api";
+  return "section";
+}
+function parseMdFile(filePath) {
+  let content;
+  try {
+    content = readFileSync6(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+  const name2 = basename5(filePath);
+  const docType = classifyDocType(filePath);
+  let contentStart = 0;
+  if (lines[0]?.trim() === "---") {
+    for (let i2 = 1; i2 < lines.length; i2++) {
+      if (lines[i2].trim() === "---") {
+        contentStart = i2 + 1;
+        break;
+      }
+    }
+  }
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "markdown",
+    is_test: false,
+    extra: {
+      docType,
+      sections: 0,
+      // will be updated
+      hasRules: false,
+      hasConventions: false,
+      hasCode: content.includes("```"),
+      hasTables: content.includes("| ")
+    }
+  });
+  const sections = [];
+  let currentSection = null;
+  let inCodeBlock = false;
+  for (let i2 = contentStart; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    if (line.trimStart().startsWith("```")) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+    if (inCodeBlock)
+      continue;
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      if (currentSection) {
+        currentSection.lineEnd = i2;
+        currentSection.body = lines.slice(currentSection.lineStart, i2).join("\n");
+        sections.push(currentSection);
+      }
+      currentSection = {
+        heading: headingMatch[2].trim(),
+        level: headingMatch[1].length,
+        lineStart: i2 + 1,
+        lineEnd: totalLines,
+        body: ""
+      };
+    }
+  }
+  if (currentSection) {
+    currentSection.lineEnd = totalLines;
+    currentSection.body = lines.slice(currentSection.lineStart - 1).join("\n");
+    sections.push(currentSection);
+  }
+  let ruleCount = 0;
+  let conventionCount = 0;
+  for (const section of sections) {
+    const sectionType = classifySection(section.heading, section.body);
+    const sectionName = sanitizeName(section.heading);
+    if (sectionType === "rule")
+      ruleCount++;
+    if (sectionType === "convention")
+      conventionCount++;
+    const codeBlocks = (section.body.match(/```[\s\S]*?```/g) ?? []).length;
+    const bulletPoints = (section.body.match(/^\s*[-*]\s/gm) ?? []).length;
+    const fileRefs = extractFileReferences(section.body);
+    nodes.push({
+      kind: "Type",
+      name: sectionName,
+      file_path: filePath,
+      line_start: section.lineStart,
+      line_end: section.lineEnd,
+      language: "markdown",
+      parent_name: name2,
+      modifiers: `h${section.level} ${sectionType}`,
+      is_test: false,
+      extra: {
+        docSection: true,
+        sectionType,
+        heading: section.heading,
+        level: section.level,
+        codeBlocks,
+        bulletPoints,
+        hasImperatives: /\b(MUST|NEVER|ALWAYS|DO NOT|REQUIRED|CRITICAL)\b/.test(section.body),
+        contentLength: section.body.length
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: filePath,
+      target: qualify5(sectionName, filePath, name2),
+      file_path: filePath,
+      line: section.lineStart
+    });
+    for (const ref of fileRefs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: qualify5(sectionName, filePath, name2),
+        target: ref.path,
+        file_path: filePath,
+        line: ref.line,
+        extra: { type: "file-reference", raw: ref.raw }
+      });
+    }
+  }
+  const fileNode = nodes[0];
+  if (fileNode?.extra) {
+    fileNode.extra.sections = sections.length;
+    fileNode.extra.hasRules = ruleCount > 0;
+    fileNode.extra.hasConventions = conventionCount > 0;
+    fileNode.extra.ruleCount = ruleCount;
+    fileNode.extra.conventionCount = conventionCount;
+  }
+  return { nodes, edges };
+}
+function classifyDocType(filePath) {
+  const name2 = basename5(filePath).toLowerCase();
+  const dir = dirname5(filePath).toLowerCase();
+  if (name2 === "claude.md")
+    return "claude-md";
+  if (name2 === "readme.md")
+    return "readme";
+  if (name2 === "changelog.md")
+    return "changelog";
+  if (name2 === "contributing.md")
+    return "contributing";
+  if (dir.includes("/decisions/") || dir.includes("/adr"))
+    return "adr";
+  if (dir.includes("/tasks-plans/"))
+    return "task";
+  if (dir.includes("/specs/") || dir.includes("/spec/"))
+    return "spec";
+  if (dir.includes("/.claude/"))
+    return "claude-config";
+  return "documentation";
+}
+function extractFileReferences(body2) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  const lines = body2.split("\n");
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const pathMatches = line.matchAll(/(?:^|\s|`|"|')([./]?(?:[\w@.-]+\/)+[\w.-]+\.(?:ts|tsx|js|jsx|json|sql|md|yaml|yml|env|toml|prisma|css|scss))\b/g);
+    for (const match of pathMatches) {
+      const path = match[1];
+      if (!seen.has(path)) {
+        seen.add(path);
+        refs.push({ path, line: i2 + 1, raw: match[0].trim() });
+      }
+    }
+    const backtickMatches = line.matchAll(/`([\w/.-]+\.(?:ts|tsx|js|jsx|json|sql|md|yaml|yml|env|toml|prisma|css|scss))`/g);
+    for (const match of backtickMatches) {
+      const path = match[1];
+      if (!seen.has(path)) {
+        seen.add(path);
+        refs.push({ path, line: i2 + 1, raw: match[0] });
+      }
+    }
+  }
+  return refs;
+}
+function sanitizeName(heading) {
+  return heading.replace(/[`*_#[\](){}]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
 
 // dist/sh-parser.js
 import { readFileSync as readFileSync8 } from "node:fs";
-import { basename as basename7, dirname as dirname6, extname as extname5, resolve as resolve3 } from "node:path";
+import { basename as basename7, dirname as dirname7, extname as extname5, resolve as resolve3 } from "node:path";
 
 // dist/sh-script-parser.js
 import { readFileSync as readFileSync7 } from "node:fs";
-import { basename as basename6, dirname as dirname5, resolve as resolve2 } from "node:path";
+import { basename as basename6, dirname as dirname6, resolve as resolve2 } from "node:path";
+function qualify6(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function parseShellScript(filePath) {
+  let content;
+  try {
+    content = readFileSync7(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+  const name2 = basename6(filePath);
+  const purpose = detectPurpose(filePath, content);
+  const isHook = filePath.includes("/hooks/") || purpose === "hook";
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "bash",
+    is_test: false,
+    extra: {
+      scriptType: isHook ? "hook" : "script",
+      purpose,
+      hasSetE: content.includes("set -e") || content.includes("set -euo"),
+      hasPipefail: content.includes("pipefail"),
+      usesJq: content.includes("jq ") || content.includes("jq -"),
+      readsStdin: content.includes("$(cat)") || content.includes("read ")
+    }
+  });
+  let currentFunc = null;
+  let inFunction = false;
+  let braceDepth = 0;
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    const trimmed = line.trim();
+    const lineNum = i2 + 1;
+    if (trimmed.startsWith("#") || trimmed === "")
+      continue;
+    const funcMatch = trimmed.match(/^(?:function\s+)?(\w+)\s*\(\s*\)\s*\{?\s*$|^function\s+(\w+)\s*\{?\s*$/);
+    if (funcMatch) {
+      const funcName = funcMatch[1] ?? funcMatch[2];
+      if (funcName && !isBuiltinKeyword(funcName)) {
+        const funcEnd = findFunctionEnd(lines, i2);
+        nodes.push({
+          kind: "Function",
+          name: funcName,
+          file_path: filePath,
+          line_start: lineNum,
+          line_end: funcEnd,
+          language: "bash",
+          parent_name: void 0,
+          is_test: false,
+          extra: { shellFunction: true }
+        });
+        edges.push({
+          kind: "CONTAINS",
+          source: filePath,
+          target: qualify6(funcName, filePath, null),
+          file_path: filePath,
+          line: lineNum
+        });
+        currentFunc = funcName;
+        inFunction = true;
+        braceDepth = 1;
+        continue;
+      }
+    }
+    if (inFunction) {
+      for (const ch of trimmed) {
+        if (ch === "{")
+          braceDepth++;
+        if (ch === "}")
+          braceDepth--;
+      }
+      if (braceDepth <= 0) {
+        currentFunc = null;
+        inFunction = false;
+      }
+    }
+    const sourceMatch = trimmed.match(/^(?:source|\.)\s+["']?([^"'\s;#]+)["']?/);
+    if (sourceMatch) {
+      const sourcePath = resolveShellPath(sourceMatch[1], filePath);
+      edges.push({
+        kind: "IMPORTS_FROM",
+        source: filePath,
+        target: sourcePath,
+        file_path: filePath,
+        line: lineNum
+      });
+      continue;
+    }
+    const execMatch = trimmed.match(/\b(bash|sh|node|python3?|ruby|npx|pnpm|npm|yarn|go\s+run|cargo\s+run)\s+["']?([^"'\s;#|&]+)/);
+    if (execMatch) {
+      const command = execMatch[1];
+      const target = execMatch[2];
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      if (target.match(/\.\w+$|^[.$/]/)) {
+        const resolvedTarget = resolveShellPath(target, filePath);
+        edges.push({
+          kind: "CALLS",
+          source: caller,
+          target: resolvedTarget,
+          file_path: filePath,
+          line: lineNum,
+          extra: { via: command }
+        });
+      }
+    }
+    const pathRefs = trimmed.matchAll(/["']([./][\w/.${}-]+\.(?:sh|ts|js|json|py|go|rs|yaml|yml|toml|sql))\b["']?/g);
+    for (const match of pathRefs) {
+      const refPath = match[1];
+      if (refPath.includes("*"))
+        continue;
+      const resolvedRef = resolveShellPath(refPath, filePath);
+      const caller = currentFunc ? qualify6(currentFunc, filePath, null) : filePath;
+      edges.push({
+        kind: "REFERENCES",
+        source: caller,
+        target: resolvedRef,
+        file_path: filePath,
+        line: lineNum,
+        extra: { type: "file-reference" }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function findFunctionEnd(lines, startLine) {
+  let depth = 0;
+  let foundOpen = false;
+  for (let i2 = startLine; i2 < lines.length; i2++) {
+    const line = lines[i2];
+    for (const ch of line) {
+      if (ch === "{") {
+        depth++;
+        foundOpen = true;
+      }
+      if (ch === "}")
+        depth--;
+    }
+    if (foundOpen && depth <= 0)
+      return i2 + 1;
+  }
+  return lines.length;
+}
+function resolveShellPath(raw, fromFile) {
+  if (raw.includes("CLAUDE_PLUGIN_ROOT") || raw.includes("PLUGIN_ROOT")) {
+    return raw;
+  }
+  if (raw.startsWith("./") || raw.startsWith("../")) {
+    return resolve2(dirname6(fromFile), raw);
+  }
+  if (raw.startsWith("$"))
+    return raw;
+  if (raw.startsWith("/"))
+    return raw;
+  return resolve2(dirname6(fromFile), raw);
+}
+function detectPurpose(filePath, content) {
+  const name2 = basename6(filePath, ".sh").toLowerCase();
+  const firstLines = content.slice(0, 500).toLowerCase();
+  if (filePath.includes("/hooks/"))
+    return "hook";
+  if (name2.includes("init") || name2.includes("setup"))
+    return "initialization";
+  if (name2.includes("build") || name2.includes("compile"))
+    return "build";
+  if (name2.includes("test") || name2.includes("spec"))
+    return "test";
+  if (name2.includes("deploy") || name2.includes("release"))
+    return "deployment";
+  if (name2.includes("lint") || name2.includes("check") || name2.includes("guard"))
+    return "guard";
+  if (name2.includes("generate") || name2.includes("scaffold"))
+    return "codegen";
+  if (name2.includes("sync") || name2.includes("update"))
+    return "sync";
+  if (firstLines.includes("pretooluse") || firstLines.includes("posttooluse"))
+    return "hook";
+  return "utility";
+}
+function isBuiltinKeyword(name2) {
+  const BUILTINS = /* @__PURE__ */ new Set([
+    "if",
+    "then",
+    "else",
+    "elif",
+    "fi",
+    "for",
+    "while",
+    "do",
+    "done",
+    "case",
+    "esac",
+    "in",
+    "select",
+    "until",
+    "coproc",
+    "time"
+  ]);
+  return BUILTINS.has(name2);
+}
+
+// dist/sh-parser.js
+function isShParseable(filePath) {
+  const ext = extname5(filePath).toLowerCase();
+  if (ext === ".sh")
+    return true;
+  if (basename7(filePath) === "hooks.json" && filePath.includes("/hooks/"))
+    return true;
+  return false;
+}
+function parseShFile(filePath) {
+  if (basename7(filePath) === "hooks.json") {
+    return parseHooksJson(filePath);
+  }
+  return parseShellScript(filePath);
+}
+function qualify7(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function findLineInContent(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx < 0)
+    return 1;
+  let line = 1;
+  for (let i2 = 0; i2 < idx; i2++) {
+    if (content[i2] === "\n")
+      line++;
+  }
+  return line;
+}
+function parseHooksJson(filePath) {
+  let content;
+  try {
+    content = readFileSync8(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  let config;
+  try {
+    config = JSON.parse(content);
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const lines = content.split("\n");
+  const name2 = basename7(filePath);
+  nodes.push({
+    kind: "File",
+    name: name2,
+    file_path: filePath,
+    line_start: 1,
+    line_end: lines.length,
+    language: "json",
+    is_test: false,
+    extra: { configType: "hooks" }
+  });
+  if (!config.hooks)
+    return { nodes, edges };
+  for (const [eventType, matchers] of Object.entries(config.hooks)) {
+    if (!Array.isArray(matchers))
+      continue;
+    for (const matcherGroup of matchers) {
+      const matcher = matcherGroup.matcher ?? "*";
+      const hookList = matcherGroup.hooks ?? [];
+      for (const hook of hookList) {
+        if (hook.type !== "command" || !hook.command)
+          continue;
+        const scriptMatch = hook.command.match(/(?:bash|sh|node|python3?)\s+["']?(?:\$\{?\w+\}?\/)?([^"'\s]+\.(?:sh|js|py|ts))["']?/);
+        if (scriptMatch) {
+          const scriptRelPath = scriptMatch[1];
+          const hooksDir = dirname7(filePath);
+          const pluginRoot = dirname7(hooksDir);
+          const scriptAbsPath = resolve3(pluginRoot, scriptRelPath);
+          const hookName = `${eventType}:${matcher}\u2192${basename7(scriptRelPath)}`;
+          nodes.push({
+            kind: "Script",
+            name: hookName,
+            file_path: filePath,
+            line_start: findLineInContent(content, scriptRelPath),
+            line_end: findLineInContent(content, scriptRelPath),
+            language: "json",
+            is_test: false,
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher,
+              scriptPath: scriptRelPath
+            }
+          });
+          edges.push({
+            kind: "CONTAINS",
+            source: filePath,
+            target: qualify7(hookName, filePath, null),
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath)
+          });
+          edges.push({
+            kind: "CALLS",
+            source: qualify7(hookName, filePath, null),
+            target: scriptAbsPath,
+            file_path: filePath,
+            line: findLineInContent(content, scriptRelPath),
+            extra: {
+              hookEvent: eventType,
+              hookMatcher: matcher
+            }
+          });
+        }
+      }
+    }
+  }
+  return { nodes, edges };
+}
 
 // dist/yaml-parser.js
 import { readFileSync as readFileSync9 } from "node:fs";
 import { basename as basename8, extname as extname6 } from "node:path";
+function isYamlParseable(filePath) {
+  const ext = extname6(filePath).toLowerCase();
+  return ext === ".yaml" || ext === ".yml";
+}
+function qualify8(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function findLineNumber(content, needle) {
+  const idx = content.indexOf(needle);
+  if (idx === -1)
+    return 1;
+  return content.substring(0, idx).split("\n").length;
+}
+function lineCount4(content) {
+  return content.split("\n").length;
+}
+var API_VERSION_RE = /^apiVersion:\s*(\S+)/m;
+var KIND_RE = /^kind:\s*(\S+)/m;
+var NAME_RE = /^\s+name:\s*(\S+)/m;
+var NAMESPACE_RE = /^\s+namespace:\s*(\S+)/m;
+var CONFIGMAP_NAME_RE = /configMapRef:\s*\n\s+name:\s*(\S+)/g;
+var CONFIGMAP_VOL_RE = /configMap:\s*\n\s+name:\s*(\S+)/g;
+var SECRET_REF_RE = /secretRef:\s*\n\s+name:\s*(\S+)/g;
+var SECRET_NAME_RE = /secretName:\s*(\S+)/g;
+var SERVICE_ACCOUNT_RE = /serviceAccountName:\s*(\S+)/g;
+var CLAIM_NAME_RE = /claimName:\s*(\S+)/g;
+function parseYamlFile(filePath) {
+  let content;
+  try {
+    content = readFileSync9(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  if (!API_VERSION_RE.test(content) || !KIND_RE.test(content)) {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename8(filePath);
+  const totalLines = lineCount4(content);
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "yaml",
+    is_test: false
+  });
+  const documents = content.split(/^---\s*$/m);
+  let lineOffset = 0;
+  for (const doc of documents) {
+    if (!doc.trim()) {
+      lineOffset += lineCount4(doc);
+      continue;
+    }
+    const apiVersionMatch = API_VERSION_RE.exec(doc);
+    const kindMatch = KIND_RE.exec(doc);
+    if (!apiVersionMatch || !kindMatch) {
+      lineOffset += lineCount4(doc);
+      continue;
+    }
+    const apiVersion = apiVersionMatch[1];
+    const kind = kindMatch[1];
+    const nameMatch = NAME_RE.exec(doc);
+    const name2 = nameMatch ? nameMatch[1] : "unnamed";
+    const nsMatch = NAMESPACE_RE.exec(doc);
+    const namespace = nsMatch ? nsMatch[1] : "default";
+    const resourceName = `${kind}/${name2}`;
+    const docLines = lineCount4(doc);
+    const lineStart = lineOffset + 1;
+    const lineEnd = lineOffset + docLines;
+    const resourceQN = qualify8(resourceName, filePath, fileName);
+    nodes.push({
+      kind: "Resource",
+      name: resourceName,
+      file_path: filePath,
+      line_start: lineStart,
+      line_end: lineEnd,
+      language: "yaml",
+      parent_name: fileName,
+      summary: `${kind} in namespace ${namespace}`,
+      is_test: false,
+      extra: { apiVersion, kind, namespace, resourceName: name2 }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: resourceQN,
+      file_path: filePath,
+      line: lineStart
+    });
+    const refs = extractReferences(doc);
+    for (const ref of refs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: resourceQN,
+        target: ref.target,
+        file_path: filePath,
+        line: lineOffset + findLineNumber(doc, ref.match),
+        extra: { refType: ref.type }
+      });
+    }
+    lineOffset += docLines;
+  }
+  return { nodes, edges };
+}
+function extractReferences(doc) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  function addRef(type, name2, match) {
+    const key = `${type}:${name2}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push({ type, target: `ConfigMap/${name2}`, match });
+      if (type === "configMap")
+        refs[refs.length - 1].target = `ConfigMap/${name2}`;
+      else if (type === "secret")
+        refs[refs.length - 1].target = `Secret/${name2}`;
+      else if (type === "serviceAccount")
+        refs[refs.length - 1].target = `ServiceAccount/${name2}`;
+      else if (type === "pvc")
+        refs[refs.length - 1].target = `PersistentVolumeClaim/${name2}`;
+    }
+  }
+  for (const re of [CONFIGMAP_NAME_RE, CONFIGMAP_VOL_RE]) {
+    re.lastIndex = 0;
+    let m2;
+    while ((m2 = re.exec(doc)) !== null) {
+      addRef("configMap", m2[1], m2[0]);
+    }
+  }
+  for (const re of [SECRET_REF_RE, SECRET_NAME_RE]) {
+    re.lastIndex = 0;
+    let m2;
+    while ((m2 = re.exec(doc)) !== null) {
+      addRef("secret", m2[1], m2[0]);
+    }
+  }
+  SERVICE_ACCOUNT_RE.lastIndex = 0;
+  let m;
+  while ((m = SERVICE_ACCOUNT_RE.exec(doc)) !== null) {
+    addRef("serviceAccount", m[1], m[0]);
+  }
+  CLAIM_NAME_RE.lastIndex = 0;
+  while ((m = CLAIM_NAME_RE.exec(doc)) !== null) {
+    addRef("pvc", m[1], m[0]);
+  }
+  return refs;
+}
 
 // dist/hcl-parser.js
 import { readFileSync as readFileSync10 } from "node:fs";
 import { basename as basename9, extname as extname7 } from "node:path";
+function isHclParseable(filePath) {
+  return extname7(filePath).toLowerCase() === ".tf";
+}
+function qualify9(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount5(content) {
+  return content.split("\n").length;
+}
+var BLOCK_RE = /^(resource|data|module|variable|output|provider)\s+"([^"]+)"(?:\s+"([^"]+)")?\s*\{/gm;
+var LOCALS_RE = /^(locals)\s*\{/gm;
+var VAR_REF_RE = /var\.(\w+)/g;
+var MODULE_REF_RE = /module\.(\w+)/g;
+var LOCAL_REF_RE = /local\.(\w+)/g;
+var DATA_REF_RE = /data\.(\w+)\.(\w+)/g;
+var SOURCE_RE = /source\s*=\s*"([^"]+)"/;
+function parseHclFile(filePath) {
+  let content;
+  try {
+    content = readFileSync10(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename9(filePath);
+  const totalLines = lineCount5(content);
+  const lines = content.split("\n");
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "hcl",
+    is_test: false
+  });
+  const blocks = extractBlocks(content, lines);
+  for (const block of blocks) {
+    const nodeKind = getNodeKind(block.blockType);
+    const nodeName = getBlockName(block);
+    const nodeQN = qualify9(nodeName, filePath, fileName);
+    nodes.push({
+      kind: nodeKind,
+      name: nodeName,
+      file_path: filePath,
+      line_start: block.lineStart,
+      line_end: block.lineEnd,
+      language: "hcl",
+      parent_name: fileName,
+      summary: `Terraform ${block.blockType}: ${block.firstLabel || ""}`,
+      is_test: false,
+      extra: {
+        blockType: block.blockType,
+        resourceType: block.firstLabel,
+        resourceName: block.secondLabel
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: nodeQN,
+      file_path: filePath,
+      line: block.lineStart
+    });
+    const bodyRefs = extractBlockReferences(block.body, filePath, block.lineStart);
+    for (const ref of bodyRefs) {
+      edges.push({
+        kind: "REFERENCES",
+        source: nodeQN,
+        target: qualify9(ref.target, filePath, fileName),
+        file_path: filePath,
+        line: ref.line,
+        extra: { refType: ref.type }
+      });
+    }
+    if (block.blockType === "module") {
+      const sourceMatch = SOURCE_RE.exec(block.body);
+      if (sourceMatch && sourceMatch[1].startsWith("./")) {
+        edges.push({
+          kind: "IMPORTS_FROM",
+          source: nodeQN,
+          target: sourceMatch[1],
+          file_path: filePath,
+          line: block.lineStart,
+          extra: { moduleSource: sourceMatch[1] }
+        });
+      }
+    }
+  }
+  return { nodes, edges };
+}
+function extractBlocks(content, lines) {
+  const blocks = [];
+  BLOCK_RE.lastIndex = 0;
+  let m;
+  while ((m = BLOCK_RE.exec(content)) !== null) {
+    const lineStart = content.substring(0, m.index).split("\n").length;
+    const blockEnd = findBlockEnd(lines, lineStart - 1);
+    const body2 = lines.slice(lineStart - 1, blockEnd).join("\n");
+    blocks.push({
+      blockType: m[1],
+      firstLabel: m[2],
+      secondLabel: m[3] || null,
+      lineStart,
+      lineEnd: blockEnd,
+      body: body2
+    });
+  }
+  LOCALS_RE.lastIndex = 0;
+  while ((m = LOCALS_RE.exec(content)) !== null) {
+    const lineStart = content.substring(0, m.index).split("\n").length;
+    const blockEnd = findBlockEnd(lines, lineStart - 1);
+    const body2 = lines.slice(lineStart - 1, blockEnd).join("\n");
+    blocks.push({
+      blockType: "locals",
+      firstLabel: null,
+      secondLabel: null,
+      lineStart,
+      lineEnd: blockEnd,
+      body: body2
+    });
+  }
+  return blocks;
+}
+function findBlockEnd(lines, lineIdx) {
+  let depth = 0;
+  for (let i2 = lineIdx; i2 < lines.length; i2++) {
+    for (const ch of lines[i2]) {
+      if (ch === "{")
+        depth++;
+      else if (ch === "}")
+        depth--;
+    }
+    if (depth === 0 && i2 > lineIdx)
+      return i2 + 1;
+  }
+  return lines.length;
+}
+function getNodeKind(blockType) {
+  if (blockType === "resource" || blockType === "data" || blockType === "module") {
+    return "Module";
+  }
+  return "Type";
+}
+function getBlockName(block) {
+  switch (block.blockType) {
+    case "resource":
+      return `${block.firstLabel}.${block.secondLabel}`;
+    case "data":
+      return `data.${block.firstLabel}.${block.secondLabel}`;
+    case "module":
+      return `module.${block.firstLabel}`;
+    case "variable":
+      return `var.${block.firstLabel}`;
+    case "output":
+      return `output.${block.firstLabel}`;
+    case "provider":
+      return `provider.${block.firstLabel}`;
+    case "locals":
+      return "locals";
+    default:
+      return block.firstLabel || block.blockType;
+  }
+}
+function extractBlockReferences(body2, _filePath, blockStart) {
+  const refs = [];
+  const seen = /* @__PURE__ */ new Set();
+  const bodyLines = body2.split("\n");
+  for (let i2 = 0; i2 < bodyLines.length; i2++) {
+    const line = bodyLines[i2];
+    const lineNum = blockStart + i2;
+    VAR_REF_RE.lastIndex = 0;
+    let m;
+    while ((m = VAR_REF_RE.exec(line)) !== null) {
+      const key = `var.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "variable", target: key, line: lineNum });
+      }
+    }
+    MODULE_REF_RE.lastIndex = 0;
+    while ((m = MODULE_REF_RE.exec(line)) !== null) {
+      const key = `module.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "module", target: key, line: lineNum });
+      }
+    }
+    LOCAL_REF_RE.lastIndex = 0;
+    while ((m = LOCAL_REF_RE.exec(line)) !== null) {
+      const key = `local.${m[1]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "local", target: key, line: lineNum });
+      }
+    }
+    DATA_REF_RE.lastIndex = 0;
+    while ((m = DATA_REF_RE.exec(line)) !== null) {
+      const key = `data.${m[1]}.${m[2]}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        refs.push({ type: "data", target: key, line: lineNum });
+      }
+    }
+  }
+  return refs;
+}
 
 // dist/dockerfile-parser.js
 import { readFileSync as readFileSync11 } from "node:fs";
 import { basename as basename10 } from "node:path";
+var DOCKERFILE_NAMES = /* @__PURE__ */ new Set([
+  "Dockerfile",
+  "Dockerfile.dev",
+  "Dockerfile.prod",
+  "Dockerfile.test",
+  "Dockerfile.ci"
+]);
+function isDockerfileParseable(filePath) {
+  const name2 = basename10(filePath);
+  if (DOCKERFILE_NAMES.has(name2))
+    return true;
+  if (name2.startsWith("Dockerfile."))
+    return true;
+  if (name2.toLowerCase() === "dockerfile")
+    return true;
+  return false;
+}
+function qualify10(name2, filePath, parent) {
+  return parent ? `${filePath}::${parent}.${name2}` : `${filePath}::${name2}`;
+}
+function lineCount6(content) {
+  return content.split("\n").length;
+}
+function parseDockerfile(filePath) {
+  let content;
+  try {
+    content = readFileSync11(filePath, "utf-8");
+  } catch {
+    return { nodes: [], edges: [] };
+  }
+  const nodes = [];
+  const edges = [];
+  const fileName = basename10(filePath);
+  const totalLines = lineCount6(content);
+  const lines = content.split("\n");
+  const fileQN = filePath;
+  nodes.push({
+    kind: "File",
+    name: fileName,
+    file_path: filePath,
+    line_start: 1,
+    line_end: totalLines,
+    language: "dockerfile",
+    is_test: false
+  });
+  const stages = extractStages(content, lines);
+  const stageNames = new Set(stages.map((s) => s.alias).filter(Boolean));
+  for (const stage of stages) {
+    const stageName = stage.alias || stage.baseImage;
+    const stageQN = qualify10(stageName, filePath, fileName);
+    nodes.push({
+      kind: "Stage",
+      name: stageName,
+      file_path: filePath,
+      line_start: stage.lineStart,
+      line_end: stage.lineEnd,
+      language: "dockerfile",
+      parent_name: fileName,
+      summary: `FROM ${stage.baseImage}`,
+      is_test: false,
+      extra: {
+        baseImage: stage.baseImage,
+        alias: stage.alias,
+        exposedPorts: stage.exposedPorts
+      }
+    });
+    edges.push({
+      kind: "CONTAINS",
+      source: fileQN,
+      target: stageQN,
+      file_path: filePath,
+      line: stage.lineStart
+    });
+    if (stageNames.has(stage.baseImage)) {
+      edges.push({
+        kind: "REFERENCES",
+        source: stageQN,
+        target: qualify10(stage.baseImage, filePath, fileName),
+        file_path: filePath,
+        line: stage.lineStart,
+        extra: { refType: "FROM" }
+      });
+    }
+    for (const copyFrom of stage.copyFromRefs) {
+      const targetName = stageNames.has(copyFrom.name) ? copyFrom.name : copyFrom.name;
+      edges.push({
+        kind: "REFERENCES",
+        source: stageQN,
+        target: qualify10(targetName, filePath, fileName),
+        file_path: filePath,
+        line: copyFrom.line,
+        extra: { refType: "COPY --from" }
+      });
+    }
+  }
+  return { nodes, edges };
+}
+function extractStages(content, lines) {
+  const stages = [];
+  const fromPositions = [];
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    const line = lines[i2].trim();
+    const match = /^FROM\s+(\S+)(?:\s+AS\s+(\S+))?$/i.exec(line);
+    if (match) {
+      fromPositions.push({
+        baseImage: match[1],
+        alias: match[2] || null,
+        lineNum: i2 + 1
+      });
+    }
+  }
+  for (let i2 = 0; i2 < fromPositions.length; i2++) {
+    const start2 = fromPositions[i2].lineNum;
+    const end = i2 + 1 < fromPositions.length ? fromPositions[i2 + 1].lineNum - 1 : lines.length;
+    const stageLines = lines.slice(start2 - 1, end);
+    const exposedPorts = [];
+    const copyFromRefs = [];
+    for (let j = 0; j < stageLines.length; j++) {
+      const sl = stageLines[j].trim();
+      const exposeMatch = /^EXPOSE\s+(.+)/i.exec(sl);
+      if (exposeMatch) {
+        exposedPorts.push(...exposeMatch[1].trim().split(/\s+/));
+      }
+      const copyMatch = /^COPY\s+--from=(\S+)/i.exec(sl);
+      if (copyMatch) {
+        copyFromRefs.push({ name: copyMatch[1], line: start2 + j });
+      }
+    }
+    stages.push({
+      baseImage: fromPositions[i2].baseImage,
+      alias: fromPositions[i2].alias,
+      lineStart: start2,
+      lineEnd: end,
+      exposedPorts,
+      copyFromRefs
+    });
+  }
+  return stages;
+}
 
 // dist/entities.js
 import { readFileSync as readFileSync12 } from "node:fs";
 import { relative } from "node:path";
+var STRIP_PREFIXES = /* @__PURE__ */ new Set(["user_", "admin_", "public_", "auth_"]);
+function normalizeEntityName(raw) {
+  let name2 = raw.toLowerCase().trim();
+  for (const prefix of STRIP_PREFIXES) {
+    if (name2.startsWith(prefix) && name2.length > prefix.length + 2) {
+      name2 = name2.slice(prefix.length);
+      break;
+    }
+  }
+  if (name2.endsWith("ies") && name2.length > 4) {
+    name2 = name2.slice(0, -3) + "y";
+  } else if (name2.endsWith("s") && !name2.endsWith("ss") && !name2.endsWith("us") && !name2.endsWith("is") && name2.length > 3) {
+    name2 = name2.slice(0, -1);
+  }
+  return name2;
+}
+function displayName(normalized) {
+  const capitalized = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  if (capitalized.endsWith("y") && !capitalized.endsWith("ey")) {
+    return capitalized.slice(0, -1) + "ies";
+  }
+  return capitalized + "s";
+}
+function primaryEntity(tableName) {
+  const normalized = normalizeEntityName(tableName);
+  const parts2 = normalized.split("_");
+  return parts2[0];
+}
+var SKIP_ROUTE_SEGMENTS = /* @__PURE__ */ new Set([
+  "app",
+  "api",
+  "src",
+  "pages",
+  "(admin)",
+  "(auth)",
+  "(protected)",
+  "(public)",
+  "(external)",
+  "(internal)",
+  "(marketing)",
+  "[id]",
+  "[slug]",
+  "[id_prefix]",
+  "layout",
+  "loading",
+  "error",
+  "not-found"
+]);
+var SKIP_COMPONENT_PREFIXES = /* @__PURE__ */ new Set([
+  "admin",
+  "shared",
+  "ui",
+  "layout",
+  "common",
+  "portal",
+  "service",
+  "diy"
+]);
+function detectRole(filePath, node) {
+  const rel = filePath.toLowerCase();
+  if (node.kind === "Table" || node.kind === "Column")
+    return "table";
+  if (node.kind === "RLSPolicy")
+    return "policy";
+  if (node.kind === "Index")
+    return "index";
+  if (node.kind === "DbFunction")
+    return "db-function";
+  if (node.kind === "Migration")
+    return "migration";
+  if (node.is_test || rel.includes("test") || rel.includes("spec"))
+    return "test";
+  if (rel.includes("/migrations/") || rel.endsWith(".sql"))
+    return "migration";
+  if (/\/app\/.*\/(page|layout)\.(tsx?|jsx?)$/.test(rel))
+    return "page";
+  if (rel.includes("/api/") || /\/route\.(ts|js)x?$/.test(rel))
+    return "api";
+  if (rel.includes("/hooks/") || /\/use[A-Z]/.test(filePath))
+    return "hook";
+  if (rel.includes("/components/"))
+    return "component";
+  if (rel.includes("/types/") || rel.endsWith(".types.ts") || rel.endsWith(".d.ts"))
+    return "type";
+  if (node.kind === "Type")
+    return "type";
+  return "lib";
+}
+function detectAndStoreEntities(store, repoRoot) {
+  store.removeEntityData();
+  const entities = /* @__PURE__ */ new Map();
+  const allFiles = store.getAllFiles();
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("migration") && !filePath.endsWith(".sql"))
+      continue;
+    try {
+      const content = readFileSync12(filePath, "utf-8");
+      const tableMatches = content.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi);
+      for (const match of tableMatches) {
+        const tableName = match[1];
+        const primary = primaryEntity(tableName);
+        if (primary.length < 3)
+          continue;
+        if (!entities.has(primary)) {
+          entities.set(primary, {
+            name: primary,
+            display_name: displayName(primary),
+            source: "migration",
+            tables: [tableName]
+          });
+        } else {
+          entities.get(primary).tables.push(tableName);
+        }
+      }
+      const prismaMatches = content.matchAll(/model\s+(\w+)\s*\{/g);
+      for (const match of prismaMatches) {
+        const name2 = normalizeEntityName(match[1]);
+        if (name2.length < 3)
+          continue;
+        if (!entities.has(name2)) {
+          entities.set(name2, {
+            name: name2,
+            display_name: displayName(name2),
+            source: "migration",
+            tables: [match[1]]
+          });
+        }
+      }
+    } catch {
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!/\/(page|route)\.(tsx?|jsx?)$/.test(rel))
+      continue;
+    const segments = rel.split("/").filter((s) => !SKIP_ROUTE_SEGMENTS.has(s) && !s.startsWith("[") && !s.startsWith("("));
+    const routeSegment = segments[segments.length - 2];
+    if (!routeSegment || routeSegment.length < 3)
+      continue;
+    const name2 = normalizeEntityName(routeSegment);
+    if (!entities.has(name2)) {
+      entities.set(name2, {
+        name: name2,
+        display_name: displayName(name2),
+        source: "route",
+        tables: []
+      });
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("/components/"))
+      continue;
+    const afterComponents = rel.split("/components/")[1];
+    if (!afterComponents)
+      continue;
+    const parts2 = afterComponents.split("/");
+    let dirName = parts2[0];
+    if (SKIP_COMPONENT_PREFIXES.has(dirName.toLowerCase()) && parts2.length > 1) {
+      dirName = parts2[1];
+    }
+    if (!dirName || dirName.includes(".") || dirName.length < 3)
+      continue;
+    const name2 = normalizeEntityName(dirName);
+    if (!entities.has(name2)) {
+      entities.set(name2, {
+        name: name2,
+        display_name: displayName(name2),
+        source: "directory",
+        tables: []
+      });
+    }
+  }
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath);
+    if (!rel.includes("/hooks/"))
+      continue;
+    const afterHooks = rel.split("/hooks/")[1];
+    if (!afterHooks)
+      continue;
+    const parts2 = afterHooks.split("/");
+    if (parts2.length > 1) {
+      const skipDirs = /* @__PURE__ */ new Set(["query", "mutation", "mutations", "queries"]);
+      for (const p of parts2) {
+        if (!skipDirs.has(p) && !p.includes(".") && p.length >= 3) {
+          const name2 = normalizeEntityName(p);
+          if (!entities.has(name2)) {
+            entities.set(name2, {
+              name: name2,
+              display_name: displayName(name2),
+              source: "hook",
+              tables: []
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
+  for (const entity of entities.values()) {
+    store.upsertEntity(entity.name, entity.display_name, entity.source);
+  }
+  const entityNames = [...entities.keys()];
+  let memberCount = 0;
+  for (const filePath of allFiles) {
+    const rel = relative(repoRoot, filePath).toLowerCase();
+    const nodes = store.getNodesByFile(filePath);
+    for (const node of nodes) {
+      const role = detectRole(filePath, node);
+      for (const entityName of entityNames) {
+        const entity = entities.get(entityName);
+        let confidence = 0;
+        if (rel.includes(`/${entityName}/`) || rel.includes(`/${entityName}s/`)) {
+          confidence = Math.max(confidence, entity.source === "migration" || entity.source === "route" ? 1 : 0.9);
+        }
+        for (const table of entity.tables) {
+          const normalizedTable = table.toLowerCase();
+          if (rel.includes(normalizedTable) || rel.includes(normalizedTable.replace(/_/g, "-"))) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (node.kind !== "File") {
+          const nodeName = node.name.toLowerCase();
+          if (nodeName.includes(entityName) || nodeName.includes(entityName + "s")) {
+            confidence = Math.max(confidence, 0.8);
+          }
+        }
+        if (node.name.startsWith("use")) {
+          const hookTarget = normalizeEntityName(node.name.slice(3));
+          if (hookTarget === entityName) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (node.name.endsWith("Keys") || node.name.endsWith("keys")) {
+          const keyTarget = normalizeEntityName(node.name.replace(/[Kk]eys$/, ""));
+          if (keyTarget === entityName) {
+            confidence = Math.max(confidence, 0.9);
+          }
+        }
+        if (confidence >= 0.5) {
+          store.upsertEntityMember(entityName, node.qualified_name, role, confidence);
+          memberCount++;
+        }
+      }
+    }
+  }
+  return { entityCount: entities.size, memberCount };
+}
 
 // dist/incremental.js
+var DEFAULT_IGNORES = /* @__PURE__ */ new Set([
+  "node_modules",
+  ".git",
+  ".next",
+  ".expo",
+  "dist",
+  "build",
+  ".code-review-graph",
+  "__pycache__",
+  ".turbo",
+  ".vercel",
+  "coverage"
+]);
+function shouldIgnore(filePath) {
+  const parts2 = filePath.split("/");
+  return parts2.some((p) => DEFAULT_IGNORES.has(p));
+}
 function findRepoRoot(start2) {
   let dir = start2 ? resolve4(start2) : process.cwd();
   while (true) {
-    if (existsSync3(join4(dir, ".git")))
+    if (existsSync4(join4(dir, ".git")))
       return dir;
-    const parent = dirname7(dir);
+    const parent = dirname8(dir);
     if (parent === dir)
       return null;
     dir = parent;
@@ -4064,508 +7730,1197 @@ function findProjectRoot(start2) {
 function getDbPath(repoRoot) {
   return join4(repoRoot, ".code-review-graph", "graph.db");
 }
+function execGit(args2, cwd) {
+  try {
+    return execFileSync("git", args2, {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 3e4
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+function getChangedFiles(repoRoot, base = "HEAD~1") {
+  const output = execGit(["diff", "--name-only", base], repoRoot);
+  if (!output)
+    return [];
+  return output.split("\n").filter(Boolean).map((f) => resolve4(repoRoot, f));
+}
+function getStagedAndUnstaged(repoRoot) {
+  const output = execGit(["status", "--porcelain"], repoRoot);
+  if (!output)
+    return [];
+  return output.split("\n").filter(Boolean).map((line) => line.slice(3).trim()).filter(Boolean).map((f) => resolve4(repoRoot, f));
+}
+function collectAllFiles(repoRoot) {
+  const output = execGit(["ls-files"], repoRoot);
+  if (!output)
+    return [];
+  const extraIgnores = loadIgnorePatterns(repoRoot);
+  return output.split("\n").filter(Boolean).map((f) => resolve4(repoRoot, f)).filter((f) => {
+    const rel = relative2(repoRoot, f);
+    if (shouldIgnore(rel))
+      return false;
+    if (!isParseable(f))
+      return false;
+    if (extraIgnores.some((pattern) => rel.includes(pattern)))
+      return false;
+    try {
+      return statSync2(f).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+function loadIgnorePatterns(repoRoot) {
+  const ignorePath = join4(repoRoot, ".code-review-graphignore");
+  if (!existsSync4(ignorePath))
+    return [];
+  try {
+    return readFileSync13(ignorePath, "utf-8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  } catch {
+    return [];
+  }
+}
+function findDependents(store, filePath) {
+  const edges = store.getEdgesByTarget(filePath);
+  const dependents = /* @__PURE__ */ new Set();
+  for (const e of edges) {
+    if (e.kind === "IMPORTS_FROM") {
+      dependents.add(e.file_path);
+    }
+  }
+  return [...dependents];
+}
+function routeParse(filePath, tsParser) {
+  if (isSqlParseable(filePath))
+    return parseSqlFile(filePath);
+  if (isPkgParseable(filePath))
+    return parsePkgFile(filePath);
+  if (isConfigParseable(filePath))
+    return parseConfigFile(filePath);
+  if (isMdParseable(filePath))
+    return parseMdFile(filePath);
+  if (isShParseable(filePath))
+    return parseShFile(filePath);
+  if (isYamlParseable(filePath))
+    return parseYamlFile(filePath);
+  if (isHclParseable(filePath))
+    return parseHclFile(filePath);
+  if (isDockerfileParseable(filePath))
+    return parseDockerfile(filePath);
+  if (tsParser)
+    return tsParser.parseFile(filePath);
+  return { nodes: [], edges: [] };
+}
+async function fullBuild(repoRoot, store) {
+  const parser = new CodeParser();
+  await parser.init();
+  const files = collectAllFiles(repoRoot);
+  const errors = [];
+  let parsed = 0;
+  const existingFiles = new Set(store.getAllFiles());
+  const currentFiles = new Set(files);
+  for (const f of existingFiles) {
+    if (!currentFiles.has(f)) {
+      store.removeFileData(f);
+    }
+  }
+  for (const f of files) {
+    try {
+      const { nodes, edges } = routeParse(f, parser);
+      if (nodes.length > 0) {
+        const hash = fileHash(f);
+        store.storeFileNodesEdges(f, nodes, edges, hash);
+        parsed++;
+      }
+    } catch (err2) {
+      errors.push(`${f}: ${err2 instanceof Error ? err2.message : String(err2)}`);
+    }
+  }
+  const entityResult = detectAndStoreEntities(store, repoRoot);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  store.setMetadata("last_updated", now);
+  store.setMetadata("last_build_type", "full");
+  const stats = store.getStats();
+  return {
+    build_type: "full",
+    files_parsed: parsed,
+    total_nodes: stats.total_nodes,
+    total_edges: stats.total_edges,
+    errors,
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount
+  };
+}
+async function incrementalUpdate(repoRoot, store, base = "HEAD~1", changedFiles) {
+  const parser = new CodeParser();
+  await parser.init();
+  const errors = [];
+  let changed = changedFiles ?? [
+    .../* @__PURE__ */ new Set([
+      ...getChangedFiles(repoRoot, base),
+      ...getStagedAndUnstaged(repoRoot)
+    ])
+  ];
+  changed = changed.filter((f) => isParseable(f) && !shouldIgnore(relative2(repoRoot, f)));
+  const dependentFiles = /* @__PURE__ */ new Set();
+  for (const f of changed) {
+    for (const dep of findDependents(store, f)) {
+      if (!changed.includes(dep)) {
+        dependentFiles.add(dep);
+      }
+    }
+  }
+  const allToUpdate = [...changed, ...dependentFiles];
+  let updated = 0;
+  for (const f of allToUpdate) {
+    if (!existsSync4(f)) {
+      store.removeFileData(f);
+      continue;
+    }
+    try {
+      const currentHash = fileHash(f);
+      const existingNode = store.getNode(f);
+      if (existingNode?.file_hash === currentHash)
+        continue;
+      const { nodes, edges } = routeParse(f, parser);
+      if (nodes.length > 0) {
+        store.storeFileNodesEdges(f, nodes, edges, currentHash);
+        updated++;
+      }
+    } catch (err2) {
+      errors.push(`${f}: ${err2 instanceof Error ? err2.message : String(err2)}`);
+    }
+  }
+  const entityResult = detectAndStoreEntities(store, repoRoot);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  store.setMetadata("last_updated", now);
+  store.setMetadata("last_build_type", "incremental");
+  const stats = store.getStats();
+  return {
+    build_type: "incremental",
+    files_parsed: updated,
+    total_nodes: stats.total_nodes,
+    total_edges: stats.total_edges,
+    errors,
+    changed_files: changed.map((f) => relative2(repoRoot, f)),
+    dependent_files: [...dependentFiles].map((f) => relative2(repoRoot, f)),
+    entities_detected: entityResult.entityCount,
+    entity_members: entityResult.memberCount
+  };
+}
+
+// dist/tools/build-or-update-graph.js
+async function buildOrUpdateGraph(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const result = params.full_rebuild ? await fullBuild(root, store) : await incrementalUpdate(root, store, params.base ?? "HEAD~1");
+    const verb = result.build_type === "full" ? "Built" : "Updated";
+    const summary = [
+      `${verb} graph: ${result.files_parsed} files parsed`,
+      `${result.total_nodes} nodes, ${result.total_edges} edges`,
+      result.errors.length > 0 ? `${result.errors.length} errors` : "no errors"
+    ].join(". ");
+    return {
+      status: "ok",
+      summary,
+      build_type: result.build_type,
+      files_parsed: result.files_parsed,
+      total_nodes: result.total_nodes,
+      total_edges: result.total_edges,
+      errors: result.errors,
+      changed_files: result.changed_files,
+      dependent_files: result.dependent_files
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/search-references.js
+import { execFileSync as execFileSync2 } from "node:child_process";
+import { existsSync as existsSync5 } from "node:fs";
+import { relative as relative3, resolve as resolve5 } from "node:path";
+function classifyFileRole(filePath) {
+  if (/\/skills\//.test(filePath))
+    return "skill";
+  if (/\/hooks\//.test(filePath))
+    return "hook";
+  if (/\/components\//.test(filePath))
+    return "component";
+  if (/\/(app|pages)\/.*\/(page|layout|route)\.\w+$/.test(filePath))
+    return "route";
+  if (/\.(test|spec)\./.test(filePath))
+    return "test";
+  if (/\/lib\//.test(filePath))
+    return "lib";
+  if (/\.(config|rc)\.\w+$/.test(filePath))
+    return "config";
+  if (/\/defaults\//.test(filePath))
+    return "defaults";
+  if (/\/templates\//.test(filePath))
+    return "template";
+  if (/\/steps\//.test(filePath))
+    return "skill-step";
+  if (/\/references\//.test(filePath))
+    return "reference";
+  return "source";
+}
+function globToRegex(glob) {
+  const escaped = glob.replace(/\./g, "\\.").replace(/\*\*\//g, "(.*/)?").replace(/\*/g, "[^/]*");
+  return new RegExp(escaped + "$");
+}
+function findRg() {
+  const candidates = [
+    "/usr/local/bin/rg",
+    "/opt/homebrew/bin/rg",
+    `${process.env.HOME}/.cargo/bin/rg`
+  ];
+  for (const p of candidates) {
+    if (existsSync5(p))
+      return p;
+  }
+  try {
+    execFileSync2("rg", ["--version"], { encoding: "utf-8", stdio: "pipe" });
+    return "rg";
+  } catch {
+    return null;
+  }
+}
+function searchWithRipgrep(root, pattern, scope, contextLines, maxResults) {
+  const rgPath = findRg();
+  if (rgPath) {
+    return searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults);
+  }
+  return searchWithGrep(root, pattern, scope, contextLines, maxResults);
+}
+function searchWithRg(rgPath, root, pattern, scope, contextLines, maxResults) {
+  const args2 = [
+    "--no-heading",
+    "-n",
+    ...contextLines > 0 ? [`-C${contextLines}`] : [],
+    "--max-count",
+    String(maxResults),
+    "--glob",
+    "!node_modules",
+    "--glob",
+    "!.git",
+    "--glob",
+    "!dist",
+    "--glob",
+    "!*.map",
+    ...scope ? ["--glob", scope] : [],
+    pattern,
+    root
+  ];
+  try {
+    const output = execFileSync2(rgPath, args2, {
+      encoding: "utf-8",
+      maxBuffer: 1024 * 1024,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    return parseRipgrepOutput(output, root, contextLines);
+  } catch (err2) {
+    const e = err2;
+    if (e.status === 1)
+      return [];
+    if (e.stdout)
+      return parseRipgrepOutput(e.stdout, root, contextLines);
+    return [];
+  }
+}
+function searchWithGrep(root, pattern, scope, contextLines, maxResults) {
+  const args2 = [
+    "-rn",
+    ...contextLines > 0 ? [`-C${contextLines}`] : [],
+    "--include=*.ts",
+    "--include=*.tsx",
+    "--include=*.js",
+    "--include=*.jsx",
+    "--include=*.md",
+    "--include=*.sh",
+    "--include=*.json",
+    "--exclude-dir=node_modules",
+    "--exclude-dir=.git",
+    "--exclude-dir=dist",
+    `-m${maxResults}`,
+    pattern,
+    root
+  ];
+  try {
+    const output = execFileSync2("grep", args2, {
+      encoding: "utf-8",
+      maxBuffer: 1024 * 1024,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    let matches = parseRipgrepOutput(output, root, contextLines);
+    if (scope) {
+      const re = globToRegex(scope);
+      matches = matches.filter((m) => re.test(m.file));
+    }
+    return matches;
+  } catch {
+    return [];
+  }
+}
+function parseRipgrepOutput(output, root, contextLines) {
+  const matches = [];
+  const lines = output.split("\n").filter(Boolean);
+  if (contextLines === 0) {
+    for (const line of lines) {
+      const m = line.match(/^(.+?):(\d+):(.*)$/);
+      if (m) {
+        matches.push({
+          file: relative3(root, m[1]),
+          line: parseInt(m[2], 10),
+          text: m[3]
+        });
+      }
+    }
+  } else {
+    let currentMatch = null;
+    const beforeLines = [];
+    for (const line of lines) {
+      if (line === "--") {
+        if (currentMatch)
+          matches.push(currentMatch);
+        currentMatch = null;
+        beforeLines.length = 0;
+        continue;
+      }
+      const matchLine = line.match(/^(.+?):(\d+):(.*)$/);
+      const ctxLine = line.match(/^(.+?)-(\d+)-(.*)$/);
+      if (matchLine) {
+        currentMatch = {
+          file: relative3(root, matchLine[1]),
+          line: parseInt(matchLine[2], 10),
+          text: matchLine[3],
+          context_before: beforeLines.length > 0 ? beforeLines.join("\n") : void 0
+        };
+        beforeLines.length = 0;
+      } else if (ctxLine) {
+        if (currentMatch) {
+          currentMatch.context_after = (currentMatch.context_after ?? "") + (currentMatch.context_after ? "\n" : "") + ctxLine[3];
+        } else {
+          beforeLines.push(ctxLine[3]);
+        }
+      }
+    }
+    if (currentMatch)
+      matches.push(currentMatch);
+  }
+  return matches;
+}
+function searchReferences(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  const contextLines = params.context_lines ?? 1;
+  const maxResults = params.max_results ?? 50;
+  const matches = searchWithRipgrep(root, params.pattern, params.scope, contextLines, maxResults);
+  if (matches.length === 0) {
+    return {
+      status: "ok",
+      summary: `No matches for "${params.pattern}"`,
+      pattern: params.pattern,
+      results: []
+    };
+  }
+  let store = null;
+  try {
+    store = new GraphStore(dbPath);
+  } catch {
+  }
+  const results = matches.map((m) => {
+    const absPath = resolve5(root, m.file);
+    let containingNode = null;
+    let entity = null;
+    let importersCount = 0;
+    if (store) {
+      const fileNodes = store.getNodesByFile(absPath);
+      for (const node of fileNodes) {
+        if (node.kind === "File")
+          continue;
+        if (node.line_start <= m.line && node.line_end >= m.line) {
+          containingNode = node.name;
+          break;
+        }
+      }
+      const fileNode = fileNodes.find((n) => n.kind === "File");
+      if (fileNode) {
+        try {
+          const rows = store.getDb().prepare("SELECT COUNT(*) as cnt FROM edges WHERE target_qualified = ? AND kind = 'IMPORTS_FROM'").all(fileNode.qualified_name);
+          importersCount = rows[0]?.cnt ?? 0;
+        } catch {
+        }
+      }
+      try {
+        const entityRows = store.getDb().prepare("SELECT entity_name FROM entity_members WHERE node_qualified_name = ? LIMIT 1").all(fileNode?.qualified_name ?? "");
+        entity = entityRows[0]?.entity_name ?? null;
+      } catch {
+      }
+    }
+    return {
+      file: m.file,
+      line: m.line,
+      text: m.text,
+      ...m.context_before ? { context_before: m.context_before } : {},
+      ...m.context_after ? { context_after: m.context_after } : {},
+      containing_node: containingNode,
+      entity,
+      importers_count: importersCount,
+      role: classifyFileRole(m.file)
+    };
+  });
+  if (store)
+    store.close();
+  return {
+    status: "ok",
+    summary: `Found ${results.length} matches for "${params.pattern}"`,
+    pattern: params.pattern,
+    results
+  };
+}
+
+// dist/bfs.js
+function buildAdjacencyList(edges) {
+  const forward = /* @__PURE__ */ new Map();
+  const reverse = /* @__PURE__ */ new Map();
+  for (const e of edges) {
+    let fwd = forward.get(e.source_qualified);
+    if (!fwd) {
+      fwd = /* @__PURE__ */ new Set();
+      forward.set(e.source_qualified, fwd);
+    }
+    fwd.add(e.target_qualified);
+    let rev = reverse.get(e.target_qualified);
+    if (!rev) {
+      rev = /* @__PURE__ */ new Set();
+      reverse.set(e.target_qualified, rev);
+    }
+    rev.add(e.source_qualified);
+  }
+  return { forward, reverse };
+}
+function getShortestPath(store, fromQN, toQN, maxDepth = 10) {
+  const allEdges = store.getAllEdges();
+  const adj = buildAdjacencyList(allEdges);
+  const parent = /* @__PURE__ */ new Map();
+  const visited = /* @__PURE__ */ new Set([fromQN]);
+  let frontier = /* @__PURE__ */ new Set([fromQN]);
+  let found = false;
+  for (let depth = 0; depth < maxDepth && frontier.size > 0; depth++) {
+    const nextFrontier = /* @__PURE__ */ new Set();
+    for (const qn of frontier) {
+      for (const neighbors of [adj.forward.get(qn), adj.reverse.get(qn)]) {
+        if (!neighbors)
+          continue;
+        for (const neighbor of neighbors) {
+          if (visited.has(neighbor))
+            continue;
+          visited.add(neighbor);
+          parent.set(neighbor, qn);
+          nextFrontier.add(neighbor);
+          if (neighbor === toQN) {
+            found = true;
+            break;
+          }
+        }
+        if (found)
+          break;
+      }
+      if (found)
+        break;
+    }
+    if (found)
+      break;
+    frontier = nextFrontier;
+  }
+  if (!found) {
+    return { path: [], edges: [], depth: 0, found: false };
+  }
+  const pathQNs = [toQN];
+  let current = toQN;
+  while (current !== fromQN && parent.has(current)) {
+    current = parent.get(current);
+    pathQNs.unshift(current);
+  }
+  const pathNodes = [];
+  for (const qn of pathQNs) {
+    const node = store.getNode(qn);
+    if (node)
+      pathNodes.push(node);
+  }
+  const pathSet = new Set(pathQNs);
+  const pathEdges = allEdges.filter((e) => pathSet.has(e.source_qualified) && pathSet.has(e.target_qualified));
+  return { path: pathNodes, edges: pathEdges, depth: pathQNs.length - 1, found: true };
+}
+function getImpactRadius(store, changedFiles, maxDepth = 2, maxNodes = 500) {
+  const allEdges = store.getAllEdges();
+  const adj = buildAdjacencyList(allEdges);
+  const seeds = /* @__PURE__ */ new Set();
+  for (const f of changedFiles) {
+    for (const node of store.getNodesByFile(f)) {
+      seeds.add(node.qualified_name);
+    }
+  }
+  const visited = /* @__PURE__ */ new Set();
+  let frontier = new Set(seeds);
+  const impacted = /* @__PURE__ */ new Set();
+  for (let depth = 0; depth < maxDepth && frontier.size > 0; depth++) {
+    const nextFrontier = /* @__PURE__ */ new Set();
+    for (const qn of frontier) {
+      visited.add(qn);
+      const fwd = adj.forward.get(qn);
+      if (fwd) {
+        for (const neighbor of fwd) {
+          if (!visited.has(neighbor)) {
+            nextFrontier.add(neighbor);
+            impacted.add(neighbor);
+          }
+        }
+      }
+      const rev = adj.reverse.get(qn);
+      if (rev) {
+        for (const pred of rev) {
+          if (!visited.has(pred)) {
+            nextFrontier.add(pred);
+            impacted.add(pred);
+          }
+        }
+      }
+    }
+    if (visited.size + nextFrontier.size > maxNodes) {
+      break;
+    }
+    frontier = nextFrontier;
+  }
+  const changedNodes = [];
+  for (const qn of seeds) {
+    const node = store.getNode(qn);
+    if (node)
+      changedNodes.push(node);
+  }
+  const impactedNodes = [];
+  for (const qn of impacted) {
+    if (seeds.has(qn))
+      continue;
+    const node = store.getNode(qn);
+    if (node)
+      impactedNodes.push(node);
+  }
+  const totalImpacted = impactedNodes.length;
+  const truncated = totalImpacted > maxNodes;
+  const finalImpacted = truncated ? impactedNodes.slice(0, maxNodes) : impactedNodes;
+  const impactedFiles = [
+    ...new Set(finalImpacted.map((n) => n.file_path))
+  ];
+  const allQns = /* @__PURE__ */ new Set([
+    ...seeds,
+    ...finalImpacted.map((n) => n.qualified_name)
+  ]);
+  const relevantEdges = store.getEdgesAmong(allQns);
+  return {
+    changed_nodes: changedNodes,
+    impacted_nodes: finalImpacted,
+    impacted_files: impactedFiles,
+    edges: relevantEdges,
+    truncated,
+    total_impacted: totalImpacted
+  };
+}
+
+// dist/tools/get-dependency-chain.js
+function getDependencyChain(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const fromNode = resolveTarget(store, params.from);
+    const toNode = resolveTarget(store, params.to);
+    if (!fromNode) {
+      const candidates = store.searchNodes(params.from, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.from}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.from}'`
+      };
+    }
+    if (!toNode) {
+      const candidates = store.searchNodes(params.to, 5);
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${params.to}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `No node found matching '${params.to}'`
+      };
+    }
+    const result = getShortestPath(store, fromNode.qualified_name, toNode.qualified_name, params.max_depth ?? 10);
+    if (!result.found) {
+      return {
+        status: "ok",
+        summary: `No path found between '${fromNode.name}' and '${toNode.name}' within ${params.max_depth ?? 10} hops`,
+        from: nodeToDict(fromNode),
+        to: nodeToDict(toNode),
+        path: [],
+        edges: [],
+        connected: false
+      };
+    }
+    const pathNames = result.path.map((n) => n.name);
+    const summary = `${pathNames.join(" \u2192 ")} (${result.depth} hop${result.depth === 1 ? "" : "s"})`;
+    return {
+      status: "ok",
+      summary,
+      from: nodeToDict(fromNode),
+      to: nodeToDict(toNode),
+      path: result.path.map(nodeToDict),
+      edges: result.edges.map(edgeToDict),
+      depth: result.depth,
+      connected: true
+    };
+  } finally {
+    store.close();
+  }
+}
+function resolveTarget(store, target) {
+  let node = store.getNode(target);
+  if (node)
+    return node;
+  const fileNodes = store.getNodesByFile(target);
+  const fileNode = fileNodes.find((n) => n.kind === "File");
+  if (fileNode)
+    return fileNode;
+  const candidates = store.searchNodes(target, 2);
+  if (candidates.length === 1)
+    return candidates[0];
+  return null;
+}
+
+// dist/tools/query-graph.js
+import { resolve as resolve6 } from "node:path";
+var BUILTIN_NAMES = /* @__PURE__ */ new Set([
+  "map",
+  "filter",
+  "reduce",
+  "forEach",
+  "find",
+  "some",
+  "every",
+  "includes",
+  "push",
+  "pop",
+  "shift",
+  "splice",
+  "slice",
+  "concat",
+  "join",
+  "sort",
+  "reverse",
+  "keys",
+  "values",
+  "entries",
+  "toString",
+  "valueOf",
+  "hasOwnProperty",
+  "console",
+  "log",
+  "warn",
+  "error",
+  "JSON",
+  "parse",
+  "stringify",
+  "parseInt",
+  "parseFloat",
+  "setTimeout",
+  "setInterval",
+  "clearTimeout",
+  "clearInterval",
+  "Promise",
+  "then",
+  "catch",
+  "finally",
+  "require"
+]);
+var QUERY_DESCRIPTIONS = {
+  callers_of: "Find all functions that call a given function",
+  callees_of: "Find all functions called by a given function",
+  imports_of: "Find all imports of a given file or module",
+  importers_of: "Find all files that import a given file or module",
+  children_of: "Find all nodes contained in a file or class",
+  tests_for: "Find all tests for a given function or class",
+  inheritors_of: "Find classes that inherit from a given class",
+  file_summary: "Get a summary of all nodes in a file",
+  references_of: "Grep for a string pattern with graph context enrichment",
+  dependency_chain: "Shortest path between two nodes in the graph"
+};
+function edgesByTarget(store, qn, edgeKind) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesByTarget(qn)) {
+    if (e.kind === edgeKind) {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.source_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function edgesBySource(store, qn, edgeKind) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesBySource(qn)) {
+    if (e.kind === edgeKind) {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.target_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function callersOf(store, qn, nodeName) {
+  const { results, edges } = edgesByTarget(store, qn, "CALLS");
+  if (nodeName) {
+    for (const e of store.searchEdgesByTargetName(nodeName, "CALLS")) {
+      if (e.target_qualified !== qn) {
+        edges.push(edgeToDict(e));
+        const caller = store.getNode(e.source_qualified);
+        if (caller)
+          results.push(nodeToDict(caller));
+      }
+    }
+  }
+  return { results, edges };
+}
+function fileSummary(store, filePath) {
+  const results = store.getNodesByFile(filePath).map(nodeToDict);
+  return { results, edges: [] };
+}
+function inheritorsOf(store, qn) {
+  const results = [];
+  const edges = [];
+  for (const e of store.getEdgesByTarget(qn)) {
+    if (e.kind === "INHERITS" || e.kind === "IMPLEMENTS") {
+      edges.push(edgeToDict(e));
+      const node = store.getNode(e.source_qualified);
+      if (node)
+        results.push(nodeToDict(node));
+    }
+  }
+  return { results, edges };
+}
+function queryGraph(params) {
+  const { pattern, target } = params;
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  if (!(pattern in QUERY_DESCRIPTIONS)) {
+    return {
+      status: "error",
+      error: `Unknown pattern '${pattern}'. Available: ${Object.keys(QUERY_DESCRIPTIONS).join(", ")}`
+    };
+  }
+  if (pattern === "references_of") {
+    return searchReferences({
+      pattern: target,
+      scope: params.scope,
+      context_lines: params.context_lines,
+      max_results: params.max_results,
+      repo_root: params.repo_root
+    });
+  }
+  if (pattern === "dependency_chain") {
+    if (!params.target_to) {
+      return {
+        status: "error",
+        error: "dependency_chain requires target_to (destination node)."
+      };
+    }
+    return getDependencyChain({
+      from: target,
+      to: params.target_to,
+      max_depth: 10,
+      repo_root: params.repo_root
+    });
+  }
+  if (pattern === "callers_of" && BUILTIN_NAMES.has(target) && !target.includes("::")) {
+    return {
+      status: "ok",
+      pattern,
+      target,
+      description: QUERY_DESCRIPTIONS[pattern],
+      summary: `'${target}' is a common builtin \u2014 callers_of skipped to avoid noise.`,
+      results: [],
+      edges: []
+    };
+  }
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    let node = store.getNode(target);
+    let resolvedTarget = target;
+    if (!node) {
+      const absTarget = resolve6(root, target);
+      node = store.getNode(absTarget);
+      if (node)
+        resolvedTarget = absTarget;
+    }
+    if (!node) {
+      const candidates = store.searchNodes(target, 5);
+      if (candidates.length === 1) {
+        node = candidates[0];
+        resolvedTarget = node.qualified_name;
+      } else if (candidates.length > 1) {
+        return {
+          status: "ambiguous",
+          summary: `Multiple matches for '${target}'. Please use a qualified name.`,
+          candidates: candidates.map(nodeToDict)
+        };
+      }
+    }
+    if (!node && pattern !== "file_summary") {
+      return { status: "not_found", summary: `No node found matching '${target}'.` };
+    }
+    const qn = node?.qualified_name ?? resolvedTarget;
+    let result;
+    switch (pattern) {
+      case "callers_of":
+        result = callersOf(store, qn, node?.name ?? null);
+        break;
+      case "callees_of":
+        result = edgesBySource(store, qn, "CALLS");
+        break;
+      case "imports_of":
+        result = edgesBySource(store, qn, "IMPORTS_FROM");
+        break;
+      case "importers_of":
+        result = edgesByTarget(store, qn, "IMPORTS_FROM");
+        break;
+      case "children_of":
+        result = edgesBySource(store, qn, "CONTAINS");
+        break;
+      case "tests_for":
+        result = edgesBySource(store, qn, "TESTED_BY");
+        break;
+      case "inheritors_of":
+        result = inheritorsOf(store, qn);
+        break;
+      case "file_summary":
+        result = fileSummary(store, node?.file_path ?? resolvedTarget);
+        break;
+      default:
+        result = { results: [], edges: [] };
+    }
+    return {
+      status: "ok",
+      pattern,
+      target,
+      description: QUERY_DESCRIPTIONS[pattern],
+      summary: `${pattern}(${target}): ${result.results.length} results, ${result.edges.length} edges`,
+      results: result.results,
+      edges: result.edges
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/get-review-context.js
+import { readFileSync as readFileSync14 } from "node:fs";
+import { relative as relative4, resolve as resolve7 } from "node:path";
+function getReviewContext(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  const base = params.base ?? "HEAD~1";
+  const includeSource = params.include_source ?? true;
+  const maxLines = params.max_lines_per_file ?? 200;
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    let changedFiles = params.changed_files?.map((f) => resolve7(root, f));
+    if (!changedFiles || changedFiles.length === 0) {
+      changedFiles = [
+        .../* @__PURE__ */ new Set([
+          ...getChangedFiles(root, base),
+          ...getStagedAndUnstaged(root)
+        ])
+      ];
+    }
+    if (changedFiles.length === 0) {
+      return {
+        status: "ok",
+        summary: "No changed files detected.",
+        context: {
+          changed_files: [],
+          impacted_files: [],
+          graph: { changed_nodes: [], impacted_nodes: [], edges: [] },
+          source_snippets: {},
+          review_guidance: {}
+        }
+      };
+    }
+    const impact = getImpactRadius(store, changedFiles, params.max_depth ?? 2);
+    const sourceSnippets = {};
+    if (includeSource) {
+      for (const f of changedFiles) {
+        try {
+          const content = readFileSync14(f, "utf-8");
+          const lines = content.split("\n");
+          const snippet = lines.length > maxLines ? lines.slice(0, maxLines).join("\n") + `
+... (${lines.length - maxLines} more lines)` : content;
+          sourceSnippets[relative4(root, f)] = snippet;
+        } catch {
+        }
+      }
+    }
+    const guidance = {};
+    const wideImpact = impact.impacted_files.length > 5;
+    if (wideImpact) {
+      guidance["wide_impact"] = [
+        `This change impacts ${impact.impacted_files.length} files \u2014 review carefully for breaking changes.`
+      ];
+    }
+    const untestedFunctions = [];
+    for (const n of impact.changed_nodes) {
+      if (n.kind === "Function" && !n.is_test) {
+        const testedBy = store.getEdgesBySource(n.qualified_name);
+        const hasTest = testedBy.some((e) => e.kind === "TESTED_BY");
+        if (!hasTest) {
+          untestedFunctions.push(n.name);
+        }
+      }
+    }
+    if (untestedFunctions.length > 0) {
+      guidance["test_coverage"] = [
+        `${untestedFunctions.length} changed functions have no test coverage: ${untestedFunctions.join(", ")}`
+      ];
+    }
+    const summary = [
+      `${changedFiles.length} changed files`,
+      `${impact.impacted_files.length} impacted files`,
+      `${impact.changed_nodes.length} changed nodes`,
+      untestedFunctions.length > 0 ? `${untestedFunctions.length} untested functions` : null
+    ].filter(Boolean).join(", ");
+    return {
+      status: "ok",
+      summary,
+      context: {
+        changed_files: changedFiles.map((f) => relative4(root, f)),
+        impacted_files: impact.impacted_files.map((f) => relative4(root, f)),
+        graph: {
+          changed_nodes: impact.changed_nodes.map(nodeToDict),
+          impacted_nodes: impact.impacted_nodes.map(nodeToDict),
+          edges: impact.edges.map(edgeToDict)
+        },
+        source_snippets: sourceSnippets,
+        review_guidance: guidance
+      }
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/get-impact-radius.js
+import { relative as relative5 } from "node:path";
+function getImpactRadiusTool(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  const base = params.base ?? "HEAD~1";
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    let changedFiles = params.changed_files;
+    if (!changedFiles || changedFiles.length === 0) {
+      changedFiles = [
+        .../* @__PURE__ */ new Set([
+          ...getChangedFiles(root, base),
+          ...getStagedAndUnstaged(root)
+        ])
+      ];
+    }
+    if (changedFiles.length === 0) {
+      return {
+        status: "ok",
+        summary: "No changed files detected.",
+        changed_files: [],
+        changed_nodes: [],
+        impacted_nodes: [],
+        impacted_files: [],
+        edges: []
+      };
+    }
+    const result = getImpactRadius(store, changedFiles, params.max_depth ?? 2);
+    const summary = [
+      `${result.changed_nodes.length} changed nodes`,
+      `${result.impacted_nodes.length} impacted nodes`,
+      `${result.impacted_files.length} impacted files`,
+      result.truncated ? "(truncated)" : ""
+    ].filter(Boolean).join(", ");
+    return {
+      status: "ok",
+      summary,
+      changed_files: changedFiles.map((f) => relative5(root, f)),
+      changed_nodes: result.changed_nodes.map(nodeToDict),
+      impacted_nodes: result.impacted_nodes.map(nodeToDict),
+      impacted_files: result.impacted_files.map((f) => relative5(root, f)),
+      edges: result.edges.map(edgeToDict),
+      truncated: result.truncated,
+      total_impacted: result.total_impacted
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/find-large-functions.js
+function findLargeFunctions(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  const minLines = params.min_lines ?? 150;
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const nodes = store.getNodesBySize(minLines, void 0, params.kind, params.file_pattern);
+    const results = nodes.map((n) => nodeToDict(n));
+    const summary = `Found ${results.length} nodes with ${minLines}+ lines`;
+    return {
+      status: "ok",
+      summary,
+      min_lines: minLines,
+      results
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/semantic-search-nodes.js
+function semanticSearchNodes(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    let nodes = store.searchNodes(params.query, params.limit ?? 20);
+    if (params.kind) {
+      nodes = nodes.filter((n) => n.kind === params.kind);
+    }
+    const results = nodes.map((n) => nodeToDict(n));
+    const summary = `Found ${results.length} nodes matching "${params.query}"`;
+    return {
+      status: "ok",
+      summary,
+      query: params.query,
+      search_mode: "keyword",
+      results
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/list-graph-stats.js
+function listGraphStats(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const stats = store.getStats();
+    const summary = [
+      `Graph: ${stats.total_nodes} nodes, ${stats.total_edges} edges`,
+      `Files: ${stats.files_count}`,
+      `Languages: ${stats.languages.join(", ") || "none"}`,
+      `Last updated: ${stats.last_updated ?? "never"}`
+    ].join(". ");
+    return {
+      status: "ok",
+      summary,
+      ...stats
+    };
+  } finally {
+    store.close();
+  }
+}
 
 // dist/tools/generate-graph-html.js
 import { writeFileSync as writeFileSync2 } from "node:fs";
-import { basename as basename11, dirname as dirname9, join as join5, relative as relative3, resolve as resolve5 } from "node:path";
-
-// dist/store.js
-import { DatabaseSync } from "node:sqlite";
-import { existsSync as existsSync4, mkdirSync, writeFileSync } from "node:fs";
-import { dirname as dirname8 } from "node:path";
-
-// dist/serialization.js
-function makeQualifiedName(node) {
-  if (node.kind === "File")
-    return node.file_path;
-  if (node.parent_name)
-    return `${node.file_path}::${node.parent_name}.${node.name}`;
-  return `${node.file_path}::${node.name}`;
-}
-function rowToNode(row) {
-  return {
-    id: row.id,
-    kind: row.kind,
-    name: row.name,
-    qualified_name: row.qualified_name,
-    file_path: row.file_path,
-    line_start: row.line_start,
-    line_end: row.line_end,
-    language: row.language ?? "",
-    parent_name: row.parent_name ?? null,
-    params: row.params ?? null,
-    return_type: row.return_type ?? null,
-    modifiers: row.modifiers ?? null,
-    summary: row.summary ?? null,
-    is_test: row.is_test === 1,
-    file_hash: row.file_hash ?? null,
-    extra: JSON.parse(row.extra ?? "{}"),
-    updated_at: row.updated_at
-  };
-}
-function rowToEdge(row) {
-  return {
-    id: row.id,
-    kind: row.kind,
-    source_qualified: row.source_qualified,
-    target_qualified: row.target_qualified,
-    file_path: row.file_path,
-    line: row.line,
-    extra: JSON.parse(row.extra ?? "{}"),
-    updated_at: row.updated_at
-  };
-}
-
-// dist/store-queries.js
-function getNode(db, qualifiedName) {
-  const row = db.prepare("SELECT * FROM nodes WHERE qualified_name = ?").get(qualifiedName);
-  return row ? rowToNode(row) : null;
-}
-function getNodesByFile(db, filePath) {
-  const rows = db.prepare("SELECT * FROM nodes WHERE file_path = ?").all(filePath);
-  return rows.map(rowToNode);
-}
-function getAllFiles(db) {
-  const rows = db.prepare("SELECT DISTINCT file_path FROM nodes ORDER BY file_path").all();
-  return rows.map((r) => r.file_path);
-}
-function searchNodes(db, query, limit = 20) {
-  const words = query.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0)
-    return [];
-  const conditions = words.map(() => "(name LIKE ? OR qualified_name LIKE ? OR summary LIKE ?)");
-  const params = [];
-  for (const w of words) {
-    params.push(`%${w}%`, `%${w}%`, `%${w}%`);
-  }
-  const sql = `SELECT * FROM nodes WHERE ${conditions.join(" AND ")} LIMIT ?`;
-  params.push(limit);
-  const rows = db.prepare(sql).all(...params);
-  return rows.map(rowToNode);
-}
-function getNodesBySize(db, minLines, maxLines, kind, filePathPattern, limit = 50) {
-  const conditions = [
-    "(line_end - line_start + 1) >= ?"
-  ];
-  const params = [minLines];
-  if (maxLines != null) {
-    conditions.push("(line_end - line_start + 1) <= ?");
-    params.push(maxLines);
-  }
-  if (kind) {
-    conditions.push("kind = ?");
-    params.push(kind);
-  }
-  if (filePathPattern) {
-    const likePattern = filePathPattern.replace(/\*\*/g, "%").replace(/\*/g, "%").replace(/\?/g, "_");
-    conditions.push("file_path LIKE ?");
-    params.push(likePattern);
-  }
-  const sql = `
-    SELECT * FROM nodes
-    WHERE ${conditions.join(" AND ")}
-    ORDER BY (line_end - line_start + 1) DESC
-    LIMIT ?
-  `;
-  params.push(limit);
-  const rows = db.prepare(sql).all(...params);
-  return rows.map(rowToNode);
-}
-function getEdgesBySource(db, qualifiedName) {
-  const rows = db.prepare("SELECT * FROM edges WHERE source_qualified = ?").all(qualifiedName);
-  return rows.map(rowToEdge);
-}
-function getEdgesByTarget(db, qualifiedName) {
-  const rows = db.prepare("SELECT * FROM edges WHERE target_qualified = ?").all(qualifiedName);
-  return rows.map(rowToEdge);
-}
-function searchEdgesByTargetName(db, name2, kind = "CALLS") {
-  const rows = db.prepare("SELECT * FROM edges WHERE kind = ? AND (target_qualified LIKE ? OR target_qualified = ?)").all(kind, `%::${name2}`, name2);
-  return rows.map(rowToEdge);
-}
-function getAllEdges(db) {
-  const rows = db.prepare("SELECT * FROM edges").all();
-  return rows.map(rowToEdge);
-}
-function getEdgesAmong(db, qualifiedNames) {
-  if (qualifiedNames.size === 0)
-    return [];
-  db.exec("CREATE TEMP TABLE IF NOT EXISTS _qn_filter (qn TEXT PRIMARY KEY)");
-  db.exec("DELETE FROM _qn_filter");
-  const insert = db.prepare("INSERT OR IGNORE INTO _qn_filter (qn) VALUES (?)");
-  db.exec("BEGIN");
-  for (const n of qualifiedNames)
-    insert.run(n);
-  db.exec("COMMIT");
-  const rows = db.prepare(`SELECT e.* FROM edges e
-       WHERE e.source_qualified IN (SELECT qn FROM _qn_filter)
-         AND e.target_qualified IN (SELECT qn FROM _qn_filter)`).all();
-  db.exec("DELETE FROM _qn_filter");
-  return rows.map(rowToEdge);
-}
-function getAllEntities(db) {
-  return db.prepare(`SELECT e.name, e.display_name, e.source,
-              COUNT(em.node_qualified_name) as member_count
-       FROM entities e
-       LEFT JOIN entity_members em ON em.entity_name = e.name
-       GROUP BY e.name
-       ORDER BY member_count DESC`).all();
-}
-function getEntityMembers(db, entityName, minConfidence = 0.5) {
-  const rows = db.prepare(`SELECT n.*, em.role, em.confidence
-       FROM entity_members em
-       JOIN nodes n ON n.qualified_name = em.node_qualified_name
-       WHERE em.entity_name = ? AND em.confidence >= ?
-       ORDER BY em.role, n.file_path`).all(entityName, minConfidence);
-  return rows.map((r) => ({
-    node: rowToNode(r),
-    role: r.role,
-    confidence: r.confidence
-  }));
-}
-function getEntitiesForNode(db, qualifiedName) {
-  return db.prepare(`SELECT entity_name, role, confidence
-       FROM entity_members
-       WHERE node_qualified_name = ?`).all(qualifiedName);
-}
-function getEntityRoleCounts(db, entityName) {
-  const rows = db.prepare(`SELECT role, COUNT(*) as c FROM entity_members
-       WHERE entity_name = ? GROUP BY role`).all(entityName);
-  const result = {};
-  for (const r of rows)
-    result[r.role] = r.c;
-  return result;
-}
-function getStats(db, getMetadata) {
-  const totalNodes = db.prepare("SELECT COUNT(*) as c FROM nodes").get().c;
-  const totalEdges = db.prepare("SELECT COUNT(*) as c FROM edges").get().c;
-  const nodesByKind = {};
-  const nkRows = db.prepare("SELECT kind, COUNT(*) as c FROM nodes GROUP BY kind").all();
-  for (const r of nkRows)
-    nodesByKind[r.kind] = r.c;
-  const edgesByKind = {};
-  const ekRows = db.prepare("SELECT kind, COUNT(*) as c FROM edges GROUP BY kind").all();
-  for (const r of ekRows)
-    edgesByKind[r.kind] = r.c;
-  const langRows = db.prepare("SELECT DISTINCT language FROM nodes WHERE language IS NOT NULL AND language != ''").all();
-  const languages = langRows.map((r) => r.language);
-  const filesCount = db.prepare("SELECT COUNT(DISTINCT file_path) as c FROM nodes").get().c;
-  const lastUpdated = getMetadata("last_updated");
-  return {
-    total_nodes: totalNodes,
-    total_edges: totalEdges,
-    nodes_by_kind: nodesByKind,
-    edges_by_kind: edgesByKind,
-    languages,
-    files_count: filesCount,
-    last_updated: lastUpdated
-  };
-}
-
-// dist/store.js
-var SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS nodes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    kind TEXT NOT NULL,
-    name TEXT NOT NULL,
-    qualified_name TEXT NOT NULL UNIQUE,
-    file_path TEXT NOT NULL,
-    line_start INTEGER,
-    line_end INTEGER,
-    language TEXT,
-    parent_name TEXT,
-    params TEXT,
-    return_type TEXT,
-    modifiers TEXT,
-    summary TEXT,
-    is_test INTEGER DEFAULT 0,
-    file_hash TEXT,
-    extra TEXT DEFAULT '{}',
-    updated_at REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS edges (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    kind TEXT NOT NULL,
-    source_qualified TEXT NOT NULL,
-    target_qualified TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    line INTEGER DEFAULT 0,
-    extra TEXT DEFAULT '{}',
-    updated_at REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS metadata (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file_path);
-CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
-CREATE INDEX IF NOT EXISTS idx_nodes_qualified ON nodes(qualified_name);
-CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_qualified);
-CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_qualified);
-CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind);
-CREATE INDEX IF NOT EXISTS idx_edges_file ON edges(file_path);
-CREATE INDEX IF NOT EXISTS idx_edges_kind_target ON edges(kind, target_qualified);
-CREATE INDEX IF NOT EXISTS idx_edges_kind_source ON edges(kind, source_qualified);
-CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
-
-CREATE TABLE IF NOT EXISTS entities (
-    name TEXT PRIMARY KEY,
-    display_name TEXT NOT NULL,
-    source TEXT NOT NULL,
-    updated_at REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS entity_members (
-    entity_name TEXT NOT NULL REFERENCES entities(name),
-    node_qualified_name TEXT NOT NULL,
-    role TEXT NOT NULL,
-    confidence REAL DEFAULT 1.0,
-    updated_at REAL NOT NULL,
-    PRIMARY KEY (entity_name, node_qualified_name)
-);
-
-CREATE INDEX IF NOT EXISTS idx_em_entity ON entity_members(entity_name);
-CREATE INDEX IF NOT EXISTS idx_em_node ON entity_members(node_qualified_name);
-
-CREATE TABLE IF NOT EXISTS audit_findings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    audit_run_id TEXT NOT NULL,
-    category TEXT NOT NULL,
-    finding_type TEXT NOT NULL,
-    severity TEXT NOT NULL,
-    node_qualified_name TEXT,
-    file_path TEXT,
-    title TEXT NOT NULL,
-    detail TEXT DEFAULT '{}',
-    score_impact REAL DEFAULT 0,
-    created_at REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS test_coverage (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    audit_run_id TEXT NOT NULL,
-    node_qualified_name TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    has_test_edge INTEGER DEFAULT 0,
-    coverage_pct REAL,
-    test_count INTEGER DEFAULT 0,
-    created_at REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS audit_scores (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    audit_run_id TEXT NOT NULL,
-    category TEXT NOT NULL,
-    raw_score REAL NOT NULL,
-    weight REAL NOT NULL,
-    adjusted_weight REAL NOT NULL,
-    grade TEXT NOT NULL,
-    grade_color TEXT NOT NULL,
-    finding_count INTEGER DEFAULT 0,
-    created_at REAL NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_af_run ON audit_findings(audit_run_id);
-CREATE INDEX IF NOT EXISTS idx_af_category ON audit_findings(category);
-CREATE INDEX IF NOT EXISTS idx_af_severity ON audit_findings(severity);
-CREATE INDEX IF NOT EXISTS idx_af_file ON audit_findings(file_path);
-CREATE INDEX IF NOT EXISTS idx_tc_run ON test_coverage(audit_run_id);
-CREATE INDEX IF NOT EXISTS idx_tc_file ON test_coverage(file_path);
-CREATE INDEX IF NOT EXISTS idx_as_run ON audit_scores(audit_run_id);
-
--- Graph \u2192 Memory bridge (reverse direction of Cortex ai_graph_links)
-CREATE TABLE IF NOT EXISTS memory_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    node_qualified_name TEXT NOT NULL,
-    cortex_memory_node_id TEXT,
-    cortex_session_id TEXT,
-    link_type TEXT DEFAULT 'about',
-    agent_id TEXT NOT NULL,
-    content_preview TEXT,
-    created_at REAL NOT NULL,
-    CHECK (cortex_memory_node_id IS NOT NULL OR cortex_session_id IS NOT NULL)
-);
-
-CREATE INDEX IF NOT EXISTS idx_ml_node ON memory_links(node_qualified_name);
-CREATE INDEX IF NOT EXISTS idx_ml_cortex_mem ON memory_links(cortex_memory_node_id);
-CREATE INDEX IF NOT EXISTS idx_ml_cortex_sess ON memory_links(cortex_session_id);
-CREATE INDEX IF NOT EXISTS idx_ml_agent ON memory_links(agent_id);
-`;
-var GraphStore = class {
-  db;
-  constructor(dbPath) {
-    const dir = dirname8(dbPath);
-    if (!existsSync4(dir)) {
-      mkdirSync(dir, { recursive: true });
-      const gitignorePath = `${dir}/.gitignore`;
-      if (!existsSync4(gitignorePath)) {
-        writeFileSync(gitignorePath, "*\n");
-      }
-    }
-    this.db = new DatabaseSync(dbPath);
-    this.db.exec("PRAGMA journal_mode = WAL");
-    this.db.exec("PRAGMA busy_timeout = 30000");
-    this.db.exec(SCHEMA_SQL);
-    try {
-      this.db.exec("ALTER TABLE nodes ADD COLUMN summary TEXT");
-    } catch {
-    }
-  }
-  /** Expose the raw database for audit-store and other modules. */
-  getDb() {
-    return this.db;
-  }
-  close() {
-    this.db.close();
-  }
-  commit() {
-  }
-  // ── Memory Links (Graph → Cortex bridge) ──────────────────────
-  createMemoryLink(params) {
-    const now = Date.now() / 1e3;
-    const result = this.db.prepare(`INSERT INTO memory_links (node_qualified_name, cortex_memory_node_id, cortex_session_id, link_type, agent_id, content_preview, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(params.node_qualified_name, params.cortex_memory_node_id ?? null, params.cortex_session_id ?? null, params.link_type ?? "about", params.agent_id, params.content_preview ?? null, now);
-    return result.lastInsertRowid;
-  }
-  getMemoryLinksForNode(node_qualified_name) {
-    return this.db.prepare("SELECT * FROM memory_links WHERE node_qualified_name = ? ORDER BY created_at DESC").all(node_qualified_name);
-  }
-  getMemoryLinksForFile(file_path) {
-    return this.db.prepare(`SELECT ml.* FROM memory_links ml
-       JOIN nodes n ON ml.node_qualified_name = n.qualified_name
-       WHERE n.file_path = ?
-       ORDER BY ml.created_at DESC`).all(file_path);
-  }
-  // ── Metadata ───────────────────────────────────────────────────
-  setMetadata(key, value) {
-    this.db.prepare("INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)").run(key, value);
-  }
-  getMetadata(key) {
-    const row = this.db.prepare("SELECT value FROM metadata WHERE key = ?").get(key);
-    return row?.value ?? null;
-  }
-  // ── Node CRUD ──────────────────────────────────────────────────
-  upsertNode(node, fileHash2) {
-    const qn = makeQualifiedName(node);
-    const now = Date.now() / 1e3;
-    const stmt = this.db.prepare(`
-      INSERT INTO nodes (kind, name, qualified_name, file_path, line_start, line_end,
-                         language, parent_name, params, return_type, modifiers, summary,
-                         is_test, file_hash, extra, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(qualified_name) DO UPDATE SET
-        kind=excluded.kind, name=excluded.name, file_path=excluded.file_path,
-        line_start=excluded.line_start, line_end=excluded.line_end,
-        language=excluded.language, parent_name=excluded.parent_name,
-        params=excluded.params, return_type=excluded.return_type,
-        modifiers=excluded.modifiers, summary=excluded.summary, is_test=excluded.is_test,
-        file_hash=excluded.file_hash, extra=excluded.extra, updated_at=excluded.updated_at
-    `);
-    const info2 = stmt.run(node.kind, node.name, qn, node.file_path, node.line_start, node.line_end, node.language ?? null, node.parent_name ?? null, node.params ?? null, node.return_type ?? null, node.modifiers ?? null, node.summary ?? null, node.is_test ? 1 : 0, fileHash2 ?? null, JSON.stringify(node.extra ?? {}), now);
-    return Number(info2.lastInsertRowid);
-  }
-  upsertEdge(edge) {
-    const now = Date.now() / 1e3;
-    const stmt = this.db.prepare(`
-      INSERT INTO edges (kind, source_qualified, target_qualified, file_path, line, extra, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT DO NOTHING
-    `);
-    const info2 = stmt.run(edge.kind, edge.source, edge.target, edge.file_path, edge.line, JSON.stringify(edge.extra ?? {}), now);
-    return Number(info2.lastInsertRowid);
-  }
-  removeFileData(filePath) {
-    this.db.prepare("DELETE FROM nodes WHERE file_path = ?").run(filePath);
-    this.db.prepare("DELETE FROM edges WHERE file_path = ?").run(filePath);
-  }
-  storeFileNodesEdges(filePath, nodes, edges, fileHash2) {
-    this.db.exec("BEGIN");
-    try {
-      this.removeFileData(filePath);
-      for (const node of nodes) {
-        this.upsertNode(node, fileHash2);
-      }
-      for (const edge of edges) {
-        this.upsertEdge(edge);
-      }
-      this.db.exec("COMMIT");
-    } catch (err2) {
-      this.db.exec("ROLLBACK");
-      throw err2;
-    }
-  }
-  // ── Entity CRUD ────────────────────────────────────────────────
-  upsertEntity(name2, displayName, source) {
-    const now = Date.now() / 1e3;
-    this.db.prepare(`INSERT INTO entities (name, display_name, source, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(name) DO UPDATE SET
-           display_name=excluded.display_name, source=excluded.source, updated_at=excluded.updated_at`).run(name2, displayName, source, now);
-  }
-  upsertEntityMember(entityName, nodeQualifiedName, role, confidence) {
-    const now = Date.now() / 1e3;
-    this.db.prepare(`INSERT INTO entity_members (entity_name, node_qualified_name, role, confidence, updated_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(entity_name, node_qualified_name) DO UPDATE SET
-           role=excluded.role,
-           confidence=CASE WHEN excluded.confidence > entity_members.confidence
-                          THEN excluded.confidence ELSE entity_members.confidence END,
-           updated_at=excluded.updated_at`).run(entityName, nodeQualifiedName, role, confidence, now);
-  }
-  removeEntityData() {
-    this.db.exec("DELETE FROM entity_members");
-    this.db.exec("DELETE FROM entities");
-  }
-  // ── Query delegation (implementations in store-queries.ts) ─────
-  getNode(qualifiedName) {
-    return getNode(this.db, qualifiedName);
-  }
-  getNodesByFile(filePath) {
-    return getNodesByFile(this.db, filePath);
-  }
-  getAllFiles() {
-    return getAllFiles(this.db);
-  }
-  searchNodes(query, limit = 20) {
-    return searchNodes(this.db, query, limit);
-  }
-  getNodesBySize(minLines, maxLines, kind, filePathPattern, limit = 50) {
-    return getNodesBySize(this.db, minLines, maxLines, kind, filePathPattern, limit);
-  }
-  getEdgesBySource(qualifiedName) {
-    return getEdgesBySource(this.db, qualifiedName);
-  }
-  getEdgesByTarget(qualifiedName) {
-    return getEdgesByTarget(this.db, qualifiedName);
-  }
-  searchEdgesByTargetName(name2, kind = "CALLS") {
-    return searchEdgesByTargetName(this.db, name2, kind);
-  }
-  getAllEdges() {
-    return getAllEdges(this.db);
-  }
-  getEdgesAmong(qualifiedNames) {
-    return getEdgesAmong(this.db, qualifiedNames);
-  }
-  getAllEntities() {
-    return getAllEntities(this.db);
-  }
-  getEntityMembers(entityName, minConfidence = 0.5) {
-    return getEntityMembers(this.db, entityName, minConfidence);
-  }
-  getEntitiesForNode(qualifiedName) {
-    return getEntitiesForNode(this.db, qualifiedName);
-  }
-  getEntityRoleCounts(entityName) {
-    return getEntityRoleCounts(this.db, entityName);
-  }
-  getStats() {
-    return getStats(this.db, this.getMetadata.bind(this));
-  }
-};
+import { basename as basename11, dirname as dirname9, join as join5, relative as relative6, resolve as resolve8 } from "node:path";
 
 // dist/html-styles.js
 function buildStyles() {
@@ -5286,7 +9641,7 @@ function resolveImportTarget(specifier, sourceFile, fileSet) {
   if (!specifier.startsWith("."))
     return null;
   const sourceDir = dirname9(sourceFile);
-  const base = resolve5(sourceDir, specifier);
+  const base = resolve8(sourceDir, specifier);
   if (fileSet.has(base))
     return base;
   const stripped = base.replace(/\.(js|mjs|jsx)$/, "");
@@ -5333,7 +9688,7 @@ function extractVisNodes(store, repoRoot) {
     const fileNode = fileNodes.find((n) => n.kind === "File");
     if (!fileNode)
       continue;
-    const relPath = relative3(repoRoot, filePath);
+    const relPath = relative6(repoRoot, filePath);
     const lines = fileNode.line_end - fileNode.line_start + 1;
     const functions = fileNodes.filter((n) => n.kind === "Function").length;
     const classes = fileNodes.filter((n) => n.kind === "Class").length;
@@ -5431,35 +9786,1084 @@ function generateGraphHtmlTool(params) {
   }
 }
 
-// dist/view-graph.js
-function main() {
-  const args2 = process.argv.slice(2);
-  let outputPath;
-  let repoRoot;
-  for (let i2 = 0; i2 < args2.length; i2++) {
-    if (args2[i2] === "--output" && i2 + 1 < args2.length) {
-      outputPath = args2[i2 + 1];
-      i2++;
-    } else if (args2[i2] === "--repo-root" && i2 + 1 < args2.length) {
-      repoRoot = args2[i2 + 1];
-      i2++;
+// dist/tools/entity-scope.js
+function entityScope(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const minConfidence = params.min_confidence ?? 0.5;
+    if (!params.entity) {
+      const entities = store.getAllEntities();
+      if (entities.length === 0) {
+        return {
+          status: "ok",
+          summary: "No entities detected. Run build_or_update_graph with full_rebuild=true first.",
+          entities: []
+        };
+      }
+      const entitiesWithRoles = entities.map((e) => ({
+        ...e,
+        roles: store.getEntityRoleCounts(e.name)
+      }));
+      return {
+        status: "ok",
+        summary: `${entities.length} entities discovered`,
+        entities: entitiesWithRoles
+      };
+    }
+    const entityName = params.entity.toLowerCase().trim();
+    const allEntities = store.getAllEntities();
+    const entity = allEntities.find((e) => e.name === entityName);
+    if (!entity) {
+      const candidates = allEntities.filter((e) => e.name.includes(entityName));
+      if (candidates.length > 0) {
+        return {
+          status: "ambiguous",
+          summary: `Entity "${entityName}" not found. Did you mean one of these?`,
+          candidates: candidates.map((c) => c.name)
+        };
+      }
+      return {
+        status: "not_found",
+        summary: `Entity "${entityName}" not found. Run entity_scope() with no arguments to list all entities.`
+      };
+    }
+    const members = store.getEntityMembers(entityName, minConfidence);
+    const roles = store.getEntityRoleCounts(entityName);
+    const membersByRole = {};
+    for (const m of members) {
+      if (!membersByRole[m.role])
+        membersByRole[m.role] = [];
+      membersByRole[m.role].push({
+        ...nodeToDict(m.node),
+        confidence: m.confidence
+      });
+    }
+    const sharedWith = /* @__PURE__ */ new Set();
+    for (const m of members) {
+      const otherEntities = store.getEntitiesForNode(m.node.qualified_name);
+      for (const oe of otherEntities) {
+        if (oe.entity_name !== entityName) {
+          sharedWith.add(oe.entity_name);
+        }
+      }
+    }
+    return {
+      status: "ok",
+      summary: `entity "${entityName}": ${members.length} members across ${Object.keys(roles).length} roles`,
+      entity: entityName,
+      display_name: entity.display_name,
+      source: entity.source,
+      roles,
+      members_by_role: membersByRole,
+      shared_with: [...sharedWith].sort()
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/run-audit.js
+import { existsSync as existsSync7, readFileSync as readFileSync16 } from "node:fs";
+import { join as join7, relative as relative9 } from "node:path";
+
+// dist/audit-store.js
+function insertFinding(store, f) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO audit_findings
+       (audit_run_id, category, finding_type, severity, node_qualified_name, file_path, title, detail, score_impact, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(f.audit_run_id, f.category, f.finding_type, f.severity, f.node_qualified_name ?? null, f.file_path ?? null, f.title, JSON.stringify(f.detail ?? {}), f.score_impact, now);
+  return Number(info2.lastInsertRowid);
+}
+function getFindings(store, runId, category) {
+  const db = store.getDb();
+  const sql = category ? "SELECT * FROM audit_findings WHERE audit_run_id = ? AND category = ? ORDER BY severity, score_impact DESC" : "SELECT * FROM audit_findings WHERE audit_run_id = ? ORDER BY category, severity, score_impact DESC";
+  const params = category ? [runId, category] : [runId];
+  const rows = db.prepare(sql).all(...params);
+  return rows.map(rowToFinding);
+}
+function getFindingCounts(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare(`SELECT category, severity, COUNT(*) as c
+       FROM audit_findings WHERE audit_run_id = ?
+       GROUP BY category, severity`).all(runId);
+  const result = {};
+  for (const r of rows) {
+    if (!result[r.category])
+      result[r.category] = {};
+    result[r.category][r.severity] = r.c;
+  }
+  return result;
+}
+function insertTestCoverage(store, tc) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO test_coverage
+       (audit_run_id, node_qualified_name, file_path, has_test_edge, coverage_pct, test_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(tc.audit_run_id, tc.node_qualified_name, tc.file_path, tc.has_test_edge ? 1 : 0, tc.coverage_pct, tc.test_count, now);
+  return Number(info2.lastInsertRowid);
+}
+function getTestCoverageGaps(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare("SELECT * FROM test_coverage WHERE audit_run_id = ? AND has_test_edge = 0 ORDER BY file_path").all(runId);
+  return rows.map(rowToCoverage);
+}
+function insertScore(store, s) {
+  const db = store.getDb();
+  const now = Date.now() / 1e3;
+  const info2 = db.prepare(`INSERT INTO audit_scores
+       (audit_run_id, category, raw_score, weight, adjusted_weight, grade, grade_color, finding_count, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(s.audit_run_id, s.category, s.raw_score, s.weight, s.adjusted_weight, s.grade, s.grade_color, s.finding_count, now);
+  return Number(info2.lastInsertRowid);
+}
+function getScores(store, runId) {
+  const db = store.getDb();
+  const rows = db.prepare("SELECT * FROM audit_scores WHERE audit_run_id = ? ORDER BY category").all(runId);
+  return rows.map(rowToScore);
+}
+function getOverallScore(store, runId) {
+  const scores = getScores(store, runId);
+  if (scores.length === 0)
+    return { score: 0, grade: "F", color: "#ef4444" };
+  const overall = scores.reduce((sum, s) => sum + s.raw_score * s.adjusted_weight, 0);
+  const { grade, color } = gradeFor(overall);
+  return { score: Math.round(overall * 10) / 10, grade, color };
+}
+function getLatestRunId(store) {
+  const db = store.getDb();
+  const row = db.prepare("SELECT audit_run_id FROM audit_scores ORDER BY created_at DESC LIMIT 1").get();
+  return row?.audit_run_id ?? null;
+}
+function gradeFor(score) {
+  if (score >= 90)
+    return { grade: "A", color: "#22c55e" };
+  if (score >= 80)
+    return { grade: "B", color: "#3b82f6" };
+  if (score >= 70)
+    return { grade: "C", color: "#eab308" };
+  if (score >= 60)
+    return { grade: "D", color: "#f97316" };
+  return { grade: "F", color: "#ef4444" };
+}
+function rowToFinding(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    category: row.category,
+    finding_type: row.finding_type,
+    severity: row.severity,
+    node_qualified_name: row.node_qualified_name ?? void 0,
+    file_path: row.file_path ?? void 0,
+    title: row.title,
+    detail: JSON.parse(row.detail || "{}"),
+    score_impact: row.score_impact,
+    created_at: row.created_at
+  };
+}
+function rowToCoverage(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    node_qualified_name: row.node_qualified_name,
+    file_path: row.file_path,
+    has_test_edge: Boolean(row.has_test_edge),
+    coverage_pct: row.coverage_pct ?? null,
+    test_count: row.test_count,
+    created_at: row.created_at
+  };
+}
+function rowToScore(row) {
+  return {
+    id: row.id,
+    audit_run_id: row.audit_run_id,
+    category: row.category,
+    raw_score: row.raw_score,
+    weight: row.weight,
+    adjusted_weight: row.adjusted_weight,
+    grade: row.grade,
+    grade_color: row.grade_color,
+    finding_count: row.finding_count,
+    created_at: row.created_at
+  };
+}
+
+// dist/tools/audit-analyzers.js
+import { execFileSync as execFileSync3 } from "node:child_process";
+import { existsSync as existsSync6, readFileSync as readFileSync15 } from "node:fs";
+import { join as join6, relative as relative7 } from "node:path";
+var IMPACTS = {
+  FILE_400: 5,
+  FILE_600: 15,
+  FILE_800: 30,
+  FUNC_150: 3,
+  TASKS_PER_5: 1,
+  CVE_CRITICAL: 25,
+  CVE_HIGH: 10,
+  CVE_MODERATE: 3,
+  SEMGREP_ERROR: 15,
+  SEMGREP_WARNING: 5,
+  SEMGREP_INFO: 1,
+  MISSING_HEADER: 3,
+  UNTESTED_FUNC: 2,
+  PREFLIGHT_FAIL: 15,
+  PREFLIGHT_WARN: 5,
+  GRAB_BAG: 8,
+  MIXED_CONCERNS: 5,
+  INLINE_CANDIDATE: 2,
+  COLOCATE_CANDIDATE: 2,
+  MISPLACED_APP_CONTENT: 5
+};
+function execSafe(cmd, args2, cwd) {
+  try {
+    return execFileSync3(cmd, args2, {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 6e4
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+function findPkgManager(root) {
+  if (existsSync6(join6(root, "pnpm-lock.yaml")))
+    return "pnpm";
+  if (existsSync6(join6(root, "yarn.lock")))
+    return "yarn";
+  if (existsSync6(join6(root, "package-lock.json")))
+    return "npm";
+  return null;
+}
+function toSeverity(raw) {
+  if (typeof raw === "string") {
+    const lower = raw.toLowerCase();
+    if (lower === "critical" || lower === "high" || lower === "moderate" || lower === "low" || lower === "info") {
+      return lower;
     }
   }
-  const root = findProjectRoot(repoRoot);
+  return "moderate";
+}
+function recommendForSize(lines, threshold, kind) {
+  const ratio = lines / threshold;
+  if (ratio > 2.5) {
+    return {
+      recommendation: "split",
+      reason: `${lines} lines is ${ratio.toFixed(1)}x the ${threshold}-line limit. This needs decomposition.`
+    };
+  }
+  if (ratio > 1.5) {
+    return {
+      recommendation: "split-on-next-touch",
+      reason: `${lines} lines is ${ratio.toFixed(1)}x the limit. Split when you're already editing this ${kind}.`
+    };
+  }
+  return {
+    recommendation: "monitor",
+    reason: `Just over the ${threshold}-line limit. Not urgent \u2014 watch for growth.`
+  };
+}
+var NEXTJS_CONVENTION_FILES = /* @__PURE__ */ new Set([
+  "page.tsx",
+  "layout.tsx",
+  "loading.tsx",
+  "error.tsx",
+  "not-found.tsx",
+  "global-error.tsx",
+  "template.tsx",
+  "default.tsx",
+  "opengraph-image.tsx",
+  "twitter-image.tsx",
+  "icon.tsx",
+  "apple-icon.tsx",
+  "sitemap.tsx",
+  "robots.tsx",
+  "manifest.tsx"
+]);
+function analyzeFileOrganization(store, runId, repoRoot) {
+  const configPath = join6(repoRoot, ".claude", "no-bandaids.json");
+  if (!existsSync6(configPath))
+    return 0;
+  try {
+    const config = JSON.parse(readFileSync15(configPath, "utf-8"));
+    const frameworks = config.frameworks || {};
+    const isNextJs = Object.values(frameworks).some((fw) => fw.frontend === "nextjs");
+    if (!isNextJs)
+      return 0;
+  } catch {
+    return 0;
+  }
+  const db = store.getDb();
+  let findingCount = 0;
+  const rows = db.prepare(`SELECT qualified_name, file_path, name
+       FROM nodes
+       WHERE kind = 'File'
+         AND name LIKE '%.tsx'
+         AND file_path LIKE '%/app/%'
+       ORDER BY file_path`).all();
+  for (const f of rows) {
+    if (NEXTJS_CONVENTION_FILES.has(f.name))
+      continue;
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: "misplaced-app-content",
+      severity: "moderate",
+      node_qualified_name: f.qualified_name,
+      file_path: relative7(repoRoot, f.file_path),
+      title: `Content component '${f.name}' in app/ \u2014 move to components/`,
+      detail: {
+        recommendation: "split",
+        reason: `Route directories should only contain Next.js convention files. Move '${f.name}' to components/pages/ or components/features/ and import from the route's page.tsx.`
+      },
+      score_impact: IMPACTS.MISPLACED_APP_CONTENT
+    });
+    findingCount++;
+  }
+  return findingCount;
+}
+function analyzeTestCoverage(store, runId, repoRoot) {
+  const db = store.getDb();
+  let findingCount = 0;
+  const rows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(e.id) as test_count
+       FROM nodes n
+       LEFT JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'TESTED_BY'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+       GROUP BY n.qualified_name`).all();
+  for (const r of rows) {
+    insertTestCoverage(store, {
+      audit_run_id: runId,
+      node_qualified_name: r.qualified_name,
+      file_path: relative7(repoRoot, r.file_path),
+      has_test_edge: r.test_count > 0,
+      coverage_pct: null,
+      test_count: r.test_count
+    });
+    if (r.test_count === 0) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "testing",
+        finding_type: "untested-function",
+        severity: "low",
+        node_qualified_name: r.qualified_name,
+        file_path: relative7(repoRoot, r.file_path),
+        title: `Function "${r.name}" has no test coverage`,
+        detail: { name: r.name },
+        score_impact: IMPACTS.UNTESTED_FUNC
+      });
+      findingCount++;
+    }
+  }
+  return findingCount;
+}
+function analyzeSecurityCLI(store, runId, repoRoot) {
+  let findingCount = 0;
+  const pkgManager = findPkgManager(repoRoot);
+  if (pkgManager) {
+    const output = execSafe(pkgManager, ["audit", "--json"], repoRoot);
+    if (output) {
+      try {
+        const data = JSON.parse(output);
+        const vulns = data.vulnerabilities ?? data.advisories ?? {};
+        for (const [name2, info2] of Object.entries(vulns)) {
+          const severity = toSeverity(info2.severity);
+          const impact = severity === "critical" ? IMPACTS.CVE_CRITICAL : severity === "high" ? IMPACTS.CVE_HIGH : IMPACTS.CVE_MODERATE;
+          insertFinding(store, {
+            audit_run_id: runId,
+            category: "security",
+            finding_type: `cve-${severity}`,
+            severity,
+            title: `${severity.toUpperCase()} vulnerability in ${name2}`,
+            detail: {
+              package: name2,
+              severity,
+              fix_available: Boolean(info2.fixAvailable)
+            },
+            score_impact: impact
+          });
+          findingCount++;
+        }
+      } catch {
+      }
+    }
+  }
+  return findingCount;
+}
+
+// dist/tools/audit-cohesion.js
+import { relative as relative8 } from "node:path";
+function recommendAction(findingType, lines, cohesionRatio, funcCount, fanOut) {
+  if (findingType === "grab-bag") {
+    if (lines > 500 && cohesionRatio < 0.1) {
+      return {
+        action: "split",
+        reason: `${lines} lines with ${Math.round(cohesionRatio * 100)}% cohesion \u2014 functions are unrelated. Split into domain-specific modules.`,
+        severity: "high",
+        impact: IMPACTS.GRAB_BAG
+      };
+    }
+    if (lines > 300) {
+      return {
+        action: "split-on-next-touch",
+        reason: `Over 300 lines with low cohesion. Split when you're already editing this file.`,
+        severity: "moderate",
+        impact: IMPACTS.GRAB_BAG
+      };
+    }
+    return {
+      action: "monitor",
+      reason: `${funcCount} functions but only ${lines} lines \u2014 small utility file. Monitor for growth.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.GRAB_BAG / 2)
+    };
+  }
+  if (findingType === "mixed-concerns") {
+    if (lines > 400 && (fanOut ?? 0) >= 6) {
+      return {
+        action: "split",
+        reason: `${lines} lines reaching into ${fanOut} different files \u2014 too many responsibilities. Extract focused modules.`,
+        severity: "moderate",
+        impact: IMPACTS.MIXED_CONCERNS
+      };
+    }
+    if (funcCount <= 3) {
+      return {
+        action: "ignore",
+        reason: `Only ${funcCount} functions \u2014 this is a pipeline/orchestrator, high fan-out is expected.`,
+        severity: "info",
+        impact: 0
+      };
+    }
+    return {
+      action: "monitor",
+      reason: `Moderate fan-out. Not urgent \u2014 revisit if the file keeps growing.`,
+      severity: "low",
+      impact: Math.round(IMPACTS.MIXED_CONCERNS / 2)
+    };
+  }
+  return {
+    action: "monitor",
+    reason: "Review manually.",
+    severity: "info",
+    impact: 0
+  };
+}
+function analyzeCohesion(store, db, runId, repoRoot) {
+  let findingCount = 0;
+  const filesWithManyFunctions = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn, COUNT(n.id) as func_count
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind IN ('Function', 'Test')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING func_count >= 8
+       ORDER BY func_count DESC`).all();
+  for (const file of filesWithManyFunctions) {
+    const funcQns = db.prepare(`SELECT qualified_name FROM nodes
+         WHERE file_path = ? AND kind IN ('Function', 'Test')`).all(file.file_path);
+    const qnSet = new Set(funcQns.map((r) => r.qualified_name));
+    const internalCalls = db.prepare(`SELECT COUNT(*) as cnt FROM edges
+         WHERE kind = 'CALLS'
+           AND source_qualified IN (${funcQns.map(() => "?").join(",")})
+           AND target_qualified IN (${funcQns.map(() => "?").join(",")})`).get(...funcQns.map((r) => r.qualified_name), ...funcQns.map((r) => r.qualified_name));
+    const cohesionRatio = file.func_count > 0 ? internalCalls.cnt / file.func_count : 0;
+    if (cohesionRatio < 0.3) {
+      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(file.file_qn);
+      const lines = fileSize?.lines ?? 0;
+      const rec = recommendAction("grab-bag", lines, cohesionRatio, file.func_count);
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "grab-bag",
+        severity: rec.severity,
+        node_qualified_name: file.file_qn,
+        file_path: relative8(repoRoot, file.file_path),
+        title: `"Grab bag" file: ${file.func_count} functions, only ${internalCalls.cnt} internal calls (${Math.round(cohesionRatio * 100)}% cohesion)`,
+        detail: {
+          function_count: file.func_count,
+          internal_calls: internalCalls.cnt,
+          cohesion_ratio: Math.round(cohesionRatio * 100) / 100,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason
+        },
+        score_impact: rec.impact
+      });
+      findingCount++;
+    }
+  }
+  const fanOutRows = db.prepare(`SELECT f.file_path, f.qualified_name as file_qn,
+              COUNT(DISTINCT e.file_path) as call_files
+       FROM nodes f
+       JOIN nodes n ON n.file_path = f.file_path AND n.kind = 'Function'
+       JOIN edges e ON e.source_qualified = n.qualified_name AND e.kind = 'CALLS'
+         AND e.target_qualified NOT LIKE (f.file_path || '%')
+       WHERE f.kind = 'File' AND f.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY f.file_path
+       HAVING call_files >= 4
+       ORDER BY call_files DESC`).all();
+  for (const row of fanOutRows) {
+    const funcCount = db.prepare(`SELECT COUNT(*) as cnt FROM nodes
+         WHERE file_path = ? AND kind = 'Function'`).get(row.file_path);
+    if (funcCount.cnt >= 5) {
+      const fileSize = db.prepare("SELECT (line_end - line_start + 1) as lines FROM nodes WHERE qualified_name = ?").get(row.file_qn);
+      const lines = fileSize?.lines ?? 0;
+      const rec = recommendAction("mixed-concerns", lines, 0, funcCount.cnt, row.call_files);
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "mixed-concerns",
+        severity: rec.severity,
+        node_qualified_name: row.file_qn,
+        file_path: relative8(repoRoot, row.file_path),
+        title: `Mixed concerns: ${funcCount.cnt} functions calling into ${row.call_files} different files`,
+        detail: {
+          function_count: funcCount.cnt,
+          external_file_targets: row.call_files,
+          lines,
+          recommendation: rec.action,
+          reason: rec.reason
+        },
+        score_impact: rec.impact
+      });
+      findingCount++;
+    }
+  }
+  const singleCallerRows = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as caller_files,
+              MIN(e.file_path) as sole_caller_file
+       FROM nodes n
+       JOIN edges e ON e.target_qualified = n.qualified_name AND e.kind = 'CALLS'
+       WHERE n.kind = 'Function' AND n.is_test = 0
+         AND n.language IN ('typescript', 'tsx', 'javascript', 'jsx')
+       GROUP BY n.qualified_name
+       HAVING caller_files = 1
+         AND sole_caller_file != n.file_path`).all();
+  const singleCallerByFile = /* @__PURE__ */ new Map();
+  for (const row of singleCallerRows) {
+    const existing = singleCallerByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    singleCallerByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, funcs] of singleCallerByFile) {
+    if (funcs.length >= 3) {
+      for (const f of funcs) {
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "inline-candidate",
+          severity: "info",
+          node_qualified_name: f.qualified_name,
+          file_path: relative8(repoRoot, f.file_path),
+          title: `"${f.name}" only called from ${relative8(repoRoot, f.sole_caller_file)} \u2014 co-locate?`,
+          detail: {
+            function_name: f.name,
+            sole_caller: relative8(repoRoot, f.sole_caller_file),
+            recommendation: "move-on-next-touch",
+            reason: "Function has a single consumer. Co-locate when you're already editing either file \u2014 not worth a dedicated refactor."
+          },
+          score_impact: IMPACTS.INLINE_CANDIDATE
+        });
+        findingCount++;
+      }
+    }
+  }
+  const singleImporterTypes = db.prepare(`SELECT n.qualified_name, n.name, n.file_path,
+              COUNT(DISTINCT e.file_path) as importer_files,
+              MIN(e.file_path) as sole_importer
+       FROM nodes n
+       JOIN edges e ON e.target_qualified LIKE ('%' || n.name || '%')
+         AND e.kind = 'IMPORTS_FROM'
+       WHERE n.kind = 'Type'
+         AND n.language IN ('typescript', 'tsx')
+       GROUP BY n.qualified_name
+       HAVING importer_files = 1
+         AND sole_importer != n.file_path`).all();
+  const typesByFile = /* @__PURE__ */ new Map();
+  for (const row of singleImporterTypes) {
+    const existing = typesByFile.get(row.file_path) ?? [];
+    existing.push(row);
+    typesByFile.set(row.file_path, existing);
+  }
+  for (const [filePath, types] of typesByFile) {
+    if (types.length >= 3) {
+      insertFinding(store, {
+        audit_run_id: runId,
+        category: "code-quality",
+        finding_type: "colocate-types",
+        severity: "info",
+        file_path: relative8(repoRoot, filePath),
+        title: `${types.length} types each only imported by one file \u2014 co-locate with consumers?`,
+        detail: {
+          type_count: types.length,
+          types: types.slice(0, 5).map((t) => ({
+            name: t.name,
+            sole_importer: relative8(repoRoot, t.sole_importer)
+          })),
+          recommendation: "move-on-next-touch",
+          reason: "Types have single consumers. Move them when you're already editing the consumer file."
+        },
+        score_impact: IMPACTS.COLOCATE_CANDIDATE
+      });
+      findingCount++;
+    }
+  }
+  return findingCount;
+}
+
+// dist/tools/audit-scoring.js
+var CATEGORY_WEIGHTS = {
+  "code-quality": 0.3,
+  security: 0.25,
+  testing: 0.25,
+  deployment: 0.2
+};
+function computeScores(store, runId, availableCategories) {
+  const db = store.getDb();
+  const totalWeight = [...availableCategories].reduce((sum, cat) => sum + CATEGORY_WEIGHTS[cat], 0);
+  for (const category of availableCategories) {
+    const row = db.prepare(`SELECT COALESCE(SUM(score_impact), 0) as total, COUNT(*) as cnt
+         FROM audit_findings
+         WHERE audit_run_id = ? AND category = ?`).get(runId, category);
+    let score = Math.max(0, 100 - row.total);
+    if (category === "testing") {
+      const testNodes = db.prepare("SELECT COUNT(*) as c FROM nodes WHERE kind = 'Test'").get();
+      if (testNodes.c === 0)
+        score = 0;
+    }
+    if (category === "security") {
+      const criticals = db.prepare(`SELECT COUNT(*) as c FROM audit_findings
+           WHERE audit_run_id = ? AND category = 'security' AND severity = 'critical'`).get(runId);
+      if (criticals.c > 0)
+        score = Math.min(score, 59);
+    }
+    const { grade, color } = gradeFor(score);
+    const adjustedWeight = CATEGORY_WEIGHTS[category] / totalWeight;
+    insertScore(store, {
+      audit_run_id: runId,
+      category,
+      raw_score: score,
+      weight: CATEGORY_WEIGHTS[category],
+      adjusted_weight: adjustedWeight,
+      grade,
+      grade_color: color,
+      finding_count: row.cnt
+    });
+  }
+}
+
+// dist/tools/run-audit.js
+function analyzeCodeQuality(store, runId, repoRoot) {
+  const db = store.getDb();
+  let findingCount = 0;
+  const fileRows = db.prepare(`SELECT qualified_name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'File' AND (line_end - line_start + 1) > 400
+       ORDER BY lines DESC`).all();
+  for (const f of fileRows) {
+    let impact;
+    let severity;
+    let findingType;
+    if (f.lines > 800) {
+      impact = IMPACTS.FILE_800;
+      severity = "critical";
+      findingType = "oversized-file-800";
+    } else if (f.lines > 600) {
+      impact = IMPACTS.FILE_600;
+      severity = "high";
+      findingType = "oversized-file-600";
+    } else {
+      impact = IMPACTS.FILE_400;
+      severity = "moderate";
+      findingType = "oversized-file-400";
+    }
+    const sizeRec = recommendForSize(f.lines, f.lines > 800 ? 800 : f.lines > 600 ? 600 : 400, "file");
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: findingType,
+      severity,
+      node_qualified_name: f.qualified_name,
+      file_path: relative9(repoRoot, f.file_path),
+      title: `File ${f.lines} lines (>${findingType.split("-").pop()} limit)`,
+      detail: {
+        lines: f.lines,
+        recommendation: sizeRec.recommendation,
+        reason: sizeRec.reason
+      },
+      score_impact: impact
+    });
+    findingCount++;
+  }
+  findingCount += analyzeCohesion(store, db, runId, repoRoot);
+  const funcRows = db.prepare(`SELECT qualified_name, name, file_path, (line_end - line_start + 1) as lines
+       FROM nodes WHERE kind = 'Function' AND (line_end - line_start + 1) > 150
+       ORDER BY lines DESC`).all();
+  for (const f of funcRows) {
+    const funcRec = recommendForSize(f.lines, 150, "function");
+    insertFinding(store, {
+      audit_run_id: runId,
+      category: "code-quality",
+      finding_type: "oversized-function",
+      severity: "moderate",
+      node_qualified_name: f.qualified_name,
+      file_path: relative9(repoRoot, f.file_path),
+      title: `Function "${f.name}" is ${f.lines} lines (>150 limit)`,
+      detail: {
+        lines: f.lines,
+        name: f.name,
+        recommendation: funcRec.recommendation,
+        reason: funcRec.reason
+      },
+      score_impact: IMPACTS.FUNC_150
+    });
+    findingCount++;
+  }
+  const tasksPath = join7(repoRoot, "tasks-plans", "tasks.md");
+  if (existsSync7(tasksPath)) {
+    try {
+      const content = readFileSync16(tasksPath, "utf-8");
+      const openCount = (content.match(/^- \[ \]/gm) || []).length;
+      if (openCount > 0) {
+        const impact = Math.floor(openCount / 5) * IMPACTS.TASKS_PER_5;
+        insertFinding(store, {
+          audit_run_id: runId,
+          category: "code-quality",
+          finding_type: "open-tasks",
+          severity: "low",
+          title: `${openCount} open quality tasks in task queue`,
+          detail: { open_count: openCount },
+          score_impact: impact
+        });
+        findingCount++;
+      }
+    } catch {
+    }
+  }
+  return findingCount;
+}
+async function runAudit(params) {
+  const root = findProjectRoot(params.repo_root);
   const dbPath = getDbPath(root);
-  if (!existsSync5(dbPath)) {
-    console.error("Graph database not found. Run /build-graph first.");
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}. Run build_or_update_graph first.`
+    };
+  }
+  try {
+    const stats = store.getStats();
+    if (stats.total_nodes === 0) {
+      return {
+        status: "error",
+        error: "Graph is empty. Run build_or_update_graph with full_rebuild=true first."
+      };
+    }
+    const runId = (/* @__PURE__ */ new Date()).toISOString();
+    const availableCategories = /* @__PURE__ */ new Set(["code-quality"]);
+    analyzeCodeQuality(store, runId, root);
+    analyzeFileOrganization(store, runId, root);
+    if (params.include_testing !== false) {
+      analyzeTestCoverage(store, runId, root);
+      availableCategories.add("testing");
+    }
+    if (params.include_security !== false) {
+      analyzeSecurityCLI(store, runId, root);
+      if (findPkgManager(root)) {
+        availableCategories.add("security");
+      }
+    }
+    computeScores(store, runId, availableCategories);
+    const findingCounts = getFindingCounts(store, runId);
+    const scores = store.getDb().prepare("SELECT * FROM audit_scores WHERE audit_run_id = ? ORDER BY category").all(runId);
+    const overallScore = scores.reduce((sum, s) => sum + s.raw_score * s.adjusted_weight, 0);
+    const { grade: overallGrade, color: overallColor } = gradeFor(overallScore);
+    const categorySummary = scores.map((s) => ({
+      category: s.category,
+      score: s.raw_score,
+      grade: s.grade,
+      grade_color: s.grade_color,
+      findings: s.finding_count
+    }));
+    const totalFindings = Object.values(findingCounts).reduce((s, c) => s + Object.values(c).reduce((a, b) => a + b, 0), 0);
+    const allFindings = store.getDb().prepare("SELECT detail FROM audit_findings WHERE audit_run_id = ? AND detail IS NOT NULL").all(runId);
+    const recCounts = { split: 0, "split-on-next-touch": 0, monitor: 0, ignore: 0 };
+    for (const f of allFindings) {
+      try {
+        const detail = JSON.parse(f.detail);
+        if (detail.recommendation && recCounts[detail.recommendation] !== void 0) {
+          recCounts[detail.recommendation]++;
+        }
+      } catch {
+      }
+    }
+    return {
+      status: "ok",
+      run_id: runId,
+      overall_score: Math.round(overallScore * 10) / 10,
+      overall_grade: overallGrade,
+      overall_color: overallColor,
+      categories: categorySummary,
+      finding_counts: findingCounts,
+      recommendations: {
+        split: recCounts.split,
+        split_on_next_touch: recCounts["split-on-next-touch"],
+        monitor: recCounts.monitor,
+        ignore: recCounts.ignore,
+        summary: recCounts.split > 0 ? `${recCounts.split} files need splitting. ${recCounts["split-on-next-touch"]} can wait until next touch. ${recCounts.monitor} to monitor.` : recCounts["split-on-next-touch"] > 0 ? `No urgent splits. ${recCounts["split-on-next-touch"]} files to split on next touch. ${recCounts.monitor} to monitor.` : `No splits needed. ${recCounts.monitor} files to monitor for growth.`
+      },
+      summary: `Audit complete: ${overallGrade} (${Math.round(overallScore)}). ${totalFindings} findings across ${availableCategories.size} categories.`
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/tools/generate-audit-html.js
+import { existsSync as existsSync8, readFileSync as readFileSync17, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { basename as basename12, dirname as dirname10, join as join8 } from "node:path";
+function findTemplateDir() {
+  const candidates = [
+    join8(dirname10(import.meta.dirname ?? __dirname), "..", "..", "skills", "report", "templates"),
+    // Fallback: check CLAUDE_PLUGIN_ROOT
+    process.env.CLAUDE_PLUGIN_ROOT ? join8(process.env.CLAUDE_PLUGIN_ROOT, "skills", "report", "templates") : ""
+  ].filter(Boolean);
+  for (const dir of candidates) {
+    if (existsSync8(join8(dir, "audit-header.html")))
+      return dir;
+  }
+  return null;
+}
+function readTemplate(dir, name2) {
+  return readFileSync17(join8(dir, name2), "utf-8");
+}
+function coverageColor(pct) {
+  if (pct >= 80)
+    return "#22c55e";
+  if (pct >= 60)
+    return "#eab308";
+  if (pct >= 40)
+    return "#f97316";
+  return "#ef4444";
+}
+function buildReplacementMap(store, runId, repoRoot) {
+  const scores = getScores(store, runId);
+  const overall = getOverallScore(store, runId);
+  const findingCounts = getFindingCounts(store, runId);
+  const findings = getFindings(store, runId);
+  const gaps = getTestCoverageGaps(store, runId);
+  const scoreMap = {};
+  for (const s of scores) {
+    scoreMap[s.category] = { grade: s.grade, color: s.grade_color, score: s.raw_score };
+  }
+  const cq = scoreMap["code-quality"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const sec = scoreMap["security"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const test = scoreMap["testing"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const deploy = scoreMap["deployment"] ?? { grade: "N/A", color: "#64748b", score: 0 };
+  const cqFindings = findingCounts["code-quality"] ?? {};
+  const secFindings = findingCounts["security"] ?? {};
+  const securityRows = findings.filter((f) => f.category === "security").slice(0, 10).map((f) => `<tr><td><span class="badge badge-${f.severity}">${f.severity}</span></td><td>${escHtml(f.title)}</td><td class="path">${escHtml(f.file_path ?? "dependency")}</td></tr>`).join("\n");
+  const untestedRows = gaps.slice(0, 15).map((g) => `<tr><td class="path">${escHtml(g.file_path)}</td><td>${escHtml(g.node_qualified_name.split("::").pop() ?? "")}</td></tr>`).join("\n");
+  const repoName = basename12(repoRoot);
+  return {
+    "{{PROJECT_NAME}}": escHtml(repoName),
+    "{{OVERALL_GRADE}}": overall.grade,
+    "{{OVERALL_SCORE}}": String(overall.score),
+    "{{OVERALL_COLOR}}": overall.color,
+    "{{QUALITY_GRADE}}": cq.grade,
+    "{{QUALITY_GRADE_COLOR}}": cq.color,
+    "{{QUALITY_SCORE}}": String(Math.round(cq.score)),
+    "{{SECURITY_GRADE}}": sec.grade,
+    "{{SECURITY_GRADE_COLOR}}": sec.color,
+    "{{SECURITY_SCORE}}": String(Math.round(sec.score)),
+    "{{TESTING_GRADE}}": test.grade,
+    "{{TESTING_GRADE_COLOR}}": test.color,
+    "{{TESTING_SCORE}}": String(Math.round(test.score)),
+    "{{DEPLOYMENT_GRADE}}": deploy.grade,
+    "{{DEPLOYMENT_GRADE_COLOR}}": deploy.color,
+    "{{DEPLOYMENT_SCORE}}": String(Math.round(deploy.score)),
+    "{{COUNT_CRITICAL}}": String(cqFindings["critical"] ?? 0),
+    "{{COUNT_HIGH}}": String(cqFindings["high"] ?? 0),
+    "{{COUNT_MODERATE}}": String(cqFindings["moderate"] ?? 0),
+    "{{CVE_CRITICAL}}": String(secFindings["critical"] ?? 0),
+    "{{CVE_HIGH}}": String(secFindings["high"] ?? 0),
+    "{{CVE_MODERATE}}": String(secFindings["moderate"] ?? 0),
+    "{{SECURITY_ROWS}}": securityRows || "<tr><td colspan='3'>No findings</td></tr>",
+    "{{UNTESTED_ROWS}}": untestedRows || "<tr><td colspan='2'>All functions have test coverage</td></tr>",
+    "{{UNTESTED_COUNT}}": String(gaps.length),
+    "{{COV_LINES}}": "0",
+    "{{COV_LINES_COLOR}}": coverageColor(0),
+    "{{COV_FUNCS}}": "0",
+    "{{COV_FUNCS_COLOR}}": coverageColor(0),
+    "{{COV_BRANCHES}}": "0",
+    "{{COV_BRANCHES_COLOR}}": coverageColor(0),
+    "{{TOTAL_FINDINGS}}": String(findings.length),
+    "{{AUDIT_DATE}}": (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    })
+  };
+}
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function generateAuditHtml(params) {
+  const root = findProjectRoot(params.repo_root);
+  const dbPath = getDbPath(root);
+  let store;
+  try {
+    store = new GraphStore(dbPath);
+  } catch (err2) {
+    return {
+      status: "error",
+      error: `Cannot open graph database: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  try {
+    const runId = params.audit_run_id ?? getLatestRunId(store);
+    if (!runId) {
+      return {
+        status: "error",
+        error: "No audit run found. Run run_audit first."
+      };
+    }
+    const templateDir = findTemplateDir();
+    if (!templateDir) {
+      return {
+        status: "error",
+        error: "Cannot find audit HTML templates. Expected at skills/report/templates/."
+      };
+    }
+    const header = readTemplate(templateDir, "audit-header.html");
+    const tabs = readTemplate(templateDir, "audit-tabs.html");
+    const panels = readTemplate(templateDir, "audit-tab-panels.html");
+    const footer = readTemplate(templateDir, "audit-footer.html");
+    const replacements = buildReplacementMap(store, runId, root);
+    let html = header + tabs + panels + footer;
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      html = html.replaceAll(placeholder, value);
+    }
+    const outputDir = join8(root, "tasks-plans", "audits");
+    if (!existsSync8(outputDir))
+      mkdirSync2(outputDir, { recursive: true });
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+    const outputPath = params.output_path ?? join8(outputDir, `audit-${timestamp}.html`);
+    writeFileSync3(outputPath, html, "utf-8");
+    const overall = getOverallScore(store, runId);
+    return {
+      status: "ok",
+      output_path: outputPath,
+      overall_grade: overall.grade,
+      overall_score: overall.score,
+      summary: `Audit report generated: ${overall.grade} (${overall.score}). Saved to ${outputPath}`
+    };
+  } finally {
+    store.close();
+  }
+}
+
+// dist/cli.js
+var commands = {
+  // Build & update
+  build_or_update_graph: (args2) => buildOrUpdateGraph(args2),
+  // Query tools
+  query_graph: (args2) => queryGraph(args2),
+  semantic_search_nodes: (args2) => semanticSearchNodes(args2),
+  search_references: (args2) => searchReferences(args2),
+  get_dependency_chain: (args2) => getDependencyChain(args2),
+  entity_scope: (args2) => entityScope(args2),
+  // Impact & review
+  get_impact_radius: (args2) => getImpactRadiusTool(args2),
+  get_review_context: (args2) => getReviewContext(args2),
+  find_large_functions: (args2) => findLargeFunctions(args2),
+  // Stats & visualization
+  list_graph_stats: (args2) => listGraphStats(args2),
+  generate_graph_html: (args2) => generateGraphHtmlTool(args2),
+  // Audit
+  run_audit: (args2) => runAudit(args2),
+  generate_audit_html: (args2) => generateAuditHtml(args2),
+  // Memory links (Graph → Cortex bridge)
+  create_memory_link: (args2) => {
+    const a = args2;
+    const root = findProjectRoot(a.repo_root);
+    const store = new GraphStore(getDbPath(root));
+    try {
+      const id = store.createMemoryLink(a);
+      return { status: "ok", link_id: id, message: "Memory link created in graph" };
+    } finally {
+      store.close();
+    }
+  },
+  get_memory_links: (args2) => {
+    const a = args2;
+    const root = findProjectRoot(a.repo_root);
+    const store = new GraphStore(getDbPath(root));
+    try {
+      const links = a.node_qualified_name ? store.getMemoryLinksForNode(a.node_qualified_name) : a.file_path ? store.getMemoryLinksForFile(a.file_path) : [];
+      return { status: "ok", summary: `${links.length} memory links`, links };
+    } finally {
+      store.close();
+    }
+  }
+};
+async function main() {
+  const command = process.argv[2];
+  const argsJson = process.argv[3];
+  if (!command || command === "--help" || command === "-h") {
+    console.error("Usage: composure-graph-cli <command> [json-args]");
+    console.error("\nCommands:");
+    console.error("  Build & update:");
+    console.error("    build_or_update_graph    Build or incrementally update the code graph");
+    console.error("\n  Query tools:");
+    console.error("    query_graph              Run predefined graph queries (callers_of, callees_of, etc.)");
+    console.error("    semantic_search_nodes    Search for code entities by name");
+    console.error("    search_references        Grep with graph context enrichment");
+    console.error("    get_dependency_chain     Shortest path between two code entities");
+    console.error("    entity_scope             Get all code related to a business entity");
+    console.error("\n  Impact & review:");
+    console.error("    get_impact_radius        Blast radius of changed files");
+    console.error("    get_review_context       Token-efficient review context for changes");
+    console.error("    find_large_functions     Find oversized functions needing decomposition");
+    console.error("\n  Stats & visualization:");
+    console.error("    list_graph_stats         Aggregate graph statistics");
+    console.error("    generate_graph_html      Generate HTML visualization");
+    console.error("\n  Audit:");
+    console.error("    run_audit                Run comprehensive code audit");
+    console.error("    generate_audit_html      Generate HTML audit report");
+    process.exit(command ? 0 : 1);
+  }
+  const handler = commands[command];
+  if (!handler) {
+    console.error(`Unknown command: ${command}`);
+    console.error(`Available: ${Object.keys(commands).join(", ")}`);
     process.exit(1);
   }
-  const result = generateGraphHtmlTool({
-    output_path: outputPath,
-    repo_root: repoRoot
-  });
-  if (result.status === "ok") {
-    console.log(result.summary);
-    console.log(`Output: ${result.output_path}`);
-  } else {
-    console.error(`Error: ${result.error}`);
+  let args2 = {};
+  if (argsJson) {
+    try {
+      args2 = JSON.parse(argsJson);
+    } catch {
+      console.error(`Invalid JSON args: ${argsJson}`);
+      process.exit(1);
+    }
+  }
+  try {
+    const result = await handler(args2);
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+  } catch (err2) {
+    console.error(`Error: ${err2 instanceof Error ? err2.message : String(err2)}`);
     process.exit(1);
   }
 }

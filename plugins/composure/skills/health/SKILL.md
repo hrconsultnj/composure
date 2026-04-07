@@ -11,7 +11,7 @@ Run a full diagnostic of the Composure installation and project setup. This skil
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"~/.composure/bin/composure-fetch.mjs" skill composure health {step-filename}
+"$HOME/.composure/bin/composure-fetch.mjs" skill composure health {step-filename}
 ```
 
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.

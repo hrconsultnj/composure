@@ -41,6 +41,14 @@ async function main() {
     allowOverwrite: true,
   });
 
+  // Bundle CLI transport
+  await build({
+    ...sharedOptions,
+    entryPoints: [join(distDir, "cli.js")],
+    outfile: join(distDir, "cli.bundle.js"),
+    allowOverwrite: true,
+  });
+
   // Bundle update CLI
   await build({
     ...sharedOptions,
@@ -59,12 +67,14 @@ async function main() {
 
   // Replace originals with bundles
   copyFileSync(join(distDir, "server.bundle.js"), join(distDir, "server.js"));
+  copyFileSync(join(distDir, "cli.bundle.js"), join(distDir, "cli.js"));
   copyFileSync(join(distDir, "update.bundle.js"), join(distDir, "update.js"));
   copyFileSync(join(distDir, "view-graph.bundle.js"), join(distDir, "view-graph.js"));
 
   // Clean up bundle intermediates
   const { unlinkSync } = await import("node:fs");
   try { unlinkSync(join(distDir, "server.bundle.js")); } catch {}
+  try { unlinkSync(join(distDir, "cli.bundle.js")); } catch {}
   try { unlinkSync(join(distDir, "update.bundle.js")); } catch {}
   try { unlinkSync(join(distDir, "view-graph.bundle.js")); } catch {}
 
