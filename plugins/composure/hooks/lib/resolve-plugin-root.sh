@@ -26,9 +26,9 @@ if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -d "$CLAUDE_PLUGIN_ROOT" ]; then
 else
   # Fallback: search plugin cache locations (for sub-agents)
   for CACHE_BASE in \
-    "${HOME}/.claude/plugins/cache/my-claude-plugins/composure" \
-    "${USERPROFILE}/.claude/plugins/cache/my-claude-plugins/composure" \
-    "${APPDATA}/.claude/plugins/cache/my-claude-plugins/composure"; do
+    "${HOME}/.claude/plugins/cache/composure-suite/composure" \
+    "${USERPROFILE}/.claude/plugins/cache/composure-suite/composure" \
+    "${APPDATA}/.claude/plugins/cache/composure-suite/composure"; do
     [ -z "$CACHE_BASE" ] && continue
     if [ -d "$CACHE_BASE" ]; then
       # Find the latest version directory

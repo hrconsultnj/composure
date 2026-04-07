@@ -27,7 +27,7 @@ export async function createHome(): Promise<string> {
   const cortexDb = join(home, "cortex", "cortex.db");
   if (!existsSync(cortexDb)) {
     // Find the cortex CLI in the plugin cache
-    const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "my-claude-plugins", "composure");
+    const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "composure-suite", "composure");
     try {
       const { readdirSync } = await import("node:fs");
       const versions = readdirSync(pluginCacheBase).sort().reverse();

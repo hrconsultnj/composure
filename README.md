@@ -92,7 +92,7 @@ Works on any OS with Claude Code installed:
 claude plugin marketplace add hrconsultnj/claude-plugins
 
 # Install Composure
-claude plugin install composure@my-claude-plugins
+claude plugin install composure@composure-suite
 ```
 
 ### Authenticate
@@ -353,7 +353,7 @@ When you combine free + Pro, this is what changes: anytime you need to build som
 # Uninstall
 claude plugin uninstall composure
 # Reinstall
-claude plugin install composure@my-claude-plugins
+claude plugin install composure@composure-suite
 # Restart Claude Code (exit and reopen)
 ```
 
@@ -408,7 +408,7 @@ claude plugin uninstall shipyard
 claude mcp remove composure-graph
 
 # Remove the marketplace
-claude plugin marketplace remove my-claude-plugins
+claude plugin marketplace remove composure-suite
 ```
 
 </details>

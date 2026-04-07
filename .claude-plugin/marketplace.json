@@ -1,19 +1,19 @@
 {
-  "name": "my-claude-plugins",
+  "name": "composure-suite",
   "owner": {
     "name": "Helder Rodrigues",
     "email": "hrconsultnj@gmail.com"
   },
   "metadata": {
-    "description": "Code quality, architecture enforcement, and premium design patterns for Claude Code.",
-    "version": "1.47.19"
+    "description": "Composure Suite — code quality, security, CI/CD, testing, design, and AI memory for Claude Code.",
+    "version": "1.47.20"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
-      "description": "Code quality enforcement plugin — decomposition hooks, architecture skills, severity-tracked task queue. Full docs: composure-pro.com",
-      "version": "1.47.19",
+      "description": "Core orchestration — architecture skills, code graph, Cortex memory, decomposition hooks, task queue. The hub of the Composure Suite. Full docs: composure-pro.com",
+      "version": "1.47.20",
       "category": "development",
       "keywords": [
         "architecture",

@@ -19,7 +19,7 @@ done
 
 if [ "$COMPOSURE_INSTALLED" = "false" ]; then
   printf '[design-forge] Design Forge works best with Composure (scaffolding, architecture docs, code quality).\n'
-  printf '[design-forge] Install it: claude plugin install composure@my-claude-plugins\n'
+  printf '[design-forge] Install it: claude plugin install composure@composure-suite\n'
 fi
 
 # Check for design-related dependencies in package.json

@@ -20,11 +20,11 @@ const BINARIES = [
 function findPluginBin(): string | null {
   const home = homedir();
   const candidates = [
-    join(home, ".claude/plugins/marketplaces/my-claude-plugins/plugins/composure/bin"),
+    join(home, ".claude/plugins/marketplaces/composure-suite/plugins/composure/bin"),
   ];
 
   // Also glob the cache path pattern
-  const cachePath = join(home, ".claude/plugins/cache/my-claude-plugins/composure");
+  const cachePath = join(home, ".claude/plugins/cache/composure-suite/composure");
   if (existsSync(cachePath)) {
     try {
       for (const entry of readdirSync(cachePath)) {

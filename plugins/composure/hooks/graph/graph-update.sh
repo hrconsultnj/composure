@@ -31,9 +31,9 @@ if [ -n "$CLAUDE_PLUGIN_ROOT" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/graph/dist/update
 else
   # Search common plugin cache locations
   for CACHE_DIR in \
-    "${HOME}/.claude/plugins/cache/my-claude-plugins/composure" \
-    "${USERPROFILE}/.claude/plugins/cache/my-claude-plugins/composure" \
-    "${APPDATA}/.claude/plugins/cache/my-claude-plugins/composure"; do
+    "${HOME}/.claude/plugins/cache/composure-suite/composure" \
+    "${USERPROFILE}/.claude/plugins/cache/composure-suite/composure" \
+    "${APPDATA}/.claude/plugins/cache/composure-suite/composure"; do
     if [ -d "$CACHE_DIR" ]; then
       # Find the latest version directory
       LATEST=$(ls -td "$CACHE_DIR"/*/ 2>/dev/null | head -1)

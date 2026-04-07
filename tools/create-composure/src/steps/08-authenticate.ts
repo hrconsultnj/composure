@@ -25,7 +25,7 @@ function findAuthBinary(): string | null {
 
   // 2. Direct path in plugin cache (fresh install, symlinks just created)
   const cachePath = join(
-    home, ".claude", "plugins", "cache", "my-claude-plugins", "composure"
+    home, ".claude", "plugins", "cache", "composure-suite", "composure"
   );
   if (existsSync(cachePath)) {
     try {

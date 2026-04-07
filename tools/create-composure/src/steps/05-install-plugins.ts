@@ -108,7 +108,7 @@ export async function installPlugins(options: {
       // Try uninstall + reinstall for broken cache
       await execSafe("claude", ["plugin", "uninstall", plugin]);
       const reinstall = await execSafe("claude", [
-        "plugin", "install", `${plugin}@my-claude-plugins`,
+        "plugin", "install", `${plugin}@composure-suite`,
       ]);
       if (reinstall.exitCode === 0) {
         installed.push(plugin);
@@ -121,7 +121,7 @@ export async function installPlugins(options: {
   // Install new plugins
   for (const plugin of needsInstall) {
     const result = await execSafe("claude", [
-      "plugin", "install", `${plugin}@my-claude-plugins`,
+      "plugin", "install", `${plugin}@composure-suite`,
     ]);
 
     if (result.exitCode === 0) {

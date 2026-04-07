@@ -4,9 +4,9 @@
 # Survives plugin updates because it resolves the path at launch time, not registration time.
 
 # Find the latest composure plugin version in cache
-CACHE_BASE="${HOME}/.claude/plugins/cache/my-claude-plugins/composure"
-[ ! -d "$CACHE_BASE" ] && CACHE_BASE="${USERPROFILE}/.claude/plugins/cache/my-claude-plugins/composure"
-[ ! -d "$CACHE_BASE" ] && CACHE_BASE="${APPDATA}/.claude/plugins/cache/my-claude-plugins/composure"
+CACHE_BASE="${HOME}/.claude/plugins/cache/composure-suite/composure"
+[ ! -d "$CACHE_BASE" ] && CACHE_BASE="${USERPROFILE}/.claude/plugins/cache/composure-suite/composure"
+[ ! -d "$CACHE_BASE" ] && CACHE_BASE="${APPDATA}/.claude/plugins/cache/composure-suite/composure"
 
 if [ ! -d "$CACHE_BASE" ]; then
   echo "Composure plugin not found in cache" >&2

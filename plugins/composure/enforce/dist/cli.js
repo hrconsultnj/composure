@@ -748,7 +748,7 @@ function getEnforcePath() {
     return join3(process.env.CLAUDE_PLUGIN_ROOT, "enforce", "dist", "cli.js");
   }
   const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-  const cachePath = join3(home, ".claude", "plugins", "cache", "my-claude-plugins", "composure");
+  const cachePath = join3(home, ".claude", "plugins", "cache", "composure-suite", "composure");
   if (existsSync4(cachePath)) {
     const entries = __require("fs").readdirSync(cachePath).filter((e) => !e.startsWith("."));
     if (entries.length > 0) {

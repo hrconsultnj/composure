@@ -25,7 +25,7 @@ function getEnforcePath(): string {
     ".claude",
     "plugins",
     "cache",
-    "my-claude-plugins",
+    "composure-suite",
     "composure",
   );
   if (existsSync(cachePath)) {
