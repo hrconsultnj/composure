@@ -197,38 +197,50 @@ if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
   fi
 fi
 
-# ── 5. Companion plugin check ────────────────────────────────
-if [ -n "$COMPOSURE_ROOT" ]; then
-  PLUGIN_CACHE="${COMPOSURE_ROOT%/*}"
-else
-  PLUGIN_CACHE=""
-fi
-MISSING=()
+# ── 5. Companion plugin auto-install + config check ──────────
+COMPANIONS="design-forge sentinel shipyard testbench"
+INSTALLED_JSON="${HOME}/.claude/plugins/installed_plugins.json"
+INSTALLED_COMPANIONS=0
+MISSING_INSTALL=()
+MISSING_INIT=()
 
-for plugin in sentinel shipyard testbench; do
-  for d in "${PLUGIN_CACHE}"/${plugin}/*/; do
-    if [ -d "$d" ]; then
-      case "$plugin" in
-        sentinel)  [ ! -f "${PROJECT_DIR}/.composure/sentinel.json" ] && [ ! -f "${PROJECT_DIR}/.claude/sentinel.json" ]  && MISSING+=("Sentinel") ;;
-        shipyard)  [ ! -f "${PROJECT_DIR}/.composure/shipyard.json" ] && [ ! -f "${PROJECT_DIR}/.claude/shipyard.json" ]  && MISSING+=("Shipyard") ;;
-        testbench) [ ! -f "${PROJECT_DIR}/.composure/testbench.json" ] && [ ! -f "${PROJECT_DIR}/.claude/testbench.json" ] && MISSING+=("Testbench") ;;
-      esac
-      break
+# Auto-install missing companion plugins
+if [ -f "$INSTALLED_JSON" ] && command -v claude >/dev/null 2>&1; then
+  for plugin in $COMPANIONS; do
+    if grep -q "\"${plugin}@composure-suite\"" "$INSTALLED_JSON" 2>/dev/null; then
+      INSTALLED_COMPANIONS=$((INSTALLED_COMPANIONS + 1))
+    else
+      MISSING_INSTALL+=("$plugin")
     fi
   done
-done
 
-# Composure Pro check (only if Supabase detected)
-if [ -f "${PROJECT_DIR}/supabase/config.toml" ] || [ -d "${PROJECT_DIR}/supabase/migrations" ]; then
-  if [ ! -f "${PROJECT_DIR}/.composure/composure-pro.json" ] && [ ! -f "${PROJECT_DIR}/.claude/composure-pro.json" ]; then
-    for d in "${PLUGIN_CACHE}"/composure-pro/*/; do
-      [ -d "$d" ] && MISSING+=("Composure Pro") && break
+  if [ ${#MISSING_INSTALL[@]} -gt 0 ]; then
+    for plugin in "${MISSING_INSTALL[@]}"; do
+      claude plugin install "${plugin}@composure-suite" >/dev/null 2>&1 && \
+        printf '[composure] Auto-installed: %s\n' "$plugin" || true
     done
   fi
 fi
 
-if [ ${#MISSING[@]} -gt 0 ]; then
-  printf '[composure] Not initialized: %s — run /composure:initialize\n' "$(IFS=', '; echo "${MISSING[*]}")"
+# Check if installed companions are initialized (config exists)
+if [ -n "$COMPOSURE_ROOT" ]; then
+  PLUGIN_CACHE="${COMPOSURE_ROOT%/*}"
+  for plugin in sentinel shipyard testbench; do
+    for d in "${PLUGIN_CACHE}"/${plugin}/*/; do
+      if [ -d "$d" ]; then
+        case "$plugin" in
+          sentinel)  [ ! -f "${PROJECT_DIR}/.composure/sentinel.json" ] && [ ! -f "${PROJECT_DIR}/.claude/sentinel.json" ]  && MISSING_INIT+=("Sentinel") ;;
+          shipyard)  [ ! -f "${PROJECT_DIR}/.composure/shipyard.json" ] && [ ! -f "${PROJECT_DIR}/.claude/shipyard.json" ]  && MISSING_INIT+=("Shipyard") ;;
+          testbench) [ ! -f "${PROJECT_DIR}/.composure/testbench.json" ] && [ ! -f "${PROJECT_DIR}/.claude/testbench.json" ] && MISSING_INIT+=("Testbench") ;;
+        esac
+        break
+      fi
+    done
+  done
+fi
+
+if [ ${#MISSING_INIT[@]} -gt 0 ]; then
+  printf '[composure] Not initialized: %s — run /composure:initialize\n' "$(IFS=', '; echo "${MISSING_INIT[*]}")"
 fi
 
 # ── 6. Health drift check (24h throttled) ────────────────────
