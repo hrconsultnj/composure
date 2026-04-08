@@ -28,6 +28,14 @@ A project may have its own `AGENTS.md` at the project root — that file takes p
 - Context7 finds platform-specific APIs your training data may not know.
 - Sequential Thinking forces systematic root cause analysis.
 
+## Research sub-agent chain
+- Context7 lookups: ALWAYS spawn a background sub-agent. Never query in main context.
+- Sub-agent writes FULL findings to `.composure/research/{topic}-{date}.md`.
+- Sub-agent returns ONLY the file path — no summary, no re-processing.
+- Read the file directly to get the findings.
+- Check cache first: if the research file exists and is <48h old, Read it instead of re-querying.
+- Output routing: research → `tasks-plans/research/`, ideas → `tasks-plans/ideas/`, reference → `tasks-plans/reference/`.
+
 ## Verify before claiming done
 - Lint/typecheck the changed files.
 - Run `/testbench:run` for the files you touched.

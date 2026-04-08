@@ -2,21 +2,23 @@
 # ============================================================
 # Session Boot — Consolidated SessionStart Hook
 # ============================================================
-# Merges: init-check + session-stack-note + health-nudge + cortex/memory-load
+# Consolidated SessionStart hook. Single config read, single output block.
 #
-# Single config read, single output block. Responsibilities:
+# Responsibilities:
 #   1. Auto-bootstrap .composure/ if not initialized
 #   2. Version sync (composureVersion stamp)
 #   3. Stack detection + architecture guidance
-#   4. Cortex memory injection (project + global)
-#   5. Companion plugin check
+#   4. Cortex memory injection (project + global + recent activity on resume)
+#   5. Companion plugin auto-install + config check
 #   6. Health drift check (24h throttled)
+#   7. Task count + graph staleness (was resume-check.sh)
+#   8. Guardrails ruleset detection (was guardrails-load.sh)
 #
 # Lifecycle-aware via stdin JSON `source` field:
-#   startup → full boot (all 6 sections)
-#   resume  → compact (stack 1-liner + cortex memories + companions)
+#   startup → full boot (all 8 sections)
+#   resume  → compact (stack 1-liner + cortex + recent + tasks + graph)
 #
-# Non-blocking (exit 0 always). Timeout: 5 seconds.
+# Non-blocking (exit 0 always). Timeout: 8 seconds.
 # ============================================================
 
 # ── Read lifecycle event from stdin ──────────────────────────
@@ -146,11 +148,11 @@ if [ "$EVENT" = "startup" ]; then
 [composure:stack] Detected: ${LANGS} | frontend=${FRONTEND} | backend=${BACKEND:-none}
 Architecture: ${CATEGORY} (${ENTRY})
 Non-trivial work → /composure:blueprint | Routine → /composure:app-architecture
-[composure:conventions] Context7 → background sub-agent + cache to .claude/research/. CLI-first for Graph + Cortex (batch bash over MCP). Research reports → tasks-plans/research/.
+[composure:conventions] Research: sub-agent writes to tasks-plans/research/, you read summary only. Context7: always sub-agent, cache to .composure/research/. CLI-first for Graph + Cortex. Output routing: research→tasks-plans/research/, ideas→tasks-plans/ideas/, reference→tasks-plans/reference/.
 EOF
 else
   echo "[composure:stack] ${LANGS} | ${FRONTEND} | arch=${CATEGORY}"
-  echo "[composure:conventions] Context7 → sub-agent + cache. CLI-first for Graph + Cortex."
+  echo "[composure:conventions] Research: sub-agent writes file, you read summary. CLI-first for Graph + Cortex."
 fi
 
 # ── 4. Cortex memory injection ───────────────────────────────
@@ -194,6 +196,49 @@ if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
     fi
   else
     printf '[cortex] agent_id=%s | No memories yet — notable changes auto-captured.\n' "$AGENT_ID"
+  fi
+
+  # ── 4b. Recent activity context (resume only) ────────────────
+  if [ "$EVENT" = "resume" ]; then
+    # Recent auto-captured observations (last 24h)
+    RECENT=$(node --experimental-sqlite "$CLI_PATH" search_memory \
+      "{\"agent_id\":\"${AGENT_ID}\",\"query\":\"auto-captured\",\"limit\":5}" 2>/dev/null)
+    RECENT_COUNT=$(echo "$RECENT" | jq -r '.count // 0' 2>/dev/null)
+
+    # Latest completed thinking session
+    LATEST_SESSION=$(node --experimental-sqlite "$CLI_PATH" list_thinking_sessions \
+      "{\"agent_id\":\"${AGENT_ID}\",\"status\":\"completed\",\"limit\":1}" 2>/dev/null)
+    LATEST_TITLE=$(echo "$LATEST_SESSION" | jq -r '.sessions[0]?.title // empty' 2>/dev/null)
+
+    # Today's daily log
+    TODAY_LOG="${PROJECT_DIR}/tasks-plans/sessions/$(date +%Y-%m-%d).md"
+
+    RECENT_PARTS=()
+    [ "${RECENT_COUNT:-0}" -gt 0 ] && RECENT_PARTS+=("${RECENT_COUNT} recent changes captured")
+    [ -n "$LATEST_TITLE" ] && RECENT_PARTS+=("Last session: \"${LATEST_TITLE}\"")
+    [ -f "$TODAY_LOG" ] && RECENT_PARTS+=("Daily log: $(wc -l < "$TODAY_LOG" | tr -d ' ') lines")
+
+    if [ ${#RECENT_PARTS[@]} -gt 0 ]; then
+      printf '[cortex:recent] %s' "${RECENT_PARTS[0]}"
+      for ((i=1; i<${#RECENT_PARTS[@]}; i++)); do
+        printf ' | %s' "${RECENT_PARTS[$i]}"
+      done
+      echo
+    fi
+  fi
+
+  # ── 4c. Memory prune (startup only — archive non-critical to Cortex) ──
+  if [ "$EVENT" = "startup" ]; then
+    PRUNE_SCRIPT="${COMPOSURE_ROOT}/hooks/cortex/memory-prune.sh"
+    if [ -f "$PRUNE_SCRIPT" ]; then
+      # Project memories
+      PROJECT_MEM_DIR="${HOME}/.claude/projects"
+      for mem_dir in "$PROJECT_MEM_DIR"/*/memory; do
+        [ -d "$mem_dir" ] && bash "$PRUNE_SCRIPT" "$mem_dir" "$AGENT_ID" 2>/dev/null || true
+      done
+      # Global memories
+      [ -d "${HOME}/.claude/memory" ] && bash "$PRUNE_SCRIPT" "${HOME}/.claude/memory" "global" 2>/dev/null || true
+    fi
   fi
 fi
 
@@ -271,6 +316,67 @@ if [ "$RUN_HEALTH" -eq 1 ]; then
   [ "$DRIFT" -eq 1 ] && echo "[composure] Install drift detected. Run /composure:health for details."
   mkdir -p "$(dirname "$CHECK_FILE")" 2>/dev/null
   date +%s > "$CHECK_FILE" 2>/dev/null
+fi
+
+# ── 7. Task count + graph staleness (was resume-check.sh) ────
+TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
+GRAPH_DB="$PROJECT_DIR/.composure/graph/graph.db"
+[ ! -f "$GRAPH_DB" ] && GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
+
+RESUME_PARTS=()
+OPEN=0
+
+if [ -f "$TASKS_FILE" ]; then
+  OPEN=$(grep -c '^\- \[ \]' "$TASKS_FILE" 2>/dev/null || echo 0)
+  DONE=$(grep -c '^\- \[x\]' "$TASKS_FILE" 2>/dev/null || echo 0)
+  [ "$OPEN" -gt 0 ] && RESUME_PARTS+=("Tasks: ${OPEN} open, ${DONE} done. Run /composure:backlog to process.")
+fi
+
+GRAPH_STALE=0
+if [ -f "$GRAPH_DB" ]; then
+  GRAPH_MOD=$(stat -f %m "$GRAPH_DB" 2>/dev/null || stat -c %Y "$GRAPH_DB" 2>/dev/null)
+  LAST_COMMIT=$(git -C "$PROJECT_DIR" log -1 --format=%ct 2>/dev/null)
+  if [ -n "$GRAPH_MOD" ] && [ -n "$LAST_COMMIT" ] && [ "$LAST_COMMIT" -gt "$GRAPH_MOD" ]; then
+    GRAPH_STALE=1
+    RESUME_PARTS+=("Code graph is stale.")
+  fi
+else
+  GRAPH_STALE=1
+fi
+
+if [ ${#RESUME_PARTS[@]} -gt 0 ]; then
+  printf "[composure:resume] %s" "${RESUME_PARTS[0]}"
+  for ((i=1; i<${#RESUME_PARTS[@]}; i++)); do
+    printf " | %s" "${RESUME_PARTS[$i]}"
+  done
+  echo
+fi
+
+[ "$OPEN" -gt 5 ] && echo "[composure:hint] ${OPEN} open tasks is high. Mention this early — the user may want to clear the backlog before adding more work."
+
+if [ "$GRAPH_STALE" -eq 1 ]; then
+  GRAPH_SERVER_JS="${COMPOSURE_ROOT}/graph/dist/server.js"
+  if [ -n "$COMPOSURE_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ]; then
+    echo '[composure:MANDATORY] Code graph stale — run build_or_update_graph({ full_rebuild: true }) before other work.'
+  else
+    echo '[composure:MANDATORY] Code graph stale + MCP may be disconnected. Run /composure:build-graph or restart Claude Code.'
+  fi
+fi
+
+# ── 8. Guardrails ruleset detection (was guardrails-load.sh) ──
+GUARDRAILS_CONFIG=""
+[ -f "${PROJECT_DIR}/.composure/guardrails.json" ] && GUARDRAILS_CONFIG="${PROJECT_DIR}/.composure/guardrails.json"
+
+if [ -n "$GUARDRAILS_CONFIG" ]; then
+  DOMAIN_NAME=$(python3 -c "
+import json
+try:
+  data = json.load(open('$GUARDRAILS_CONFIG'))
+  print(data.get('domain', {}).get('name', 'custom'))
+except:
+  print('custom')
+" 2>/dev/null)
+  echo "[guardrails] Active ruleset: ${DOMAIN_NAME}"
 fi
 
 # ── Legacy upgrade notice ────────────────────────────────────
