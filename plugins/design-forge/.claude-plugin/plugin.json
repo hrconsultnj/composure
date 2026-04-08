@@ -7,6 +7,5 @@
     "url": "https://github.com/hrconsultnj"
   },
   "license": "SEE LICENSE IN LICENSE",
-  "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills/"
 }
