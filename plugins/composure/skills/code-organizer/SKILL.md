@@ -1,6 +1,6 @@
 ---
 name: code-organizer
-description: Restructure a messy project into conventional file layout based on detected framework. Analyzes, plans, executes with import updates, and verifies.
+description: Restructure project into conventional file layout by framework.
 argument-hint: "[--dry-run] [--aggressive] [--naming kebab|camel|pascal] [--preserve path,path] [--no-graph]"
 ---
 

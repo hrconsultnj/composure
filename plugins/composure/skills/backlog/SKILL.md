@@ -1,6 +1,6 @@
 ---
 name: backlog
-description: Manage the tasks-plans/ workspace — add items to backlog, ideas, or reference. Process queued work. Organize by topic, not flat dumps.
+description: Manage tasks-plans/ workspace — backlog, ideas, reference.
 argument-hint: "[add <description>|idea <description>|ref <description>|batch|delegate|clean|summary|sync|verify|archive]"
 ---
 

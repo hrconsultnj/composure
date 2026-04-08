@@ -1,6 +1,6 @@
 ---
 name: app-architecture
-description: Complete architecture guide for building features from database to UI. Routes to frontend/, fullstack/, mobile/, backend/, or sdks/ based on detected stack. Covers decomposition, multi-tenant isolation, auth model, query patterns, and component patterns.
+description: Architecture guide for feature implementation. Routes by detected stack.
 ---
 
 Read `.composure/no-bandaids.json` (or `.claude/no-bandaids.json` for existing projects) and extract:

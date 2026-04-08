@@ -1,6 +1,6 @@
 ---
 name: headers
-description: HTTP security header analysis — context-aware grading with exploitable-risk focus, not checkbox counting.
+description: HTTP security header analysis with exploitable-risk grading.
 argument-hint: "<url>"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: integration-builder
-description: Stack-agnostic third-party integration scaffolding. Detects project language, pulls latest SDK docs via Context7, chooses integration tier, scaffolds client/auth/webhooks with proper error handling and test patterns. Works across TypeScript, Python, Go, Rust, and Ruby.
+description: Scaffold third-party integrations with SDK docs via Context7.
 argument-hint: "[service-name] [--skip-docs] [--quick]"
 ---
 

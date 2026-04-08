@@ -1,6 +1,6 @@
 ---
 name: health
-description: Comprehensive health check — reports plugin version, auth, hook integrity, project initialization, graph freshness, companion plugins, and open tasks in a single diagnostic view.
+description: Plugin health check — version, auth, hooks, graph, tasks.
 argument-hint: "[--json]"
 ---
 

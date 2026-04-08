@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run tests -- all, changed files only, or for a specific file. Parse output, show failures with source context.
+description: Run tests — all, changed, or specific file. Show failures.
 argument-hint: "[all|changed|<file-path>] [--watch] [--coverage]"
 ---
 

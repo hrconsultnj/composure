@@ -1,6 +1,6 @@
 ---
 name: deps-check
-description: Check dependency health -- known CVEs, outdated packages, unsafe versions. Recommends the highest safe version, not just "latest". Blocks Critical CVEs via Composure commit gate.
+description: Check dependency health — CVEs, outdated, unsafe versions.
 argument-hint: "[--fix] [--json]"
 ---
 

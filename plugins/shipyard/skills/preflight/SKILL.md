@@ -1,6 +1,6 @@
 ---
 name: preflight
-description: Production readiness checklist. Checks environment variables, health endpoints, error monitoring, CORS, rate limiting, and security headers.
+description: Production readiness checklist — env, health, security.
 argument-hint: "[--strict] [--url <deployment-url>]"
 ---
 

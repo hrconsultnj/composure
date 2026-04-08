@@ -1,6 +1,6 @@
 ---
 name: configure
-description: Configure deployment pipeline — detect CI/CD platforms, deployment targets, container configs, and generate .composure/shipyard.json. Query Context7 for CI/CD reference docs. Run once per project.
+description: Configure deployment pipeline and generate shipyard.json. Run once.
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 

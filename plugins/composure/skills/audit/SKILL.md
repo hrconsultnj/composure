@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Full codebase health audit — architecture, security, code quality, dependencies, test coverage. Produces a scored report with letter grades and prioritized remediation. Use when walking into an existing codebase or before major releases.
+description: Full codebase health audit with scored report and letter grades.
 argument-hint: "[path or glob pattern] [--threshold N] [--quick]"
 ---
 

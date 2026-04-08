@@ -1,6 +1,6 @@
 ---
 name: product-planner
-description: Product planning role for app development. Maps user types, goals, flows, screens, and feature lists BEFORE any code is written. Complements ux-researcher (research) and ui-designer (implementation).
+description: Map user types, goals, flows, screens before coding.
 argument-hint: "[description of the app idea, or empty for interactive intake]"
 ---
 

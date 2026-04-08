@@ -1,6 +1,6 @@
 ---
 name: mcp-builder
-description: Build custom MCP servers to connect any service to Claude Code. Discovers the target API, designs tool definitions, and scaffolds a complete TypeScript MCP server project.
+description: Build custom MCP servers from API discovery to scaffold.
 argument-hint: "[service-name] [--skip-docs] [--quick]"
 ---
 

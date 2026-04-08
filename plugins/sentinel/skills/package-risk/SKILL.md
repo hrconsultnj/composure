@@ -1,6 +1,6 @@
 ---
 name: package-risk
-description: Analyze an installed package's source code for suspicious behavior patterns (eval, network calls, env access, obfuscation).
+description: Analyze package source for suspicious behavior patterns.
 argument-hint: "<package-name> [--ecosystem js|python|rust|go]"
 ---
 

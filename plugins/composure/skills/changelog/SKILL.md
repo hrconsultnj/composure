@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Auto-generate a structured changelog from git history and code graph entity mapping.
+description: Auto-generate changelog from git history and code graph.
 argument-hint: "[--from <ref>] [--to <ref>] [--format md|json]"
 ---
 
