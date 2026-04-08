@@ -1,7 +1,7 @@
 {
   "name": "testbench",
   "description": "Test framework detection, convention-aware test generation, and changed-file test execution.",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "author": {
     "name": "Helder Rodrigues",
     "url": "https://github.com/hrconsultnj"
