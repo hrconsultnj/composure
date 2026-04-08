@@ -18,32 +18,46 @@ jobs:
       - name: Bump versions
         run: |
           MARKETPLACE=".claude-plugin/marketplace.json"
+          BUMPED=""
 
-          # Read current metadata version
+          # 1. Bump marketplace metadata version (suite-level)
           CURRENT=$(jq -r '.metadata.version' "$MARKETPLACE")
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          SUITE_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          jq --arg v "$SUITE_VERSION" '.metadata.version = $v' "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
 
-          # Bump metadata version
-          jq --arg v "$NEW_VERSION" '.metadata.version = $v' "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
+          # 2. Bump each plugin's own patch version (independent versioning)
+          PLUGIN_COUNT=$(jq '.plugins | length' "$MARKETPLACE")
+          for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
+            PLUGIN_NAME=$(jq -r --argjson i "$i" '.plugins[$i].name' "$MARKETPLACE")
+            PLUGIN_VER=$(jq -r --argjson i "$i" '.plugins[$i].version' "$MARKETPLACE")
 
-          # Bump each plugin that had files changed in this push
-          CHANGED_PLUGINS=$(git diff --name-only HEAD~1 HEAD -- plugins/ | cut -d'/' -f2 | sort -u)
-          for plugin in $CHANGED_PLUGINS; do
-            jq --arg name "$plugin" --arg v "$NEW_VERSION" \
-              '(.plugins[] | select(.name == $name) | .version) = $v' \
-              "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
+            # Bump this plugin's patch
+            IFS='.' read -r P_MAJOR P_MINOR P_PATCH <<< "$PLUGIN_VER"
+            P_NEW="$P_MAJOR.$P_MINOR.$((P_PATCH + 1))"
+
+            # Update in marketplace.json
+            jq --argjson i "$i" --arg v "$P_NEW" \
+              '.plugins[$i].version = $v' "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
+
+            # Update in plugin's own plugin.json
+            PLUGIN_JSON="plugins/${PLUGIN_NAME}/.claude-plugin/plugin.json"
+            if [ -f "$PLUGIN_JSON" ]; then
+              jq --arg v "$P_NEW" '.version = $v' "$PLUGIN_JSON" > tmp.json && mv tmp.json "$PLUGIN_JSON"
+            fi
+
+            BUMPED="${BUMPED} ${PLUGIN_NAME}:${PLUGIN_VER}→${P_NEW}"
           done
 
-          echo "Bumped $CURRENT → $NEW_VERSION (plugins: $CHANGED_PLUGINS)"
-          echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+          echo "Suite: $CURRENT → $SUITE_VERSION |$BUMPED"
+          echo "SUITE_VERSION=$SUITE_VERSION" >> "$GITHUB_ENV"
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/marketplace.json
+          git add .claude-plugin/marketplace.json plugins/*/.claude-plugin/plugin.json
           git diff --cached --quiet && echo "No version change needed" && exit 0
-          git commit -m "chore: auto-bump to v${NEW_VERSION} [skip-version]"
+          git commit -m "chore: auto-bump suite to v${SUITE_VERSION} [skip-version]"
           git push
