@@ -9,9 +9,11 @@ declare global {
 
 export function useGraphData() {
   const [data, setData] = useState<GraphData | null>(
-    window.__GRAPH_DATA__ ?? null,
+    typeof window !== "undefined" ? window.__GRAPH_DATA__ ?? null : null,
   );
-  const [loading, setLoading] = useState(!window.__GRAPH_DATA__);
+  const [loading, setLoading] = useState(
+    typeof window !== "undefined" ? !window.__GRAPH_DATA__ : true,
+  );
 
   useEffect(() => {
     if (window.__GRAPH_DATA__) return;

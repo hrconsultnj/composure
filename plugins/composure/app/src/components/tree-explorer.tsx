@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { VisNode, TreeDir } from "@/lib/types";

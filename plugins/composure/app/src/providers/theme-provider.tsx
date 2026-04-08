@@ -1,3 +1,5 @@
+'use client'
+
 import { createContext, useCallback, useContext, useState } from "react";
 
 interface ThemeContextValue {
@@ -9,6 +11,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(() => {
+    if (typeof window === "undefined") return true;
     const saved = localStorage.getItem("composure-theme");
     if (saved === "light") {
       document.documentElement.classList.remove("dark");

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Extract graph data from the SQLite DB and write to public/graph-data.json.
- * Runs as a predev/prebuild step so the Vite app has real data.
+ * Runs as a prebuild step so the Next.js app has real data.
  */
 import { DatabaseSync } from "node:sqlite";
 import { writeFileSync, existsSync } from "node:fs";
