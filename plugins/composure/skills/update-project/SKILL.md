@@ -1,6 +1,6 @@
 ---
 name: update-project
-description: Refresh Composure config, hooks, or reference docs without full re-initialization. Targets only what changed.
+description: Refresh Composure config or reference docs incrementally.
 argument-hint: "[config] [docs] [hooks] [stack] [all]"
 ---
 

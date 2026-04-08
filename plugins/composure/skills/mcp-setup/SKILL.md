@@ -1,6 +1,6 @@
 ---
 name: mcp-setup
-description: Discover and configure existing MCP servers for your project. Stack-aware recommendations from a curated registry with full setup — install, configure, and verify.
+description: Discover and configure MCP servers for your project.
 argument-hint: "[search-query] [--list] [--stack <override>]"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ui-designer
-description: This skill should be used when the user asks to "add premium animations", "create a canvas visualization", "build a glassmorphism panel", "add a custom cursor", "create a generative background", "build an interactive card", "add scroll progress", "add sound design", "create a Three.js hero", "build a creative portfolio", "add particle effects", "add scanlines", "add a typewriter effect", "design a landing page", "implement advanced animations", "add 3D elements", "design using Next.js Conf patterns", "create interactive experience", "add Framer Motion animations", "add GSAP scroll animations", "integrate Spline 3D", or needs guidance on premium web design patterns, creative coding, generative art, micro-interactions, accessibility for animations, or bespoke interactive experiences beyond standard UI components.
+description: Premium web animations, 3D, creative coding, generative art, and interactive experiences.
 argument-hint: "[industry] [platform] [style]  or  [component-name]  or  assets [type]  or  sections"
 ---
 

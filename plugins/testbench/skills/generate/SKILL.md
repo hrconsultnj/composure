@@ -1,6 +1,6 @@
 ---
 name: generate
-description: Generate tests for a file or function. Convention-aware -- reads existing test files first to match project style. One file at a time.
+description: Generate tests matching project conventions. One file at a time.
 argument-hint: "<file-path> [--function <name>] [--e2e]"
 ---
 

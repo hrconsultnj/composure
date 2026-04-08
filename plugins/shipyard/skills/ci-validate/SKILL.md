@@ -1,6 +1,6 @@
 ---
 name: ci-validate
-description: Validate CI/CD workflow files. Runs actionlint for GitHub Actions, checks for common mistakes, and reports issues with fix suggestions.
+description: Validate CI/CD workflow files with fix suggestions.
 argument-hint: "[workflow-file]"
 ---
 

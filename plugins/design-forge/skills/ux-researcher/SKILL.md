@@ -1,6 +1,6 @@
 ---
 name: ux-researcher
-description: AI-powered design research agent that uses web search to discover design patterns, analyze competitors, research industry trends, evaluate modern web technologies, and create actionable reports for design-forge implementation. Automates the intelligence gathering phase of design work.
+description: Design research via web search — patterns, competitors, trends, tech evaluation.
 ---
 
 AI-powered design research agent that autonomously gathers intelligence through web search to inform design decisions. Does the groundwork research that feeds into the design-forge skill, discovering patterns, technologies, and approaches that work in the real world.

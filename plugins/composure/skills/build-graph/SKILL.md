@@ -1,6 +1,6 @@
 ---
 name: build-graph
-description: Build or update the code review knowledge graph, generate the visualization, and open it. Run this first to initialize, or let hooks keep it updated automatically.
+description: Build/update code review knowledge graph and open visualization.
 argument-hint: "[full] [--no-open]"
 ---
 

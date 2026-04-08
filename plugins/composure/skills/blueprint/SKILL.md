@@ -1,6 +1,6 @@
 ---
 name: blueprint
-description: Graph-powered pre-work assessment with progressive refinement. Classifies work, scans code graph, confirms scope with user, analyzes impact, evaluates approaches, and writes a persistent blueprint with per-file implementation specs.
+description: Pre-work assessment: classify, scope, impact analysis, implementation specs.
 argument-hint: "[feature description] [--skip-graph] [--quick]"
 ---
 

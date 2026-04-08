@@ -1,6 +1,6 @@
 ---
 name: view-graph
-description: Open the code review graph visualization in the browser. Regenerates the HTML if the graph has been updated since last generation.
+description: Open code review graph visualization in browser.
 ---
 
 Open the standalone graph visualization in the browser. No dev server needed — the visualization is a self-contained HTML file.

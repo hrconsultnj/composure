@@ -1,6 +1,6 @@
 ---
 name: dockerfile
-description: Generate or validate Dockerfiles with security best practices. Multi-stage builds, non-root user, layer caching, .dockerignore.
+description: Generate/validate Dockerfiles with security best practices.
 argument-hint: "[--validate] [--generate]"
 ---
 

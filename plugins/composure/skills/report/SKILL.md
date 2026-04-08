@@ -1,6 +1,6 @@
 ---
 name: report
-description: Generate a self-contained HTML audit report orchestrating all installed plugins. Produces a visual report with letter grades, tabbed sections, and prioritized recommendations.
+description: Generate HTML audit report with letter grades across plugins.
 argument-hint: "[--url <deployment-url>] [--open] [--no-sentinel] [--no-testbench] [--no-shipyard]"
 ---
 

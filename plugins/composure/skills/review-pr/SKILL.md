@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Comprehensive PR review using code graph, quality audit, verification discipline, framework checks, and Sentinel security crossover.
+description: PR review with code graph, quality audit, and security checks.
 argument-hint: "[PR number or branch name]"
 ---
 

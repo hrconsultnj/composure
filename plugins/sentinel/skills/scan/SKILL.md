@@ -1,6 +1,6 @@
 ---
 name: scan
-description: Exposure-aware security scan — Semgrep static analysis, dependency audit, and Composure graph-based exposure prioritization. Writes prioritized findings to tasks-plans/tasks.md.
+description: Security scan — Semgrep, dependency audit, graph exposure ranking.
 argument-hint: "[--semgrep-only] [--deps-only] [--path <dir>]"
 ---
 

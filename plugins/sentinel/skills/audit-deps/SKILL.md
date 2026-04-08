@@ -1,6 +1,6 @@
 ---
 name: audit-deps
-description: Focused dependency CVE audit — reports vulnerabilities with version info and safe upgrade commands.
+description: Dependency CVE audit with safe upgrade commands.
 argument-hint: "[--fix] [--json]"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ci-generate
-description: Generate CI/CD workflow from detected stack. GitHub Actions, GitLab CI, or Bitbucket Pipelines. Includes lint, typecheck, test, build, and deploy stages.
+description: Generate CI/CD workflow from detected stack and platform.
 argument-hint: "[--platform github|gitlab|bitbucket] [--deploy vercel|netlify|docker|railway|fly]"
 ---
 
