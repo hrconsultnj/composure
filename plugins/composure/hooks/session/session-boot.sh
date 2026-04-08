@@ -215,10 +215,16 @@ if [ -f "$INSTALLED_JSON" ] && command -v claude >/dev/null 2>&1; then
   done
 
   if [ ${#MISSING_INSTALL[@]} -gt 0 ]; then
+    NEWLY_INSTALLED=0
     for plugin in "${MISSING_INSTALL[@]}"; do
-      claude plugin install "${plugin}@composure-suite" >/dev/null 2>&1 && \
-        printf '[composure] Auto-installed: %s\n' "$plugin" || true
+      if claude plugin install "${plugin}@composure-suite" >/dev/null 2>&1; then
+        printf '[composure] Auto-installed: %s\n' "$plugin"
+        NEWLY_INSTALLED=$((NEWLY_INSTALLED + 1))
+      fi
     done
+    if [ "$NEWLY_INSTALLED" -gt 0 ]; then
+      printf '[composure:action-required] %d companion plugin(s) just installed. Run /reload-plugins to activate them.\n' "$NEWLY_INSTALLED"
+    fi
   fi
 fi
 
