@@ -8,7 +8,6 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
   "commands": "./commands/",
   "bin": {
     "composure-auth": "./bin/composure-auth.mjs",
