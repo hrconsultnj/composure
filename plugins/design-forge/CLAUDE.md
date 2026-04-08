@@ -24,10 +24,6 @@ design-forge/
 │   ├── effects/                 # Scanlines, Typewriter
 │   └── scenes/                  # HeroScene (R3F container with telemetry HUD)
 ├── hooks/hooks.json             # SessionStart, PreCompact, PreToolUse (canvas guard)
-├── commands/
-│   ├── ui-designer.md            # /design-forge:ui-designer command
-│   ├── product-planner.md        # /design-forge:product-planner command
-│   └── ux-researcher.md          # /design-forge:ux-researcher command
 ├── research/                    # Site analyses and extracted patterns
 └── examples/                    # Example implementations
 ```
