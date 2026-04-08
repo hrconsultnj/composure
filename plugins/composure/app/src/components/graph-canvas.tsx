@@ -1,3 +1,5 @@
+'use client'
+
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import type { VisNode } from "@/lib/types";
 import { CATEGORY_META, CAT_ORDER } from "@/lib/types";

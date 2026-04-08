@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useMemo, useCallback } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider, useTheme } from "@/providers/theme-provider";
@@ -24,11 +26,11 @@ function GraphApp() {
   const { isDark } = useTheme();
 
   const [currentView, setCurrentView] = useState<View>(() =>
-    localStorage.getItem("composure-view") === "tree" ? "tree" : "graph",
+    typeof window !== "undefined" && localStorage.getItem("composure-view") === "tree" ? "tree" : "graph",
   );
   const handleViewChange = useCallback((v: View) => {
     setCurrentView(v);
-    localStorage.setItem("composure-view", v);
+    if (typeof window !== "undefined") localStorage.setItem("composure-view", v);
   }, []);
 
   const [search, setSearch] = useState("");
