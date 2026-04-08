@@ -540,32 +540,11 @@ async function upgradeProject() {
   const MARKETPLACE = "composure-suite";
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
   const installedPluginsPath = join(homeDir, ".claude", "plugins", "installed_plugins.json");
-  const marketplaceDir = join(homeDir, ".claude", "plugins", "marketplaces", MARKETPLACE, "plugins");
-  const cacheBase = join(homeDir, ".claude", "plugins", "cache", MARKETPLACE);
 
-  const marketplaceJsonPath = join(homeDir, ".claude", "plugins", "marketplaces", MARKETPLACE, ".claude-plugin", "marketplace.json");
-
-  if (existsSync(installedPluginsPath) && existsSync(marketplaceDir) && existsSync(marketplaceJsonPath)) {
+  if (existsSync(installedPluginsPath)) {
     try {
       const installed = JSON.parse(readFileSync(installedPluginsPath, "utf8"));
       const pluginKeys = Object.keys(installed.plugins || {});
-
-      // Read marketplace.json to get each plugin's actual version
-      const marketplace = JSON.parse(readFileSync(marketplaceJsonPath, "utf8"));
-      const pluginVersions = {};
-      for (const p of marketplace.plugins || []) {
-        pluginVersions[p.name] = p.version;
-      }
-
-      // Get git SHA from the marketplace clone
-      let suiteSha = "";
-      try {
-        const { execSync: ex } = await import("node:child_process");
-        suiteSha = ex("git rev-parse HEAD", {
-          cwd: join(homeDir, ".claude", "plugins", "marketplaces", MARKETPLACE),
-          encoding: "utf8",
-        }).trim();
-      } catch {}
 
       for (const companion of COMPANIONS) {
         const key = `${companion}@${MARKETPLACE}`;
@@ -576,34 +555,18 @@ async function upgradeProject() {
           continue;
         }
 
-        const pluginVersion = pluginVersions[companion] || "unknown";
-        const sourceDir = join(marketplaceDir, companion);
-        const targetDir = join(cacheBase, companion, pluginVersion);
-
-        if (!existsSync(sourceDir)) {
-          warn.push(`${companion}: not in marketplace clone`);
-          continue;
+        // Use claude CLI to properly install the plugin
+        try {
+          execSync(`claude plugin install ${companion}@${MARKETPLACE}`, {
+            encoding: "utf8",
+            stdio: "pipe",
+            timeout: 30000,
+          });
+          fixed.push(`Installed: ${companion} plugin`);
+        } catch (err) {
+          warn.push(`${companion}: install failed — run \`claude plugin install ${companion}@${MARKETPLACE}\``);
         }
-
-        // Copy plugin files to cache
-        mkdirSync(targetDir, { recursive: true });
-        cpSync(sourceDir, targetDir, { recursive: true });
-
-        // Register in installed_plugins.json
-        installed.plugins[key] = [{
-          scope: "user",
-          installPath: targetDir,
-          version: pluginVersion,
-          installedAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-          ...(suiteSha ? { gitCommitSha: suiteSha } : {}),
-        }];
-
-        fixed.push(`Installed: ${companion} plugin (v${pluginVersion})`);
       }
-
-      // Write updated installed_plugins.json
-      writeFileSync(installedPluginsPath, JSON.stringify(installed, null, 2));
 
     } catch (err) {
       warn.push(`Companion install error: ${err.message}`);
