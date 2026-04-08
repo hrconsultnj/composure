@@ -35,16 +35,16 @@ case "$PROMPT_HEAD" in
     GUIDANCE="Planning request. Consider /composure:blueprint for structured pre-work."
     ;;
 
-  # ── review (before operate — "review changes since commit" ≠ operate) ──
-  *"review "*|*"audit "*|*"check quality"*|*"check the code"*|*"verify "*|*"validate "*|*"look over"*)
+  # ── review (code review intent, not casual "review this") ──
+  *"review the code"*|*"review the changes"*|*"review the pr"*|*"review pr"*|*"code review"*|*"audit the"*|*"audit this project"*|*"check quality"*|*"check the code"*|*"run an audit"*)
     TYPE="review"
-    GUIDANCE="Review request. Consider /composure:review for delta analysis."
+    GUIDANCE="Code review request. Consider /composure:review for delta analysis."
     ;;
 
   # ── research ──
   *"look up"*|*"find out"*|*"investigate"*|*"compare "*|*"research "*|*"what options"*|*"evaluate "*|*"what's the best"*|*"should we use"*)
     TYPE="research"
-    GUIDANCE="Research request. Use Context7 + sub-agent. Write findings to tasks-plans/research/."
+    GUIDANCE="Research request. Check cache (.composure/research/), then spawn sub-agent if needed. Sub-agent writes file, you Read it directly."
     ;;
 
   # ── explain ──
@@ -97,8 +97,23 @@ if [ "$TYPE" = "implement" ]; then
   fi
 fi
 
+# ── Reasoning guidance by type ────────────────────────────────
+# Complex types benefit from sequential thinking (structured reasoning)
+case "$TYPE" in
+  implement|plan)
+    REASONING="Use sequential thinking (sequential_think MCP tool) for multi-step analysis before writing code."
+    ;;
+  research)
+    REASONING="Use Context7 for library docs. Use sequential thinking to compare options systematically."
+    ;;
+  review)
+    REASONING="Use sequential thinking for systematic code review. Check graph for blast radius."
+    ;;
+esac
+
 # ── Output ────────────────────────────────────────────────────
 echo "[composure:request-type] ${TYPE}"
 [ -n "$GUIDANCE" ] && echo "[composure:guidance] ${GUIDANCE}"
+[ -n "$REASONING" ] && echo "[composure:reasoning] ${REASONING}"
 
 exit 0

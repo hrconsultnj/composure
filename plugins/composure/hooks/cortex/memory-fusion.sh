@@ -52,10 +52,10 @@ FILENAME=$(basename "$FILE_PATH")
 EXTENSION="${FILENAME##*.}"
 
 # ── File-based memory → Cortex sync ───────────────────────────
-# When Claude writes to ~/.claude/*/memory/*.md, sync to Cortex
-# so both persistence systems stay in lockstep.
+# When Claude writes to any memory .md file, sync to Cortex.
+# Matches: ~/.claude/memory/*.md (global), ~/.claude/projects/*/memory/*.md (project)
 case "$FILE_PATH" in
-  */.claude/*/memory/*.md|*/.claude/projects/*/memory/*.md)
+  */.claude/memory/*.md|*/.claude/*/memory/*.md|*/.claude/projects/*/memory/*.md)
     # Skip MEMORY.md index file — it's just pointers
     if [ "$FILENAME" = "MEMORY.md" ]; then
       exit 0
