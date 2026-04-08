@@ -10,9 +10,11 @@ A Claude Code plugin that provides production components, reference guides, and 
 design-forge/
 ├── .claude-plugin/plugin.json   # Plugin metadata (name, version, skills path)
 ├── skills/
-│   ├── design-forge/
+│   ├── ui-designer/
 │   │   ├── SKILL.md             # Design skill: triggers, workflow, component catalog
 │   │   └── references/          # 7 reference guides (~3,000 lines total)
+│   ├── product-planner/
+│   │   └── SKILL.md             # Product planning: personas, journeys, screens, features
 │   └── ux-researcher/
 │       └── SKILL.md             # Research skill: web search, competitor analysis, tech evaluation
 ├── components/
@@ -23,8 +25,9 @@ design-forge/
 │   └── scenes/                  # HeroScene (R3F container with telemetry HUD)
 ├── hooks/hooks.json             # SessionStart, PreCompact, PreToolUse (canvas guard)
 ├── commands/
-│   ├── design-forge.md          # /design-forge command
-│   └── ux-researcher.md         # /ux-researcher command
+│   ├── ui-designer.md            # /design-forge:ui-designer command
+│   ├── product-planner.md        # /design-forge:product-planner command
+│   └── ux-researcher.md          # /design-forge:ux-researcher command
 ├── research/                    # Site analyses and extracted patterns
 └── examples/                    # Example implementations
 ```
