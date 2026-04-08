@@ -51,6 +51,80 @@ fi
 FILENAME=$(basename "$FILE_PATH")
 EXTENSION="${FILENAME##*.}"
 
+# ── File-based memory → Cortex sync ───────────────────────────
+# When Claude writes to ~/.claude/*/memory/*.md, sync to Cortex
+# so both persistence systems stay in lockstep.
+case "$FILE_PATH" in
+  */.claude/*/memory/*.md|*/.claude/projects/*/memory/*.md)
+    # Skip MEMORY.md index file — it's just pointers
+    if [ "$FILENAME" = "MEMORY.md" ]; then
+      exit 0
+    fi
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CLI_PATH="${SCRIPT_DIR}/../../cortex/dist/cli.bundle.js"
+
+    if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
+      # Project memories → project agent_id, global memories → "global"
+      case "$FILE_PATH" in
+        */.claude/projects/*)
+          AGENT_ID="$(basename "${CLAUDE_PROJECT_DIR:-.}")"
+          ;;
+        *)
+          AGENT_ID="global"
+          ;;
+      esac
+
+      # Parse frontmatter from the memory file
+      MEM_NAME=$(sed -n 's/^name: *//p' "$FILE_PATH" | head -1)
+      MEM_DESC=$(sed -n 's/^description: *//p' "$FILE_PATH" | head -1)
+      MEM_TYPE=$(sed -n 's/^type: *//p' "$FILE_PATH" | head -1)
+
+      # Extract body (everything after second ---)
+      MEM_BODY=$(awk '/^---$/{c++;next}c>=2' "$FILE_PATH")
+
+      PAYLOAD=$(jq -n \
+        --arg agent_id "$AGENT_ID" \
+        --arg content "${MEM_NAME}: ${MEM_BODY}" \
+        --arg name "$MEM_NAME" \
+        --arg desc "$MEM_DESC" \
+        --arg mem_type "$MEM_TYPE" \
+        --arg filename "$FILENAME" \
+        --arg filepath "$FILE_PATH" \
+        '{
+          agent_id: $agent_id,
+          content: $content,
+          content_type: "memory",
+          metadata: {
+            category: $mem_type,
+            tags: [$mem_type, "file-memory-sync", $filename],
+            source_file: $filepath,
+            memory_name: $name,
+            memory_description: $desc
+          }
+        }')
+
+      # Search for existing node with same filename to update vs create
+      EXISTING=$(node --experimental-sqlite "$CLI_PATH" search_memory_text \
+        "{\"agent_id\":\"${AGENT_ID}\",\"query\":\"${FILENAME}\",\"limit\":1}" 2>/dev/null \
+        | jq -r '.results[]? | select(.metadata.source_file // "" | endswith("'"$FILENAME"'")) | .node_id // empty' 2>/dev/null \
+        | head -1)
+
+      if [ -n "$EXISTING" ]; then
+        # Update existing node
+        node --experimental-sqlite "$CLI_PATH" add_observations \
+          "{\"node_id\":\"${EXISTING}\",\"observations\":[\"Updated: ${MEM_BODY}\"]}" 2>/dev/null &
+      else
+        # Create new node
+        node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null &
+      fi
+
+      echo "[cortex-memory] Synced file memory → Cortex: ${FILENAME} (${MEM_TYPE})"
+    fi
+    exit 0
+    ;;
+esac
+
 # ── Reflex triggers ────────────────────────────────────────────
 # Principle: if changing this file could break OTHER parts of the
 # codebase or represents a structural decision, it's notable.
