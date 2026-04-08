@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Composure Suite — code quality, security, CI/CD, testing, design, and AI memory for Claude Code.",
-    "version": "1.47.23"
+    "version": "1.47.24"
   },
   "plugins": [
     {
