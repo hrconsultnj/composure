@@ -26,10 +26,10 @@ Security Tooling:
   {tool}: not installed         ← only show if relevant to detected stack
 
 Generated:
-  - .claude/sentinel.json
-  - .claude/security/integrations.json ({count} integrations)
+  - .composure/sentinel.json
+  - .composure/security/integrations.json ({count} integrations)
   {if security docs generated:}
-  - .claude/security/generated/ ({count} docs for detected integrations)
+  - .composure/security/generated/ ({count} docs for detected integrations)
 
 {WARNINGS — only if actionable issues found}
 

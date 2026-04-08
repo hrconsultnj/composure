@@ -379,7 +379,7 @@ async function refresh() {
 
 // ── Migrate (.claude/ → .composure/) ─────────────────────────────────
 
-import { cpSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { cpSync, readFileSync, writeFileSync, readdirSync, renameSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { execSync } from "node:child_process";
 
@@ -395,90 +395,155 @@ async function upgradeProject() {
   const claudeDir = join(projectDir, ".claude");
   const composureDir = join(projectDir, ".composure");
 
-  console.log(`\nComposure Migrate — Move configs to .composure/\n`);
+  console.log(`\nComposure Migrate — Verify & repair project structure\n`);
   console.log(`Project: ${projectDir}`);
 
-  // Check for legacy configs
-  const legacyConfig = join(claudeDir, "no-bandaids.json");
-  if (!existsSync(legacyConfig)) {
-    console.log("\nNo legacy .claude/no-bandaids.json found. Nothing to migrate.");
-    if (existsSync(join(composureDir, "no-bandaids.json"))) {
-      console.log("Already using .composure/ — you're up to date.");
-    } else {
-      console.log("Run /composure:initialize to set up this project.");
-    }
-    return;
-  }
+  const ok = [];
+  const fixed = [];
+  const warn = [];
 
-  if (existsSync(join(composureDir, "no-bandaids.json"))) {
-    console.log("\n.composure/no-bandaids.json already exists. Already migrated.");
-    return;
-  }
-
-  // Create full .composure/ scaffold (matches auto-bootstrap)
-  for (const dir of [
+  // ── 1. Scaffold: ensure .composure/ directory structure ─────────
+  const requiredDirs = [
     composureDir,
     join(composureDir, "frameworks", "generated"),
     join(composureDir, "frameworks", "project"),
     join(composureDir, "development", "workspaces"),
     join(composureDir, "cortex"),
     join(composureDir, "graph"),
-  ]) {
-    mkdirSync(dir, { recursive: true });
+  ];
+  for (const dir of requiredDirs) {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      fixed.push(`Created: ${dir.replace(projectDir + "/", "")}`);
+    }
   }
+  ok.push(`.composure/ scaffold (${requiredDirs.length} dirs)`);
 
-  // Create tasks-plans/ scaffold
-  for (const dir of [
+  // ── 2. Scaffold: tasks-plans/ ───────────────────────────────────
+  const taskDirs = [
+    join(projectDir, "tasks-plans"),
     join(projectDir, "tasks-plans", "backlog"),
     join(projectDir, "tasks-plans", "blueprints"),
     join(projectDir, "tasks-plans", "archive"),
     join(projectDir, "tasks-plans", "ideas"),
     join(projectDir, "tasks-plans", "reference"),
-  ]) {
-    mkdirSync(dir, { recursive: true });
-  }
-
-  // Ensure global Cortex directory exists
-  mkdirSync(join(COMPOSURE_DIR, "cortex"), { recursive: true });
-
-  let migrated = 0;
-
-  // Migrate no-bandaids.json
-  cpSync(legacyConfig, join(composureDir, "no-bandaids.json"));
-  migrated++;
-  console.log(`  Migrated: no-bandaids.json`);
-
-  // Migrate companion configs
-  for (const companion of ["sentinel", "shipyard", "testbench", "composure-pro"]) {
-    const src = join(claudeDir, `${companion}.json`);
-    if (existsSync(src)) {
-      cpSync(src, join(composureDir, `${companion}.json`));
-      migrated++;
-      console.log(`  Migrated: ${companion}.json`);
+  ];
+  for (const dir of taskDirs) {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      fixed.push(`Created: ${dir.replace(projectDir + "/", "")}`);
     }
   }
+  ok.push(`tasks-plans/ scaffold (${taskDirs.length} dirs)`);
 
-  // Migrate frameworks/
-  const frameworksSrc = join(claudeDir, "frameworks");
-  if (existsSync(frameworksSrc)) {
-    cpSync(frameworksSrc, join(composureDir, "frameworks"), { recursive: true });
-    migrated++;
-    console.log(`  Migrated: frameworks/`);
+  // ── 3. Global Cortex DB directory ───────────────────────────────
+  const globalCortexDir = join(COMPOSURE_DIR, "cortex");
+  if (!existsSync(globalCortexDir)) {
+    mkdirSync(globalCortexDir, { recursive: true });
+    fixed.push("Created: ~/.composure/cortex/");
+  }
+  ok.push("Global Cortex directory");
+
+  // ── 4. Config: no-bandaids.json ─────────────────────────────────
+  const noBandaids = join(composureDir, "no-bandaids.json");
+  const legacyNoBandaids = join(claudeDir, "no-bandaids.json");
+  if (existsSync(noBandaids)) {
+    ok.push("no-bandaids.json");
+  } else if (existsSync(legacyNoBandaids)) {
+    cpSync(legacyNoBandaids, noBandaids);
+    fixed.push("Migrated: .claude/no-bandaids.json → .composure/");
+  } else {
+    warn.push("no-bandaids.json missing — run /composure:initialize");
   }
 
-  // Add .composure/ to .gitignore
+  // ── 5. Companion configs ────────────────────────────────────────
+  for (const companion of ["sentinel", "shipyard", "testbench", "composure-pro"]) {
+    const target = join(composureDir, `${companion}.json`);
+    const legacy = join(claudeDir, `${companion}.json`);
+    if (existsSync(target)) {
+      ok.push(`${companion}.json`);
+    } else if (existsSync(legacy)) {
+      cpSync(legacy, target);
+      fixed.push(`Migrated: .claude/${companion}.json → .composure/`);
+    }
+    // No warning if missing — companions are optional
+  }
+
+  // ── 6. Frameworks ───────────────────────────────────────────────
+  const fwGenerated = join(composureDir, "frameworks", "generated");
+  const legacyFw = join(claudeDir, "frameworks");
+  if (readdirSync(fwGenerated).length > 0) {
+    ok.push("frameworks/generated");
+  } else if (existsSync(legacyFw)) {
+    cpSync(legacyFw, join(composureDir, "frameworks"), { recursive: true });
+    fixed.push("Migrated: .claude/frameworks/ → .composure/frameworks/");
+  } else {
+    warn.push("frameworks/generated empty — run /composure:initialize");
+  }
+
+  // ── 7. Graph DB: .code-review-graph/ → .composure/graph/ ───────
+  const newGraphDir = join(composureDir, "graph");
+  const newGraphDb = join(newGraphDir, "graph.db");
+  const legacyGraphDir = join(projectDir, ".code-review-graph");
+  const legacyGraphDb = join(legacyGraphDir, "graph.db");
+  if (existsSync(newGraphDb)) {
+    ok.push("Graph DB (.composure/graph/graph.db)");
+    // Clean up legacy if it still exists alongside the new one
+    if (existsSync(legacyGraphDir)) {
+      try { rmSync(legacyGraphDir, { recursive: true }); } catch {}
+      fixed.push("Removed: stale .code-review-graph/ (DB already in .composure/graph/)");
+    }
+  } else if (existsSync(legacyGraphDb)) {
+    const files = readdirSync(legacyGraphDir);
+    for (const file of files) {
+      if (file === ".gitignore") continue;
+      renameSync(join(legacyGraphDir, file), join(newGraphDir, file));
+    }
+    try { rmSync(legacyGraphDir, { recursive: true }); } catch {}
+    fixed.push("Migrated: .code-review-graph/ → .composure/graph/");
+  } else {
+    warn.push("No graph DB — run /composure:build-graph");
+  }
+
+  // ── 8. Cortex DB (project-level) ───────────────────────────────
+  const cortexDb = join(composureDir, "cortex.db");
+  if (existsSync(cortexDb)) {
+    ok.push("Cortex DB (.composure/cortex.db)");
+  } else {
+    warn.push("No project Cortex DB — will be created on first use");
+  }
+
+  // ── 9. Global Cortex DB ─────────────────────────────────────────
+  const globalCortexDb = join(COMPOSURE_DIR, "cortex", "cortex.db");
+  if (existsSync(globalCortexDb)) {
+    ok.push("Global Cortex DB");
+  } else {
+    warn.push("No global Cortex DB — will be created on first use");
+  }
+
+  // ── 10. .gitignore entries ──────────────────────────────────────
   const gitignorePath = join(projectDir, ".gitignore");
   if (existsSync(gitignorePath)) {
     const content = readFileSync(gitignorePath, "utf8");
-    if (!content.includes(".composure/")) {
-      writeFileSync(gitignorePath, content.trimEnd() + "\n\n# Composure\n.composure/\n");
-      console.log(`  Updated: .gitignore`);
+    const missing = [];
+    if (!content.includes(".composure/")) missing.push(".composure/");
+    if (!content.includes(".code-review-graph")) missing.push(".code-review-graph/");
+    if (missing.length > 0) {
+      writeFileSync(gitignorePath, content.trimEnd() + "\n\n# Composure\n" + missing.join("\n") + "\n");
+      fixed.push(`Updated .gitignore: added ${missing.join(", ")}`);
     }
+    ok.push(".gitignore");
   }
 
-  console.log(`\nMigrated ${migrated} item(s) to .composure/`);
-  console.log(`Legacy .claude/ files kept for backward compatibility.`);
-  console.log(`\nRestart Claude Code to pick up the new paths.`);
+  // ── Report ──────────────────────────────────────────────────────
+  console.log("\n── Structure Check ──\n");
+  for (const item of ok) console.log(`  ✓ ${item}`);
+  for (const item of fixed) console.log(`  ⚡ ${item}`);
+  for (const item of warn) console.log(`  ⚠ ${item}`);
+  console.log(`\n${ok.length} OK · ${fixed.length} fixed · ${warn.length} warnings`);
+  if (fixed.length > 0) {
+    console.log("\nRestart Claude Code to pick up changes.");
+  }
 }
 
 // ── HTML Response Page ───────────────────────────────────────────────

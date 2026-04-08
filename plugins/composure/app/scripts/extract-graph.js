@@ -10,7 +10,8 @@ import { basename, relative, resolve, dirname, join } from "node:path";
 // PROJECT_ROOT: the user's project (where the graph DB lives)
 // Falls back to two levels up from this script (works when running from plugin repo itself)
 const PROJECT_ROOT = process.env.PROJECT_ROOT || resolve(import.meta.dirname, "../..");
-const DB_PATH = join(PROJECT_ROOT, ".code-review-graph/graph.db");
+let DB_PATH = join(PROJECT_ROOT, ".composure/graph/graph.db");
+if (!existsSync(DB_PATH)) DB_PATH = join(PROJECT_ROOT, ".code-review-graph/graph.db");
 // Output always goes to the plugin's app/public/ (next to this script)
 const OUT_PATH = join(import.meta.dirname, "../public/graph-data.json");
 

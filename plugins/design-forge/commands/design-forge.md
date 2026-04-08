@@ -23,7 +23,7 @@ If `$ARGUMENTS` contains taxonomy axes (e.g., `health webapp modern`), load the 
 - Platforms: website, webapp, mobile
 - Styles: modern, minimalistic, glassmorphism, futuristic, brutalist, organic
 
-If no taxonomy axes are provided, check for a recent UX researcher report in `.claude/research/` with a Classification block.
+If no taxonomy axes are provided, check for a recent UX researcher report in `.composure/research/` with a Classification block.
 
 If no report exists either, auto-detect from the project (package.json, globals.css, CLAUDE.md).
 

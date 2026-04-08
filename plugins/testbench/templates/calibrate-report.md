@@ -32,9 +32,9 @@ Commands:
   Coverage: {coverageCommand}
 
 Generated:
-  - .claude/testbench.json
+  - .composure/testbench.json
   {if framework docs generated:}
-  - .claude/testing/generated/ ({list framework docs})
+  - .composure/testing/generated/ ({list framework docs})
 
 {OBSERVATIONS — only if actionable}
 

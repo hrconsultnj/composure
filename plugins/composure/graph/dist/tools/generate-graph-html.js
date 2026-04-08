@@ -272,7 +272,7 @@ export function generateGraphHtmlTool(params) {
             },
         });
         // Write output
-        const outputPath = params.output_path ?? join(root, ".code-review-graph", "graph.html");
+        const outputPath = params.output_path ?? join(root, ".composure", "graph", "graph.html");
         writeFileSync(outputPath, html, "utf-8");
         // Compute category summary
         const catCounts = {};

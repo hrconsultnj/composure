@@ -87,7 +87,8 @@ esac
 LARGE_FUNCS=""
 LARGE_FUNC_COUNT=0
 
-GRAPH_DB="${CLAUDE_PROJECT_DIR}/.code-review-graph/graph.db"
+GRAPH_DB="${CLAUDE_PROJECT_DIR}/.composure/graph/graph.db"
+[ ! -f "$GRAPH_DB" ] && GRAPH_DB="${CLAUDE_PROJECT_DIR}/.code-review-graph/graph.db"
 ABS_FILE_PATH=$(cd "$(dirname "$FILE_PATH")" 2>/dev/null && echo "$(pwd)/$(basename "$FILE_PATH")")
 [ -z "$ABS_FILE_PATH" ] && ABS_FILE_PATH="$FILE_PATH"
 

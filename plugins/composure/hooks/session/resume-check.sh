@@ -31,7 +31,8 @@ source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
 # Version sync moved to session-boot.sh — no longer duplicated here
 
 TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
-GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
+GRAPH_DB="$PROJECT_DIR/.composure/graph/graph.db"
+[ ! -f "$GRAPH_DB" ] && GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
 
 PARTS=()
 OPEN=0
