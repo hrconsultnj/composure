@@ -8,6 +8,5 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "skills": "./skills/",
-  "agents": "./agents/",
   "hooks": "./hooks/hooks.json"
 }
