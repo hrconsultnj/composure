@@ -1,0 +1,49 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip-version]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AUTO_VERSION_PAT }}
+
+      - name: Bump versions
+        run: |
+          MARKETPLACE=".claude-plugin/marketplace.json"
+
+          # Read current metadata version
+          CURRENT=$(jq -r '.metadata.version' "$MARKETPLACE")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+
+          # Bump metadata version
+          jq --arg v "$NEW_VERSION" '.metadata.version = $v' "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
+
+          # Bump each plugin that had files changed in this push
+          CHANGED_PLUGINS=$(git diff --name-only HEAD~1 HEAD -- plugins/ | cut -d'/' -f2 | sort -u)
+          for plugin in $CHANGED_PLUGINS; do
+            jq --arg name "$plugin" --arg v "$NEW_VERSION" \
+              '(.plugins[] | select(.name == $name) | .version) = $v' \
+              "$MARKETPLACE" > tmp.json && mv tmp.json "$MARKETPLACE"
+          done
+
+          echo "Bumped $CURRENT → $NEW_VERSION (plugins: $CHANGED_PLUGINS)"
+          echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_ENV"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/marketplace.json
+          git diff --cached --quiet && echo "No version change needed" && exit 0
+          git commit -m "chore: auto-bump to v${NEW_VERSION} [skip-version]"
+          git push
