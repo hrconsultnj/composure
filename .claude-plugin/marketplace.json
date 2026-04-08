@@ -28,7 +28,7 @@
     {
       "name": "design-forge",
       "source": "./plugins/design-forge",
-      "description": "Premium web design patterns — 33 production components, 10 reference guides, canvas presets, animation recipes, 3D integration, accessibility, AI design research",
+      "description": "Premium web design patterns — ui-designer (33 components, canvas, animations, 3D), product-planner (personas, journeys, screens), ux-researcher (competitive analysis, tech evaluation)",
       "version": "2.2.0",
       "category": "design",
       "keywords": [
