@@ -11,7 +11,7 @@ Composure runs entirely on your local machine. It does not collect, transmit, or
 ## What the plugin does
 
 - Parses your source code locally using tree-sitter (WebAssembly) to build a structural knowledge graph
-- Stores the graph in a SQLite database on your machine at `.code-review-graph/graph.db`
+- Stores the graph in a SQLite database on your machine at `.composure/graph/graph.db`
 - Runs shell scripts locally as Claude Code hooks (no network calls)
 - Provides MCP tools that Claude Code queries locally via stdio
 
@@ -32,7 +32,7 @@ All data created by Composure stays on your machine:
 
 | Data | Location | Purpose |
 |------|----------|---------|
-| Code graph | `.code-review-graph/graph.db` | AST-based function/import/call relationships |
+| Code graph | `.composure/graph/graph.db` | AST-based function/import/call relationships |
 | Task queue | `tasks-plans/tasks.md` | Code quality tasks logged by hooks |
 | Plugin config | `.composure/no-bandaids.json` (or `.claude/no-bandaids.json`) | Per-project type-safety rules |
 

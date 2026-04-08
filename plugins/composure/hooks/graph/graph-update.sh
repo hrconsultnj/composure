@@ -19,7 +19,7 @@ esac
 # Skip generated/vendored directories
 case "$FILE_PATH" in
   */node_modules/*|*/.next/*|*/dist/*|*/.expo/*) exit 0 ;;
-  */.code-review-graph/*) exit 0 ;;
+  */.code-review-graph/*|*/.composure/graph/*) exit 0 ;;
 esac
 
 # Find update.js — try CLAUDE_PLUGIN_ROOT first, then fall back to searching

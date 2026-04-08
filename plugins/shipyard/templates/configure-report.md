@@ -22,9 +22,9 @@ Tooling:
   {tool}: not installed         ← only if needed for detected targets
 
 Generated:
-  - .claude/shipyard.json
+  - .composure/shipyard.json
   {if CI docs generated:}
-  - .claude/ci/generated/ ({count} CI reference docs)
+  - .composure/ci/generated/ ({count} CI reference docs)
 
 {GAPS/RECOMMENDATIONS — only if actionable}
 

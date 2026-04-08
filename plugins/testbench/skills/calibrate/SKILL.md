@@ -1,6 +1,6 @@
 ---
 name: calibrate
-description: Calibrate test bench — detect test framework, read existing test conventions, generate .claude/testbench.json config. Query Context7 for test framework reference docs. Run once per project.
+description: Calibrate test bench — detect test framework, read existing test conventions, generate .composure/testbench.json config. Query Context7 for test framework reference docs. Run once per project.
 argument-hint: "[--force] [--dry-run] [--skip-context7]"
 ---
 

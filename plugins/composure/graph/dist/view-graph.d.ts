@@ -6,6 +6,6 @@
  *   node dist/view-graph.js [--output <path>] [--repo-root <path>]
  *
  * Generates a self-contained .html file from the code review graph.
- * Default output: .code-review-graph/graph.html
+ * Default output: .composure/graph/graph.html
  */
 export {};

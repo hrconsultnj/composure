@@ -277,7 +277,8 @@ if [ "$IS_NOTABLE" = true ]; then
     if [ -n "$NODE_ID" ]; then
       GRAPH_CLI="${SCRIPT_DIR}/../../graph/dist/cli.js"
       PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-.}"
-      GRAPH_DB="${PROJECT_ROOT}/.code-review-graph/graph.db"
+      GRAPH_DB="${PROJECT_ROOT}/.composure/graph/graph.db"
+      [ ! -f "$GRAPH_DB" ] && GRAPH_DB="${PROJECT_ROOT}/.code-review-graph/graph.db"
 
       if [ -f "$GRAPH_CLI" ] && [ -f "$GRAPH_DB" ]; then
         # Query graph for entities at this file path

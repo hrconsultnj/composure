@@ -21512,7 +21512,7 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readdirSync, readFileSync as readFileSync13, renameSync, rmSync, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname8, join as join4, relative as relative2, resolve as resolve4 } from "node:path";
 
 // dist/parser.js
@@ -28681,6 +28681,8 @@ function detectAndStoreEntities(store, repoRoot) {
 }
 
 // dist/incremental.js
+var GRAPH_DIR = ".composure/graph";
+var LEGACY_GRAPH_DIR = ".code-review-graph";
 var DEFAULT_IGNORES = /* @__PURE__ */ new Set([
   "node_modules",
   ".git",
@@ -28688,6 +28690,7 @@ var DEFAULT_IGNORES = /* @__PURE__ */ new Set([
   ".expo",
   "dist",
   "build",
+  ".composure",
   ".code-review-graph",
   "__pycache__",
   ".turbo",
@@ -28712,8 +28715,30 @@ function findRepoRoot(start2) {
 function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
+function ensureGraphDir(repoRoot) {
+  const dir = join4(repoRoot, GRAPH_DIR);
+  const legacyDir = join4(repoRoot, LEGACY_GRAPH_DIR);
+  if (!existsSync4(dir)) {
+    mkdirSync2(dir, { recursive: true });
+    writeFileSync2(join4(dir, ".gitignore"), "*\n");
+  }
+  const legacyDb = join4(legacyDir, "graph.db");
+  const newDb = join4(dir, "graph.db");
+  if (existsSync4(legacyDb) && !existsSync4(newDb)) {
+    for (const file of readdirSync(legacyDir)) {
+      if (file === ".gitignore")
+        continue;
+      renameSync(join4(legacyDir, file), join4(dir, file));
+    }
+    try {
+      rmSync(legacyDir, { recursive: true });
+    } catch {
+    }
+  }
+  return dir;
+}
 function getDbPath(repoRoot) {
-  return join4(repoRoot, ".code-review-graph", "graph.db");
+  return join4(ensureGraphDir(repoRoot), "graph.db");
 }
 function execGit(args2, cwd) {
   try {
@@ -28760,7 +28785,10 @@ function collectAllFiles(repoRoot) {
   });
 }
 function loadIgnorePatterns(repoRoot) {
-  const ignorePath = join4(repoRoot, ".code-review-graphignore");
+  let ignorePath = join4(repoRoot, ".composureignore");
+  if (!existsSync4(ignorePath)) {
+    ignorePath = join4(repoRoot, ".code-review-graphignore");
+  }
   if (!existsSync4(ignorePath))
     return [];
   try {
@@ -29904,7 +29932,7 @@ function listGraphStats(params) {
 }
 
 // dist/tools/generate-graph-html.js
-import { writeFileSync as writeFileSync2 } from "node:fs";
+import { writeFileSync as writeFileSync3 } from "node:fs";
 import { basename as basename11, dirname as dirname9, join as join5, relative as relative6, resolve as resolve8 } from "node:path";
 
 // dist/html-styles.js
@@ -30751,8 +30779,8 @@ function generateGraphHtmlTool(params) {
         filesCount: nodes.length
       }
     });
-    const outputPath = params.output_path ?? join5(root, ".code-review-graph", "graph.html");
-    writeFileSync2(outputPath, html, "utf-8");
+    const outputPath = params.output_path ?? join5(root, ".composure", "graph", "graph.html");
+    writeFileSync3(outputPath, html, "utf-8");
     const catCounts = {};
     for (const n of nodes) {
       catCounts[n.cat] = (catCounts[n.cat] ?? 0) + 1;
@@ -31616,7 +31644,7 @@ async function runAudit(params) {
 }
 
 // dist/tools/generate-audit-html.js
-import { existsSync as existsSync8, readFileSync as readFileSync17, writeFileSync as writeFileSync3, mkdirSync as mkdirSync2 } from "node:fs";
+import { existsSync as existsSync8, readFileSync as readFileSync17, writeFileSync as writeFileSync4, mkdirSync as mkdirSync3 } from "node:fs";
 import { basename as basename12, dirname as dirname10, join as join8 } from "node:path";
 function findTemplateDir() {
   const candidates = [
@@ -31742,10 +31770,10 @@ function generateAuditHtml(params) {
     }
     const outputDir = join8(root, "tasks-plans", "audits");
     if (!existsSync8(outputDir))
-      mkdirSync2(outputDir, { recursive: true });
+      mkdirSync3(outputDir, { recursive: true });
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", "-").replace(":", "");
     const outputPath = params.output_path ?? join8(outputDir, `audit-${timestamp}.html`);
-    writeFileSync3(outputPath, html, "utf-8");
+    writeFileSync4(outputPath, html, "utf-8");
     const overall = getOverallScore(store, runId);
     return {
       status: "ok",
@@ -31884,7 +31912,7 @@ server.tool("list_graph_stats", "Get aggregate statistics about the code knowled
   };
 });
 server.tool("generate_graph_html", "Generate a self-contained HTML visualization of the code knowledge graph. Shows file-level nodes grouped by auto-detected category (Pages, API, Components, Hooks, Lib, etc.) with import edges, search, zoom, and blast-radius highlighting. Output is a single .html file that works offline.", {
-  output_path: external_exports.string().optional().describe("Output file path. Default: .code-review-graph/graph.html"),
+  output_path: external_exports.string().optional().describe("Output file path. Default: .composure/graph/graph.html"),
   repo_root: external_exports.string().optional().describe("Repository root path. Auto-detected if omitted.")
 }, async (params) => {
   const result = generateGraphHtmlTool(params);

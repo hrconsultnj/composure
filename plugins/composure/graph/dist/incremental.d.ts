@@ -7,6 +7,7 @@
 import { GraphStore } from "./store.js";
 import type { BuildResult } from "./types.js";
 export declare function findProjectRoot(start?: string): string;
+export declare function ensureGraphDir(repoRoot: string): string;
 export declare function getDbPath(repoRoot: string): string;
 export declare function getChangedFiles(repoRoot: string, base?: string): string[];
 export declare function getStagedAndUnstaged(repoRoot: string): string[];

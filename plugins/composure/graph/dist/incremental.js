@@ -5,7 +5,7 @@
  * (parse only changed files + their dependents).
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { CodeParser, fileHash, isParseable } from "./parser.js";
 import { isSqlParseable, parseSqlFile } from "./sql-parser.js";
@@ -18,6 +18,8 @@ import { isHclParseable, parseHclFile } from "./hcl-parser.js";
 import { isDockerfileParseable, parseDockerfile } from "./dockerfile-parser.js";
 import { detectAndStoreEntities } from "./entities.js";
 // ── Default ignore patterns ────────────────────────────────────────
+const GRAPH_DIR = ".composure/graph";
+const LEGACY_GRAPH_DIR = ".code-review-graph";
 const DEFAULT_IGNORES = new Set([
     "node_modules",
     ".git",
@@ -25,6 +27,7 @@ const DEFAULT_IGNORES = new Set([
     ".expo",
     "dist",
     "build",
+    ".composure",
     ".code-review-graph",
     "__pycache__",
     ".turbo",
@@ -50,8 +53,31 @@ function findRepoRoot(start) {
 export function findProjectRoot(start) {
     return findRepoRoot(start) ?? process.cwd();
 }
+export function ensureGraphDir(repoRoot) {
+    const dir = join(repoRoot, GRAPH_DIR);
+    const legacyDir = join(repoRoot, LEGACY_GRAPH_DIR);
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, ".gitignore"), "*\n");
+    }
+    // Auto-migrate from legacy .code-review-graph/ if it exists
+    const legacyDb = join(legacyDir, "graph.db");
+    const newDb = join(dir, "graph.db");
+    if (existsSync(legacyDb) && !existsSync(newDb)) {
+        for (const file of readdirSync(legacyDir)) {
+            if (file === ".gitignore")
+                continue;
+            renameSync(join(legacyDir, file), join(dir, file));
+        }
+        try {
+            rmSync(legacyDir, { recursive: true });
+        }
+        catch { }
+    }
+    return dir;
+}
 export function getDbPath(repoRoot) {
-    return join(repoRoot, ".code-review-graph", "graph.db");
+    return join(ensureGraphDir(repoRoot), "graph.db");
 }
 /**
  * Run a git command safely using execFileSync (no shell injection).
@@ -117,7 +143,10 @@ function collectAllFiles(repoRoot) {
     });
 }
 function loadIgnorePatterns(repoRoot) {
-    const ignorePath = join(repoRoot, ".code-review-graphignore");
+    let ignorePath = join(repoRoot, ".composureignore");
+    if (!existsSync(ignorePath)) {
+        ignorePath = join(repoRoot, ".code-review-graphignore");
+    }
     if (!existsSync(ignorePath))
         return [];
     try {

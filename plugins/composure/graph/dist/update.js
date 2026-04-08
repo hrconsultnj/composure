@@ -5212,7 +5212,7 @@ var GraphStore = class {
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync4, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readdirSync, readFileSync as readFileSync13, renameSync, rmSync, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname8, join as join4, relative as relative2, resolve as resolve4 } from "node:path";
 
 // dist/sql-parser.js
@@ -7425,6 +7425,8 @@ import { readFileSync as readFileSync12 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
+var GRAPH_DIR = ".composure/graph";
+var LEGACY_GRAPH_DIR = ".code-review-graph";
 function findRepoRoot(start2) {
   let dir = start2 ? resolve4(start2) : process.cwd();
   while (true) {
@@ -7439,8 +7441,30 @@ function findRepoRoot(start2) {
 function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
+function ensureGraphDir(repoRoot) {
+  const dir = join4(repoRoot, GRAPH_DIR);
+  const legacyDir = join4(repoRoot, LEGACY_GRAPH_DIR);
+  if (!existsSync4(dir)) {
+    mkdirSync2(dir, { recursive: true });
+    writeFileSync2(join4(dir, ".gitignore"), "*\n");
+  }
+  const legacyDb = join4(legacyDir, "graph.db");
+  const newDb = join4(dir, "graph.db");
+  if (existsSync4(legacyDb) && !existsSync4(newDb)) {
+    for (const file of readdirSync(legacyDir)) {
+      if (file === ".gitignore")
+        continue;
+      renameSync(join4(legacyDir, file), join4(dir, file));
+    }
+    try {
+      rmSync(legacyDir, { recursive: true });
+    } catch {
+    }
+  }
+  return dir;
+}
 function getDbPath(repoRoot) {
-  return join4(repoRoot, ".code-review-graph", "graph.db");
+  return join4(ensureGraphDir(repoRoot), "graph.db");
 }
 function findDependents(store, filePath) {
   const edges = store.getEdgesByTarget(filePath);

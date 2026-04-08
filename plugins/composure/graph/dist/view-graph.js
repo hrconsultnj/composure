@@ -6,7 +6,7 @@ import { existsSync as existsSync5 } from "node:fs";
 
 // dist/incremental.js
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync3, mkdirSync, readdirSync, readFileSync as readFileSync13, renameSync, rmSync, statSync as statSync2, writeFileSync } from "node:fs";
 import { dirname as dirname7, join as join4, relative as relative2, resolve as resolve4 } from "node:path";
 
 // dist/parser.js
@@ -4047,6 +4047,8 @@ import { readFileSync as readFileSync12 } from "node:fs";
 import { relative } from "node:path";
 
 // dist/incremental.js
+var GRAPH_DIR = ".composure/graph";
+var LEGACY_GRAPH_DIR = ".code-review-graph";
 function findRepoRoot(start2) {
   let dir = start2 ? resolve4(start2) : process.cwd();
   while (true) {
@@ -4061,17 +4063,39 @@ function findRepoRoot(start2) {
 function findProjectRoot(start2) {
   return findRepoRoot(start2) ?? process.cwd();
 }
+function ensureGraphDir(repoRoot) {
+  const dir = join4(repoRoot, GRAPH_DIR);
+  const legacyDir = join4(repoRoot, LEGACY_GRAPH_DIR);
+  if (!existsSync3(dir)) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join4(dir, ".gitignore"), "*\n");
+  }
+  const legacyDb = join4(legacyDir, "graph.db");
+  const newDb = join4(dir, "graph.db");
+  if (existsSync3(legacyDb) && !existsSync3(newDb)) {
+    for (const file of readdirSync(legacyDir)) {
+      if (file === ".gitignore")
+        continue;
+      renameSync(join4(legacyDir, file), join4(dir, file));
+    }
+    try {
+      rmSync(legacyDir, { recursive: true });
+    } catch {
+    }
+  }
+  return dir;
+}
 function getDbPath(repoRoot) {
-  return join4(repoRoot, ".code-review-graph", "graph.db");
+  return join4(ensureGraphDir(repoRoot), "graph.db");
 }
 
 // dist/tools/generate-graph-html.js
-import { writeFileSync as writeFileSync2 } from "node:fs";
+import { writeFileSync as writeFileSync3 } from "node:fs";
 import { basename as basename11, dirname as dirname9, join as join5, relative as relative3, resolve as resolve5 } from "node:path";
 
 // dist/store.js
 import { DatabaseSync } from "node:sqlite";
-import { existsSync as existsSync4, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname8 } from "node:path";
 
 // dist/serialization.js
@@ -4399,10 +4423,10 @@ var GraphStore = class {
   constructor(dbPath) {
     const dir = dirname8(dbPath);
     if (!existsSync4(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync2(dir, { recursive: true });
       const gitignorePath = `${dir}/.gitignore`;
       if (!existsSync4(gitignorePath)) {
-        writeFileSync(gitignorePath, "*\n");
+        writeFileSync2(gitignorePath, "*\n");
       }
     }
     this.db = new DatabaseSync(dbPath);
@@ -5411,8 +5435,8 @@ function generateGraphHtmlTool(params) {
         filesCount: nodes.length
       }
     });
-    const outputPath = params.output_path ?? join5(root, ".code-review-graph", "graph.html");
-    writeFileSync2(outputPath, html, "utf-8");
+    const outputPath = params.output_path ?? join5(root, ".composure", "graph", "graph.html");
+    writeFileSync3(outputPath, html, "utf-8");
     const catCounts = {};
     for (const n of nodes) {
       catCounts[n.cat] = (catCounts[n.cat] ?? 0) + 1;

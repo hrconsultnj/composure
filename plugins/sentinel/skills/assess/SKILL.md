@@ -1,6 +1,6 @@
 ---
 name: assess
-description: Assess project security surface — detect stack, package managers, security tooling, and integrations. Generate .claude/sentinel.json config. Run once per project.
+description: Assess project security surface — detect stack, package managers, security tooling, and integrations. Generate .composure/sentinel.json config. Run once per project.
 argument-hint: "[--force] [--dry-run]"
 ---
 

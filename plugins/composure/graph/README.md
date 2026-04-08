@@ -5,7 +5,7 @@ MCP server that builds a code knowledge graph from tree-sitter ASTs. Provides 11
 ## How it works
 
 1. **Build**: Tree-sitter parses source files into AST nodes (functions, classes, types, imports)
-2. **Store**: Nodes and edges go into a SQLite database (`.code-review-graph/graph.db`)
+2. **Store**: Nodes and edges go into a SQLite database (`.composure/graph/graph.db`)
 3. **Query**: MCP tools run SQL queries against the graph for instant structural answers
 
 Incremental by default — only re-parses changed files (via `git diff`). Full rebuild takes ~15s for a 500-file project.
