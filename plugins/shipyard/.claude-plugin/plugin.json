@@ -1,7 +1,7 @@
 {
   "name": "shipyard",
   "description": "CI/CD generation, deployment preflight, and Dockerfile validation with zero-downtime patterns.",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "author": {
     "name": "Helder Rodrigues",
     "url": "https://github.com/hrconsultnj"

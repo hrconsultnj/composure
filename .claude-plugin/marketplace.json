@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Composure Suite — code quality, security, CI/CD, testing, design, and AI memory for Claude Code.",
-    "version": "1.47.29"
+    "version": "1.47.30"
   },
   "plugins": [
     {
       "name": "composure",
       "source": "./plugins/composure",
       "description": "Core orchestration — architecture skills, code graph, Cortex memory, decomposition hooks, task queue. The hub of the Composure Suite. Full docs: composure-pro.com",
-      "version": "1.47.28",
+      "version": "1.47.29",
       "category": "development",
       "keywords": [
         "architecture",
@@ -29,7 +29,7 @@
       "name": "design-forge",
       "source": "./plugins/design-forge",
       "description": "Premium web design patterns — ui-designer (33 components, canvas, animations, 3D), product-planner (personas, journeys, screens), ux-researcher (competitive analysis, tech evaluation)",
-      "version": "2.2.5",
+      "version": "2.2.6",
       "category": "design",
       "keywords": [
         "design",
@@ -49,7 +49,7 @@
       "name": "sentinel",
       "source": "./plugins/sentinel",
       "description": "Security scanning plugin — secret detection hooks, insecure pattern blocking, dependency CVE auditing, Semgrep integration, HTTP header analysis",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "category": "security",
       "keywords": [
         "security",
@@ -69,7 +69,7 @@
       "name": "testbench",
       "source": "./plugins/testbench",
       "description": "Test generation and quality plugin — framework-aware templates, coverage nudging, testing principles reference docs for Vitest, Jest, Playwright, pytest",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "category": "testing",
       "keywords": [
         "testing",
@@ -88,7 +88,7 @@
       "name": "shipyard",
       "source": "./plugins/shipyard",
       "description": "CI/CD pipeline plugin — GitHub Actions workflows, Docker best practices, deployment principles, multi-stage Dockerfile templates, zero-downtime strategies",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "category": "devops",
       "keywords": [
         "ci-cd",
