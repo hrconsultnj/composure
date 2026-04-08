@@ -93,8 +93,10 @@ export async function installPlugins(options: {
   }
 
   // Ensure marketplace is registered (composure-suite, formerly my-claude-plugins)
+  // --sparse limits checkout to manifest + plugins only (skips docs, assets, tools, use-cases)
   await execSafe("claude", [
     "plugin", "marketplace", "add", "hrconsultnj/claude-plugins",
+    "--sparse", ".claude-plugin", "plugins",
   ]);
 
   // Migration: detect old @my-claude-plugins references
