@@ -67,20 +67,63 @@ if [ -f "$CORTEX_DB" ]; then
       "{\"agent_id\":\"${AGENT_ID}\",\"query\":\"Task #\",\"limit\":20}" 2>/dev/null || true)
 
     if [ -n "$CORTEX_RAW" ]; then
-      # Filter for tasks not completed or deleted, format as bullet list
-      PENDING_TASKS=$(echo "$CORTEX_RAW" | jq -r '
+      # Extract pending tasks as JSON lines (task_id, subject, status, backlog_ref)
+      PENDING_JSON=$(echo "$CORTEX_RAW" | jq -c '
         .results[]?
         | select(
             .metadata.task_status != null and
             .metadata.task_status != "completed" and
             .metadata.task_status != "deleted"
           )
-        | "- Task #\(.metadata.task_id): \(.metadata.task_subject) [\(.metadata.task_status)]"
+        | {
+            tid: .metadata.task_id,
+            subject: .metadata.task_subject,
+            status: .metadata.task_status,
+            ref: (.metadata.backlog_ref // "")
+          }
       ' 2>/dev/null || true)
 
-      if [ -n "$PENDING_TASKS" ]; then
+      # Validate backlog_refs against on-disk state
+      VALID_LINES=""
+      STALE_LINES=""
+      STALE_COUNT=0
+      while IFS= read -r row; do
+        [ -z "$row" ] && continue
+        TID=$(echo "$row" | jq -r '.tid')
+        SUBJ=$(echo "$row" | jq -r '.subject')
+        STAT=$(echo "$row" | jq -r '.status')
+        REF=$(echo "$row" | jq -r '.ref')
+        LINE="- Task #${TID}: ${SUBJ} [${STAT}]"
+
+        if [ -n "$REF" ]; then
+          REF_FILE="${PROJECT_DIR}/$(echo "$REF" | cut -d'#' -f1)"
+          if [ -f "$REF_FILE" ]; then
+            ANCHOR=$(echo "$REF" | cut -d'#' -f2)
+            if grep -q "^\- \[ \].*${ANCHOR}" "$REF_FILE" 2>/dev/null; then
+              VALID_LINES="${VALID_LINES}${LINE} (linked: ${REF})"$'\n'
+            else
+              STALE_LINES="${STALE_LINES}${LINE} (completed in backlog)"$'\n'
+              STALE_COUNT=$((STALE_COUNT + 1))
+            fi
+          else
+            STALE_LINES="${STALE_LINES}${LINE} (source file removed)"$'\n'
+            STALE_COUNT=$((STALE_COUNT + 1))
+          fi
+        else
+          VALID_LINES="${VALID_LINES}${LINE}"$'\n'
+        fi
+      done <<< "$PENDING_JSON"
+
+      # Trim trailing newlines
+      VALID_LINES=$(printf '%s' "$VALID_LINES" | sed '/^$/d')
+      STALE_LINES=$(printf '%s' "$STALE_LINES" | sed '/^$/d')
+
+      if [ -n "$VALID_LINES" ]; then
         PARTS+=("Cortex tasks from previous sessions:")
-        CORTEX_TASK_LIST="$PENDING_TASKS"
+        CORTEX_TASK_LIST="$VALID_LINES"
+      fi
+      if [ -n "$STALE_LINES" ]; then
+        CORTEX_STALE_LIST="$STALE_LINES"
       fi
     fi
   fi
@@ -131,6 +174,12 @@ fi
 if [ "$HAS_CORTEX_TASKS" -eq 1 ] && [ -n "${CORTEX_TASK_LIST:-}" ]; then
   echo "[composure:resume] Cortex tasks from previous sessions:"
   echo "$CORTEX_TASK_LIST"
+fi
+
+# Stale Cortex tasks (backlog_ref points to completed/removed items)
+if [ -n "${CORTEX_STALE_LIST:-}" ]; then
+  echo "[composure:hint] ${STALE_COUNT:-0} stale task(s) found (backlog items already completed or removed):"
+  echo "$CORTEX_STALE_LIST"
 fi
 
 # High task count hint

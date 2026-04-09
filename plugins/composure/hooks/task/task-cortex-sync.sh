@@ -15,6 +15,7 @@ TASK_ID=$(echo "$INPUT" | jq -r '.task_id // .id // .taskId // empty' 2>/dev/nul
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.subject // .task_subject // empty' 2>/dev/null)
 TASK_STATUS=$(echo "$INPUT" | jq -r '.status // .task_status // "unknown"' 2>/dev/null)
 TASK_DESC=$(echo "$INPUT" | jq -r '.description // .task_description // empty' 2>/dev/null)
+BACKLOG_REF=$(echo "$INPUT" | jq -r '.metadata.backlog_ref // empty' 2>/dev/null)
 
 # Fallback: try nested structures (tool_input for backward compat)
 if [ -z "$TASK_ID" ]; then
@@ -22,6 +23,7 @@ if [ -z "$TASK_ID" ]; then
   TASK_SUBJECT=$(echo "$INPUT" | jq -r '.tool_input.subject // empty' 2>/dev/null)
   TASK_STATUS=$(echo "$INPUT" | jq -r '.tool_input.status // "pending"' 2>/dev/null)
   TASK_DESC=$(echo "$INPUT" | jq -r '.tool_input.description // empty' 2>/dev/null)
+  [ -z "$BACKLOG_REF" ] && BACKLOG_REF=$(echo "$INPUT" | jq -r '.tool_input.metadata.backlog_ref // empty' 2>/dev/null)
 fi
 
 # Skip if no meaningful data
@@ -69,6 +71,7 @@ PAYLOAD=$(jq -n \
   --arg subject "$TASK_SUBJECT" \
   --arg status "$TASK_STATUS" \
   --arg desc "$TASK_DESC" \
+  --arg backlog_ref "$BACKLOG_REF" \
   --arg session "$SESSION_ID" \
   --arg ts "$TIMESTAMP" \
   '{
@@ -82,6 +85,7 @@ PAYLOAD=$(jq -n \
       task_subject: $subject,
       task_status: $status,
       task_description: $desc,
+      backlog_ref: $backlog_ref,
       session_id: $session,
       updated_at: $ts
     }

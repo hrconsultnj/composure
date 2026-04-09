@@ -130,6 +130,17 @@ if [ -n "$PLUGIN_VERSION" ] && [ -n "$PROJECT_VERSION" ] && [ "$PLUGIN_VERSION" 
   printf '[composure] Config synced: composureVersion %s → %s\n' "$PROJECT_VERSION" "$PLUGIN_VERSION"
 fi
 
+# ── 2b. Permissions auto-sync (version-stamped) ─────────────
+PERMS_SCRIPT="${COMPOSURE_ROOT}/bin/composure-permissions.mjs"
+if [ -f "$PERMS_SCRIPT" ] && [ -n "$PLUGIN_VERSION" ]; then
+  PERMS_STAMP=""
+  [ -f "${HOME}/.composure/last-permissions-sync" ] && PERMS_STAMP=$(cat "${HOME}/.composure/last-permissions-sync" 2>/dev/null)
+  if [ "$PERMS_STAMP" != "$PLUGIN_VERSION" ]; then
+    PERMS_OUT=$(node "$PERMS_SCRIPT" sync --plugin-version "$PLUGIN_VERSION" 2>/dev/null)
+    echo "$PERMS_OUT" | grep -q "Added" && echo "$PERMS_OUT"
+  fi
+fi
+
 # ── 3. Stack note ────────────────────────────────────────────
 FRONTEND=$(jq -r '.frameworks | to_entries[0].value.frontend // "null"' "$COMPOSURE_CONFIG" 2>/dev/null)
 BACKEND=$(jq -r '.frameworks | to_entries[0].value.backend // "null"' "$COMPOSURE_CONFIG" 2>/dev/null)

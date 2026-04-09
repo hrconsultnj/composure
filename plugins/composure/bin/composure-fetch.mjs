@@ -124,6 +124,19 @@ function writeCache(cachePath, content, meta) {
   }, null, 2), { mode: 0o600 });
 }
 
+// ── Failure Output (stdout so Claude sees it despite 2>/dev/null) ───
+
+function failWithGuidance(error, action) {
+  const msg = [
+    `[composure:fetch-failed] ${error}`,
+    action || "Run /composure:auth login or check your connection.",
+    "IMPORTANT: Do NOT reconstruct this content from memory or training data.",
+    "Report this error to the user and wait for instructions.",
+  ].join("\n");
+  process.stdout.write(msg + "\n");
+  process.exit(1);
+}
+
 // ── Retry Helpers ───────────────────────────────────────────────────
 
 function sleep(ms) {
@@ -234,14 +247,14 @@ async function fetchWithCache(type, endpoint, cachePath) {
       console.error("[composure] Auth expired — serving cached version. Run /composure:auth login to refresh.");
       return { content: cached.content, source: "[cached:stale:auth-expired]" };
     }
-    console.error(result.error);
-    process.exit(1);
+    failWithGuidance(`Authentication failed: ${result.error}`, "Run /composure:auth login to authenticate.");
   }
 
   if (result.status === 403) {
-    console.error(`This content requires a different plan. ${result.error}`);
-    console.error("Run /composure:auth upgrade to view available plans.");
-    process.exit(1);
+    failWithGuidance(
+      `This content requires a different plan. ${result.error}`,
+      "Run /composure:auth upgrade to view available plans."
+    );
   }
 
   // Network/server error — serve stale cache if available
@@ -251,10 +264,10 @@ async function fetchWithCache(type, endpoint, cachePath) {
   }
 
   // No cache, no API — hard fail with actionable guidance
-  console.error(`[composure] Failed to fetch after ${MAX_RETRIES} attempts: ${result.error}`);
-  console.error("No cached version available.");
-  console.error("Fix: Run 'composure-cache sync' when online to pre-populate the cache.");
-  process.exit(1);
+  failWithGuidance(
+    `Failed to fetch after ${MAX_RETRIES} attempts: ${result.error}. No cached version available.`,
+    "Run 'composure-cache sync' when online to pre-populate the cache."
+  );
 }
 
 // ── Command: Skill ───────────────────────────────────────────────────
@@ -304,8 +317,7 @@ switch (type) {
   case "skill": {
     const [plugin, skill, step] = args;
     if (!plugin || !skill || !step) {
-      console.error("Usage: composure-fetch skill {plugin} {skill} {step}");
-      process.exit(1);
+      failWithGuidance("Missing arguments for skill fetch.", "Usage: composure-fetch skill {plugin} {skill} {step}");
     }
     await fetchSkill(plugin, skill, step);
     break;
@@ -314,8 +326,7 @@ switch (type) {
   case "hook": {
     const [plugin, hook] = args;
     if (!plugin || !hook) {
-      console.error("Usage: composure-fetch hook {plugin} {hook}");
-      process.exit(1);
+      failWithGuidance("Missing arguments for hook fetch.", "Usage: composure-fetch hook {plugin} {hook}");
     }
     await fetchHook(plugin, hook);
     break;
@@ -325,8 +336,7 @@ switch (type) {
     const [plugin, ...pathParts] = args;
     const path = pathParts.join("/");
     if (!plugin || !path) {
-      console.error("Usage: composure-fetch ref {plugin} {path}");
-      process.exit(1);
+      failWithGuidance("Missing arguments for ref fetch.", "Usage: composure-fetch ref {plugin} {path}");
     }
     await fetchRef(plugin, path);
     break;
