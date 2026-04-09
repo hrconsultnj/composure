@@ -474,8 +474,14 @@ async function upgradeProject() {
   const legacyFw = join(claudeDir, "frameworks");
   if (readdirSync(fwGenerated).length > 0) {
     ok.push("frameworks/generated");
+    // Clean up legacy if it still exists alongside the new one
+    if (existsSync(legacyFw)) {
+      try { rmSync(legacyFw, { recursive: true }); } catch {}
+      fixed.push("Removed: stale .claude/frameworks/ (already in .composure/frameworks/)");
+    }
   } else if (existsSync(legacyFw)) {
     cpSync(legacyFw, join(composureDir, "frameworks"), { recursive: true });
+    try { rmSync(legacyFw, { recursive: true }); } catch {}
     fixed.push("Migrated: .claude/frameworks/ → .composure/frameworks/");
   } else {
     warn.push("frameworks/generated empty — run /composure:initialize");
@@ -505,10 +511,24 @@ async function upgradeProject() {
     warn.push("No graph DB — run /composure:build-graph");
   }
 
-  // ── 8. Cortex DB (project-level) ───────────────────────────────
-  const cortexDb = join(composureDir, "cortex.db");
-  if (existsSync(cortexDb)) {
-    ok.push("Cortex DB (.composure/cortex.db)");
+  // ── 8. Cortex DB (project-level): .composure/cortex.db → .composure/cortex/cortex.db
+  const cortexDbNew = join(composureDir, "cortex", "cortex.db");
+  const cortexDbOld = join(composureDir, "cortex.db");
+  if (existsSync(cortexDbNew)) {
+    ok.push("Cortex DB (.composure/cortex/cortex.db)");
+    // Clean up legacy loose DB if it still exists alongside the new one
+    for (const suffix of ["", "-shm", "-wal"]) {
+      const f = cortexDbOld + suffix;
+      if (existsSync(f)) try { rmSync(f); } catch {}
+    }
+  } else if (existsSync(cortexDbOld)) {
+    // Move loose cortex.db + WAL files into cortex/ subfolder
+    for (const suffix of ["", "-shm", "-wal"]) {
+      const src = cortexDbOld + suffix;
+      const dst = cortexDbNew + suffix;
+      if (existsSync(src)) renameSync(src, dst);
+    }
+    fixed.push("Migrated: .composure/cortex.db → .composure/cortex/cortex.db");
   } else {
     warn.push("No project Cortex DB — will be created on first use");
   }

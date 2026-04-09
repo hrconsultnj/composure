@@ -377,9 +377,36 @@ except:
   echo "[guardrails] Active ruleset: ${DOMAIN_NAME}"
 fi
 
-# ── Legacy upgrade notice ────────────────────────────────────
+# ── Legacy path drift detection ──────────────────────────────
+LEGACY_DRIFT=()
+
+# Config in old .claude/ path
 if [ -f "${PROJECT_DIR}/.claude/no-bandaids.json" ] && [ ! -f "${PROJECT_DIR}/.composure/no-bandaids.json" ]; then
-  printf '[composure:upgrade] Configs in legacy .claude/ — run `composure-auth upgrade` to migrate.\n'
+  LEGACY_DRIFT+=("config still in .claude/ (should be .composure/)")
+fi
+
+# Frameworks in old .claude/ path
+if [ -d "${PROJECT_DIR}/.claude/frameworks" ]; then
+  LEGACY_DRIFT+=("frameworks/ still in .claude/ (should be .composure/frameworks/)")
+fi
+
+# Loose cortex.db (should be inside cortex/ subfolder)
+if [ -f "${PROJECT_DIR}/.composure/cortex.db" ] && [ ! -f "${PROJECT_DIR}/.composure/cortex/cortex.db" ]; then
+  LEGACY_DRIFT+=("cortex.db loose at .composure/cortex.db (should be .composure/cortex/cortex.db)")
+fi
+
+# Companion configs in old .claude/ path
+for cfg in sentinel.json shipyard.json testbench.json composure-pro.json; do
+  if [ -f "${PROJECT_DIR}/.claude/${cfg}" ] && [ ! -f "${PROJECT_DIR}/.composure/${cfg}" ]; then
+    LEGACY_DRIFT+=("${cfg} in .claude/ (should be .composure/)")
+  fi
+done
+
+if [ ${#LEGACY_DRIFT[@]} -gt 0 ]; then
+  printf '[composure:upgrade] Legacy paths detected — run `/composure:auth migrate` to fix:\n'
+  for d in "${LEGACY_DRIFT[@]}"; do
+    printf '  - %s\n' "$d"
+  done
 fi
 
 # ── Prune plugin cache (keep latest 2 versions per plugin) ──

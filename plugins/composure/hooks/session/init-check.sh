@@ -157,9 +157,17 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   printf '[composure] Run /composure:initialize to set up everything in one step.\n'
 fi
 
-# ── Upgrade notification (legacy .claude/ → .composure/) ────
-if [ -f ".claude/no-bandaids.json" ] && [ ! -f ".composure/no-bandaids.json" ]; then
-  printf '[composure:upgrade] Project configs in legacy .claude/ location. Run `composure-auth upgrade` in your terminal to migrate to .composure/ for cleaner management.\n'
+# ── Legacy path drift detection ──────────────────────────────
+LEGACY_DRIFT=()
+[ -f ".claude/no-bandaids.json" ] && [ ! -f ".composure/no-bandaids.json" ] && LEGACY_DRIFT+=("config in .claude/")
+[ -d ".claude/frameworks" ] && LEGACY_DRIFT+=("frameworks/ in .claude/")
+[ -f ".composure/cortex.db" ] && [ ! -f ".composure/cortex/cortex.db" ] && LEGACY_DRIFT+=("cortex.db loose at .composure/")
+for cfg in sentinel.json shipyard.json testbench.json composure-pro.json; do
+  [ -f ".claude/${cfg}" ] && [ ! -f ".composure/${cfg}" ] && LEGACY_DRIFT+=("${cfg} in .claude/")
+done
+if [ ${#LEGACY_DRIFT[@]} -gt 0 ]; then
+  printf '[composure:upgrade] Legacy paths detected — run `/composure:auth migrate` to fix:\n'
+  for d in "${LEGACY_DRIFT[@]}"; do printf '  - %s\n' "$d"; done
 fi
 
 # ── Config freshness check ──────────────────────────────────
@@ -178,7 +186,7 @@ fi
 
 # 2. Framework docs freshness — flag if any generated doc is >14 days old
 OLDEST_DOC=""
-if [ -d ".claude/frameworks" ]; then
+if [ -d ".composure/frameworks" ] || [ -d ".claude/frameworks" ]; then
   NOW=$(date +%s)
   FRAMEWORKS_DIR=".composure/frameworks"
   [ ! -d "$FRAMEWORKS_DIR" ] && FRAMEWORKS_DIR=".claude/frameworks"

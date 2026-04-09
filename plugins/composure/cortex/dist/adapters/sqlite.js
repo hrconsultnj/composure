@@ -5,7 +5,7 @@
  * Mirrors the Supabase schema structure but without vector search
  * or tsvector — uses simple LIKE matching instead.
  *
- * Stores at .composure/cortex.db in the project root.
+ * Stores at .composure/cortex/cortex.db in the project root.
  */
 // Node.js built-in SQLite (>= 22.5)
 let DatabaseConstructor;
