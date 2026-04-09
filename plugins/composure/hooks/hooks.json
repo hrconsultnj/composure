@@ -231,7 +231,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt/request-classifier.sh\" 2>&1 || exit 0",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt/request-classifier.mjs\" 2>&1 || exit 0",
             "timeout": 2,
             "statusMessage": ""
           }
