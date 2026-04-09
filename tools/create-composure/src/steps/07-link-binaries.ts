@@ -2,7 +2,7 @@
  * Step 07 — Find installed plugin bin/ directory and create symlinks.
  */
 
-import { existsSync, symlinkSync, lstatSync, readdirSync, copyFileSync, unlinkSync, readlinkSync } from "node:fs";
+import { existsSync, symlinkSync, lstatSync, readdirSync, copyFileSync, writeFileSync, unlinkSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import { logger } from "../lib/logger.js";
@@ -114,6 +114,20 @@ export async function linkBinaries(): Promise<{ linked: number }> {
           symlinkSync(source, target);
         }
         linked++;
+      }
+
+      // On Windows, generate .cmd shims so users can run `composure-auth login`
+      // without the `node` prefix — same pattern npm uses for global installs.
+      if (isWindows) {
+        const cmdName = bin.replace(".mjs", "");
+        const cmdPath = join(composureBin, `${cmdName}.cmd`);
+        try {
+          if (!existsSync(cmdPath)) {
+            writeFileSync(cmdPath, `@echo off\r\nnode "%~dp0${bin}" %*\r\n`);
+          }
+        } catch {
+          // Non-fatal
+        }
       }
     } catch {
       // Non-fatal — permissions or other issue

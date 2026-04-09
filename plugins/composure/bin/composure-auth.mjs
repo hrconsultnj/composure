@@ -31,7 +31,7 @@ import {
   COMPOSURE_DIR,
   CREDENTIALS_PATH,
 } from "./composure-token.mjs";
-import { existsSync, mkdirSync, symlinkSync, copyFileSync, lstatSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, copyFileSync, writeFileSync, lstatSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -301,6 +301,20 @@ function setupBinSymlinks() {
     } catch {
       // Non-fatal — symlink/copy may already exist or permissions issue
     }
+
+    // On Windows, generate .cmd shims so users can run `composure-auth login`
+    // without the `node` prefix — same pattern npm uses for global installs.
+    if (isWin) {
+      const cmdName = bin.replace(".mjs", "");
+      const cmdPath = join(binDir, `${cmdName}.cmd`);
+      try {
+        if (!existsSync(cmdPath)) {
+          writeFileSync(cmdPath, `@echo off\r\nnode "%~dp0${bin}" %*\r\n`);
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
   }
 }
 
@@ -395,7 +409,7 @@ async function refresh() {
 
 // ── Migrate (.claude/ → .composure/) ─────────────────────────────────
 
-import { cpSync, readFileSync, writeFileSync, readdirSync, renameSync } from "node:fs";
+import { cpSync, readFileSync, readdirSync, renameSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { execSync } from "node:child_process";
 
