@@ -148,11 +148,9 @@ if [ "$EVENT" = "startup" ]; then
 [composure:stack] Detected: ${LANGS} | frontend=${FRONTEND} | backend=${BACKEND:-none}
 Architecture: ${CATEGORY} (${ENTRY})
 Non-trivial work → /composure:blueprint | Routine → /composure:app-architecture
-[composure:conventions] Research: sub-agent writes to tasks-plans/research/, you read summary only. Context7: always sub-agent, cache to .composure/research/. CLI-first for Graph + Cortex. Output routing: research→tasks-plans/research/, ideas→tasks-plans/ideas/, reference→tasks-plans/reference/.
 EOF
 else
   echo "[composure:stack] ${LANGS} | ${FRONTEND} | arch=${CATEGORY}"
-  echo "[composure:conventions] Research: sub-agent writes file, you read summary. CLI-first for Graph + Cortex."
 fi
 
 # ── 4. Cortex memory injection ───────────────────────────────
