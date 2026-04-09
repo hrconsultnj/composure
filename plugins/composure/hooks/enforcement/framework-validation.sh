@@ -14,6 +14,13 @@
 # ============================================================
 
 INPUT=$(cat)
+
+# ── Fast-path: skip non-source files before any heavy work ───
+FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // empty')
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../lib/source-file-gate.sh"
+
+# Gate passed — file is source code, proceed with enforcement
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name')
 
 if [[ "$TOOL_NAME" == "Write" ]]; then
@@ -26,7 +33,6 @@ fi
 
 [[ -z "$CONTENT" ]] && exit 0
 
-FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // "unknown"')
 BASENAME=$(basename "$FILE_PATH")
 PROJECT_DIR=$(printf '%s' "$INPUT" | jq -r '.cwd // ""')
 

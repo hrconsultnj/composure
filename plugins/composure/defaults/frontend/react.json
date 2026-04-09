@@ -5,7 +5,7 @@
       "appliesTo": ["**/*.tsx", "**/*.ts"],
       "rules": [
         {
-          "pattern": "forwardRef\\(",
+          "pattern": "forwardRef[<(]",
           "severity": "warn",
           "message": "React 19 passes ref as a prop — forwardRef is no longer needed. Use function MyComponent({ ref }) instead.",
           "skipIf": "components/ui"
