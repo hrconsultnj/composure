@@ -31,7 +31,8 @@ import {
   COMPOSURE_DIR,
   CREDENTIALS_PATH,
 } from "./composure-token.mjs";
-import { existsSync, mkdirSync, symlinkSync, lstatSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, copyFileSync, lstatSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -58,12 +59,19 @@ function generateState() {
 
 function openBrowser(url) {
   const os = platform();
-  const cmd =
-    os === "darwin" ? "open" :
-    os === "win32" ? "start" :
-    "xdg-open";
+  let cmd;
 
-  exec(`${cmd} "${url}"`, (err) => {
+  if (os === "darwin") {
+    cmd = `open "${url}"`;
+  } else if (os === "win32") {
+    // Windows `start` treats first quoted arg as window title — use empty title.
+    // Use cmd /c to ensure shell built-in `start` is available.
+    cmd = `cmd /c start "" "${url}"`;
+  } else {
+    cmd = `xdg-open "${url}"`;
+  }
+
+  exec(cmd, (err) => {
     if (err) {
       console.error(`\nCould not open browser automatically.`);
       console.error(`Open this URL manually:\n  ${url}\n`);
@@ -265,25 +273,33 @@ function clearCache() {
 function setupBinSymlinks() {
   const binDir = join(COMPOSURE_DIR, "bin");
   if (!existsSync(binDir)) {
-    mkdirSync(binDir, { recursive: true, mode: 0o755 });
+    mkdirSync(binDir, { recursive: true });
   }
 
-  // Resolve the directory containing this script (composure plugin's bin/)
-  const scriptDir = new URL(".", import.meta.url).pathname;
+  // fileURLToPath handles Windows paths correctly (no leading / on C:\...)
+  const scriptDir = fileURLToPath(new URL(".", import.meta.url));
   const binaries = ["composure-fetch.mjs", "composure-token.mjs", "composure-cache.mjs", "composure-auth.mjs"];
+  const isWin = platform() === "win32";
 
   for (const bin of binaries) {
     const target = join(scriptDir, bin);
     const link = join(binDir, bin);
     try {
-      // Skip if symlink already points to the right place
+      // Skip if link already exists and points somewhere valid
       if (existsSync(link)) {
         const stat = lstatSync(link);
         if (stat.isSymbolicLink()) continue;
+        // On Windows, skip if copy already exists (same size = same file)
+        if (isWin && stat.isFile()) continue;
       }
-      symlinkSync(target, link);
+      if (isWin) {
+        // Symlinks require admin/Developer Mode on Windows — use copy instead
+        copyFileSync(target, link);
+      } else {
+        symlinkSync(target, link);
+      }
     } catch {
-      // Non-fatal — symlink may already exist or permissions issue
+      // Non-fatal — symlink/copy may already exist or permissions issue
     }
   }
 }

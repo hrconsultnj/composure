@@ -1,4 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
+import { platform } from "node:os";
 
 export interface ExecResult {
   stdout: string;
@@ -35,10 +36,12 @@ export function execSafeSync(cmd: string, args: string[] = []): string {
 
 /**
  * Check if a command exists on PATH.
+ * Uses `where` on Windows, `which` on Unix.
  */
 export function commandExists(cmd: string): boolean {
   try {
-    execFileSync("which", [cmd], { stdio: "pipe" });
+    const finder = platform() === "win32" ? "where" : "which";
+    execFileSync(finder, [cmd], { stdio: "pipe" });
     return true;
   } catch {
     return false;
