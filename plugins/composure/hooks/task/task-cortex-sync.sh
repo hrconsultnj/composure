@@ -10,21 +10,20 @@ set -e
 INPUT=$(cat)
 
 # Extract task data from event payload
-# TaskCreated/TaskCompleted events provide task fields directly
-TASK_ID=$(echo "$INPUT" | jq -r '.task_id // .id // .taskId // empty' 2>/dev/null)
-TASK_SUBJECT=$(echo "$INPUT" | jq -r '.subject // .task_subject // empty' 2>/dev/null)
-TASK_STATUS=$(echo "$INPUT" | jq -r '.status // .task_status // "unknown"' 2>/dev/null)
-TASK_DESC=$(echo "$INPUT" | jq -r '.description // .task_description // empty' 2>/dev/null)
+# TaskCreated/TaskCompleted events provide: task_id, task_subject, task_description, hook_event_name
+# Status is NOT in the payload — it's derived from the event name.
+TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null)
+TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // empty' 2>/dev/null)
+TASK_DESC=$(echo "$INPUT" | jq -r '.task_description // empty' 2>/dev/null)
 BACKLOG_REF=$(echo "$INPUT" | jq -r '.metadata.backlog_ref // empty' 2>/dev/null)
 
-# Fallback: try nested structures (tool_input for backward compat)
-if [ -z "$TASK_ID" ]; then
-  TASK_ID=$(echo "$INPUT" | jq -r '.tool_input.taskId // .tool_input.id // empty' 2>/dev/null)
-  TASK_SUBJECT=$(echo "$INPUT" | jq -r '.tool_input.subject // empty' 2>/dev/null)
-  TASK_STATUS=$(echo "$INPUT" | jq -r '.tool_input.status // "pending"' 2>/dev/null)
-  TASK_DESC=$(echo "$INPUT" | jq -r '.tool_input.description // empty' 2>/dev/null)
-  [ -z "$BACKLOG_REF" ] && BACKLOG_REF=$(echo "$INPUT" | jq -r '.tool_input.metadata.backlog_ref // empty' 2>/dev/null)
-fi
+# Derive status from event name (the payload doesn't include a status field)
+EVENT_NAME=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+case "$EVENT_NAME" in
+  TaskCreated)   TASK_STATUS="pending" ;;
+  TaskCompleted) TASK_STATUS="completed" ;;
+  *)             TASK_STATUS="unknown" ;;
+esac
 
 # Skip if no meaningful data
 if [ -z "$TASK_ID" ] && [ -z "$TASK_SUBJECT" ]; then
@@ -57,9 +56,16 @@ if [ ! -f "$CLI_PATH" ] || [ ! -f "${HOME}/.composure/cortex/cortex.db" ]; then
   exit 0
 fi
 
-AGENT_ID="$(basename "${CLAUDE_PROJECT_DIR:-$(basename "$PROJECT_ROOT")}")"
+# Derive agent_id from payload's cwd (most reliable), then env, then git
+PAYLOAD_CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+if [ -n "$PAYLOAD_CWD" ]; then
+  AGENT_ID="$(basename "$PAYLOAD_CWD")"
+else
+  AGENT_ID="$(basename "${CLAUDE_PROJECT_DIR:-$(basename "$PROJECT_ROOT")}")"
+fi
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
 
 CONTENT="Task #${TASK_ID}: ${TASK_SUBJECT} [${TASK_STATUS}]"
 [ -n "$TASK_DESC" ] && CONTENT="${CONTENT} — ${TASK_DESC}"
