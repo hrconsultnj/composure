@@ -6,6 +6,14 @@ argument-hint: "[--dry-run] [--aggressive] [--naming kebab|camel|pascal] [--pres
 
 Restructure a disorganized project into a clean, conventional file layout. Detects what each file is (component, hook, type, service, utility), maps it to the right directory for the detected framework, and executes the moves with import path updates.
 
+## Progress Tracking
+
+This skill uses TaskCreate for progress tracking. Before starting work:
+1. Create one task per major step using TaskCreate
+2. Set each task to `in_progress` when starting it (TaskUpdate)
+3. Mark `completed` when done
+4. Write deliverables to files, not inline — inline text is for communication only
+
 ## Content Loading
 
 Load each step through the fetch command (handles caching, decryption, and auth):

@@ -50,6 +50,42 @@ if [ -f "$TASKS_FILE" ]; then
   fi
 fi
 
+# ── Check Cortex for pending tasks from previous sessions ──
+CORTEX_DB="${HOME}/.composure/cortex/cortex.db"
+if [ -f "$CORTEX_DB" ]; then
+  CORTEX_CLI="${CLAUDE_PLUGIN_ROOT}/cortex/dist/cli.bundle.js"
+  # Fallback: resolve from script location if CLAUDE_PLUGIN_ROOT not set
+  if [ ! -f "$CORTEX_CLI" ]; then
+    CORTEX_CLI="${SCRIPT_DIR}/../../cortex/dist/cli.bundle.js"
+  fi
+
+  if [ -f "$CORTEX_CLI" ]; then
+    AGENT_ID="$(basename "${CLAUDE_PROJECT_DIR:-$(pwd)}")"
+
+    # Query with 2s timeout — must not block session start
+    CORTEX_RAW=$(timeout 2 node --experimental-sqlite "$CORTEX_CLI" search_memory_text \
+      "{\"agent_id\":\"${AGENT_ID}\",\"query\":\"Task #\",\"limit\":20}" 2>/dev/null || true)
+
+    if [ -n "$CORTEX_RAW" ]; then
+      # Filter for tasks not completed or deleted, format as bullet list
+      PENDING_TASKS=$(echo "$CORTEX_RAW" | jq -r '
+        .results[]?
+        | select(
+            .metadata.task_status != null and
+            .metadata.task_status != "completed" and
+            .metadata.task_status != "deleted"
+          )
+        | "- Task #\(.metadata.task_id): \(.metadata.task_subject) [\(.metadata.task_status)]"
+      ' 2>/dev/null || true)
+
+      if [ -n "$PENDING_TASKS" ]; then
+        PARTS+=("Cortex tasks from previous sessions:")
+        CORTEX_TASK_LIST="$PENDING_TASKS"
+      fi
+    fi
+  fi
+fi
+
 # ── Check graph staleness ──
 GRAPH_STALE=0
 if [ -f "$GRAPH_DB" ]; then
@@ -72,11 +108,30 @@ if [ ${#PARTS[@]} -eq 0 ]; then
   exit 0
 fi
 
-printf "[composure:resume] %s" "${PARTS[0]}"
-for ((i=1; i<${#PARTS[@]}; i++)); do
-  printf " | %s" "${PARTS[$i]}"
+# Separate Cortex task block from inline parts
+INLINE_PARTS=()
+HAS_CORTEX_TASKS=0
+for part in "${PARTS[@]}"; do
+  if [ "$part" = "Cortex tasks from previous sessions:" ]; then
+    HAS_CORTEX_TASKS=1
+  else
+    INLINE_PARTS+=("$part")
+  fi
 done
-echo
+
+if [ ${#INLINE_PARTS[@]} -gt 0 ]; then
+  printf "[composure:resume] %s" "${INLINE_PARTS[0]}"
+  for ((i=1; i<${#INLINE_PARTS[@]}; i++)); do
+    printf " | %s" "${INLINE_PARTS[$i]}"
+  done
+  echo
+fi
+
+# Cortex pending tasks get their own block for readability
+if [ "$HAS_CORTEX_TASKS" -eq 1 ] && [ -n "${CORTEX_TASK_LIST:-}" ]; then
+  echo "[composure:resume] Cortex tasks from previous sessions:"
+  echo "$CORTEX_TASK_LIST"
+fi
 
 # High task count hint
 if [ "$OPEN" -gt 5 ]; then

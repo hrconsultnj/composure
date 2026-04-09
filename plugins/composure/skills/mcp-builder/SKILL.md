@@ -6,6 +6,14 @@ argument-hint: "[service-name] [--skip-docs] [--quick]"
 
 Guided workflow for building custom MCP servers that connect external services to Claude Code. Discovers the target service's API, designs tool definitions, and scaffolds a complete TypeScript project with auth, error handling, and Claude Code configuration.
 
+## Progress Tracking
+
+This skill uses TaskCreate for progress tracking. Before starting work:
+1. Create one task per major step using TaskCreate
+2. Set each task to `in_progress` when starting it (TaskUpdate)
+3. Mark `completed` when done
+4. Write deliverables to files, not inline — inline text is for communication only
+
 ## Content Loading
 
 Load each step through the fetch command (handles caching, decryption, and auth):

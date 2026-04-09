@@ -6,6 +6,14 @@ argument-hint: "[--json]"
 
 Run a full diagnostic of the Composure installation and project setup. This skill is self-contained — no API calls needed.
 
+## Progress Tracking
+
+This skill uses TaskCreate for progress tracking. Before starting work:
+1. Create one task per major step using TaskCreate
+2. Set each task to `in_progress` when starting it (TaskUpdate)
+3. Mark `completed` when done
+4. Write deliverables to files, not inline — inline text is for communication only
+
 ## Content Loading
 
 Load each step through the fetch command (handles caching, decryption, and auth):
