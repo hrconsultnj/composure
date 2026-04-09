@@ -1,7 +1,6 @@
 node_modules/
 .code-review-graph/
 tasks-plans/
-docs/
 *.DS_Store
 .vercel
 
@@ -27,3 +26,6 @@ plugins/composure/graph/pnpm-workspace.yaml
 
 # Supabase CLI temp files
 supabase/.temp/
+
+# Composure
+.composure/
