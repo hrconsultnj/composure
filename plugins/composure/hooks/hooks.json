@@ -22,6 +22,28 @@
             "statusMessage": "Checking authentication..."
           }
         ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/resume-check.sh\" 2>&1 || exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking tasks & graph..."
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guardrails/guardrails-load.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -134,6 +156,70 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-state-writer.sh\" 2>&1 || exit 0",
             "timeout": 2,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-cortex-sync.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-cortex-sync.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-end-summary.sh\" 2>&1 || exit 0",
+            "timeout": 5,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/subagent-tracker.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/subagent-tracker.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
             "statusMessage": ""
           }
         ]

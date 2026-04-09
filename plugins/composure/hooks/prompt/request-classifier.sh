@@ -111,9 +111,52 @@ case "$TYPE" in
     ;;
 esac
 
+# ── Determine if TaskCreate should be forced ──────────────────
+# Complex requests MUST use tasks. Not a suggestion — a requirement.
+FORCE_TASKS=false
+CONCERN_DETAIL=""
+
+case "$TYPE" in
+  plan)
+    FORCE_TASKS=true
+    CONCERN_DETAIL="Planning request detected. Break this into tracked tasks."
+    ;;
+  implement)
+    # Already set by long-prompt detection above
+    if [ "$TRIGGERED" -ge "${GATE:-2}" ] 2>/dev/null; then
+      FORCE_TASKS=true
+      CONCERN_DETAIL="This prompt contains ${CONCERN_COUNT:-multiple} distinct concerns."
+    fi
+    ;;
+  research)
+    # Research with multiple topics = needs tasks
+    TOPIC_COUNT=$(echo "$PROMPT_HEAD" | grep -oE '(also|and also|plus|additionally|as well as)' | wc -l | tr -d ' ')
+    if [ "$TOPIC_COUNT" -ge 2 ] || [ "${WORD_COUNT:-0}" -ge 150 ]; then
+      FORCE_TASKS=true
+      CONCERN_DETAIL="Multi-topic research request. Track each research area as a task."
+    fi
+    ;;
+  review)
+    FORCE_TASKS=true
+    CONCERN_DETAIL="Code review request. Create tasks for each review area."
+    ;;
+esac
+
 # ── Output ────────────────────────────────────────────────────
-echo "[composure:request-type] ${TYPE}"
-[ -n "$GUIDANCE" ] && echo "[composure:guidance] ${GUIDANCE}"
+# Use <system-reminder> for forced instructions (model treats as authoritative)
+# Use plain text for suggestions
+
+if [ "$FORCE_TASKS" = true ]; then
+  echo "<system-reminder>"
+  echo "UserPromptSubmit hook success: <system-reminder>"
+  echo "${CONCERN_DETAIL} Start with /composure:blueprint to plan and break this down — it will classify the work, check for research, and create tracked tasks. If this is a simple list of independent items, use TaskCreate to track them directly."
+  echo "</system-reminder>"
+  echo "</system-reminder>"
+else
+  echo "[composure:request-type] ${TYPE}"
+  [ -n "$GUIDANCE" ] && echo "[composure:guidance] ${GUIDANCE}"
+fi
+
 [ -n "$REASONING" ] && echo "[composure:reasoning] ${REASONING}"
 
 exit 0
