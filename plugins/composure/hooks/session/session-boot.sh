@@ -35,6 +35,11 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
 
+# ── Auto-update health check (24h throttled, global concern) ──
+# Runs before project-type detection so workspace/folder sessions
+# also get warnings about misconfigured auto-update.
+source "${SCRIPT_DIR}/../lib/auto-update-check.sh"
+
 # ── Detect project type ────────────────────────────────────
 source "${SCRIPT_DIR}/../lib/detect-project-type.sh"
 echo "[composure:project-type] ${PROJECT_TYPE}"
