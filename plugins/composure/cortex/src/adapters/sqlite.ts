@@ -75,6 +75,20 @@ export class SqliteAdapter implements StorageAdapter {
     this.initSchema();
   }
 
+  /**
+   * Returns the global Cortex DB path (~/.composure/cortex/cortex.db).
+   * Ensures the directory exists. Used by callers (e.g. CLI) that need to
+   * bypass project-local resolution for cross-project writes.
+   */
+  static globalDbPath(): string {
+    const { mkdirSync } = require("node:fs");
+    const { join } = require("node:path");
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const globalPath = join(home, ".composure", "cortex", "cortex.db");
+    mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+    return globalPath;
+  }
+
   private static resolveDbPath(): string {
     const { existsSync, mkdirSync } = require("node:fs");
     const { join } = require("node:path");

@@ -16,13 +16,32 @@ import { thinking, memory } from "./index.js";
 import { SupabaseAdapter } from "./adapters/supabase.js";
 import { SqliteAdapter } from "./adapters/sqlite.js";
 import { syncUp, syncDown, syncStatus } from "./adapters/sync.js";
-function createAdapter() {
+/**
+ * Routes writes/reads to the global DB when the agent_id is a system or
+ * cross-project namespace. Prevents cross-session traffic from getting
+ * trapped in a project-local cortex.db.
+ *
+ * Rules:
+ *   - agent_id === "global" → global DB
+ *   - agent_id starts with "__" (e.g. "__system__") → global DB
+ *   - Otherwise → local-preferred (existing behavior)
+ */
+function isGlobalAgent(agentId) {
+    if (typeof agentId !== "string")
+        return false;
+    return agentId === "global" || agentId.startsWith("__");
+}
+function createAdapter(opts) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
     if (supabaseUrl && supabaseKey) {
         return new SupabaseAdapter({ type: "supabase", url: supabaseUrl, key: supabaseKey });
     }
-    return new SqliteAdapter();
+    // Env override for manual global routing (e.g. cleanup scripts)
+    const envForceGlobal = process.env.COMPOSURE_CORTEX_DB_MODE === "global";
+    const forceGlobal = opts?.forceGlobal || envForceGlobal;
+    const dbPath = forceGlobal ? SqliteAdapter.globalDbPath() : undefined;
+    return new SqliteAdapter(dbPath);
 }
 const commands = {
     // Thinking
@@ -115,7 +134,11 @@ async function main() {
             process.exit(1);
         }
     }
-    const adapter = createAdapter();
+    // Route to global DB when agent_id is a system/cross-project namespace.
+    // This fixes the bug where __system__ writes from a project session were
+    // trapped in the project-local cortex.db instead of the global one.
+    const forceGlobal = isGlobalAgent(args.agent_id);
+    const adapter = createAdapter({ forceGlobal });
     try {
         const result = await handler(adapter, args);
         process.stdout.write(JSON.stringify(result, null, 2) + "\n");

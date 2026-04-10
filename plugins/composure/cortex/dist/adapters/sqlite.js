@@ -51,6 +51,19 @@ export class SqliteAdapter {
         this.db.exec("PRAGMA journal_mode = WAL");
         this.initSchema();
     }
+    /**
+     * Returns the global Cortex DB path (~/.composure/cortex/cortex.db).
+     * Ensures the directory exists. Used by callers (e.g. CLI) that need to
+     * bypass project-local resolution for cross-project writes.
+     */
+    static globalDbPath() {
+        const { mkdirSync } = require("node:fs");
+        const { join } = require("node:path");
+        const home = process.env.HOME || process.env.USERPROFILE || "";
+        const globalPath = join(home, ".composure", "cortex", "cortex.db");
+        mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+        return globalPath;
+    }
     static resolveDbPath() {
         const { existsSync, mkdirSync } = require("node:fs");
         const { join } = require("node:path");

@@ -22079,6 +22079,19 @@ var SqliteAdapter = class _SqliteAdapter {
     this.db.exec("PRAGMA journal_mode = WAL");
     this.initSchema();
   }
+  /**
+   * Returns the global Cortex DB path (~/.composure/cortex/cortex.db).
+   * Ensures the directory exists. Used by callers (e.g. CLI) that need to
+   * bypass project-local resolution for cross-project writes.
+   */
+  static globalDbPath() {
+    const { mkdirSync } = __require("node:fs");
+    const { join } = __require("node:path");
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const globalPath = join(home, ".composure", "cortex", "cortex.db");
+    mkdirSync(join(home, ".composure", "cortex"), { recursive: true });
+    return globalPath;
+  }
   static resolveDbPath() {
     const { existsSync, mkdirSync } = __require("node:fs");
     const { join } = __require("node:path");
@@ -22658,13 +22671,21 @@ async function syncStatus(local, remote, agentId) {
 }
 
 // dist/cli.js
-function createAdapter() {
+function isGlobalAgent(agentId) {
+  if (typeof agentId !== "string")
+    return false;
+  return agentId === "global" || agentId.startsWith("__");
+}
+function createAdapter(opts) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
   if (supabaseUrl && supabaseKey) {
     return new SupabaseAdapter({ type: "supabase", url: supabaseUrl, key: supabaseKey });
   }
-  return new SqliteAdapter();
+  const envForceGlobal = process.env.COMPOSURE_CORTEX_DB_MODE === "global";
+  const forceGlobal = opts?.forceGlobal || envForceGlobal;
+  const dbPath = forceGlobal ? SqliteAdapter.globalDbPath() : void 0;
+  return new SqliteAdapter(dbPath);
 }
 var commands = {
   // Thinking
@@ -22756,7 +22777,8 @@ async function main() {
       process.exit(1);
     }
   }
-  const adapter = createAdapter();
+  const forceGlobal = isGlobalAgent(args.agent_id);
+  const adapter = createAdapter({ forceGlobal });
   try {
     const result = await handler(adapter, args);
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
