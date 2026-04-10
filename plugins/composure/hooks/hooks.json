@@ -209,6 +209,19 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session/turn-capture.mjs\" 2>&1 || exit 0",
+            "timeout": 3,
+            "statusMessage": ""
+          }
+        ]
+      }
     ]
   }
 }
