@@ -36,10 +36,11 @@ function mcpTool(server, tool) {
 
 // ── Required Permissions ────────────────────────────────────────────
 
+const HOME = homedir();
+
 const REQUIRED_PERMISSIONS = [
-  // ── Fetch (both path variants — tilde and $HOME) ──
-  'Bash(~/.composure/bin/composure-fetch.mjs:*)',
-  'Bash("$HOME/.composure/bin/composure-fetch.mjs":*)',
+  // ── Fetch — resolved absolute path (Claude Code expands $HOME/~ in commands before matching) ──
+  `Bash(${HOME}/.composure/bin/composure-fetch.mjs *)`,
 
   // ── Graph (code analysis — all read-safe + build) ──
   mcpTool("composure-graph", "build_or_update_graph"),
@@ -124,6 +125,25 @@ function writeStamp(version) {
   writeFileSync(STAMP_PATH, version, "utf8");
 }
 
+// ── Deprecated Patterns (auto-cleaned on sync) ─────────────────────
+
+// Patterns that never matched — auto-cleaned on sync.
+// Dynamic: also removes any resolved-homedir patterns from earlier sync attempts.
+function getDeprecatedPermissions() {
+  const HOME = homedir();
+  return [
+    // v1.47.32: colon separator
+    'Bash(~/.composure/bin/composure-fetch.mjs:*)',
+    'Bash("$HOME/.composure/bin/composure-fetch.mjs":*)',
+    // v1.47.33: unexpanded ~ and quoted $HOME
+    'Bash(~/.composure/bin/composure-fetch.mjs *)',
+    'Bash("$HOME/.composure/bin/composure-fetch.mjs" *)',
+    // v1.47.33b: literal $HOME (not expanded in patterns)
+    'Bash($HOME/.composure/bin/composure-fetch.mjs *)',
+    'Bash("$HOME/.composure/bin/composure-fetch.mjs" *)',
+  ];
+}
+
 // ── Sync Logic ──────────────────────────────────────────────────────
 
 function syncPermissions(pluginVersion) {
@@ -137,6 +157,12 @@ function syncPermissions(pluginVersion) {
   if (!settings.permissions) settings.permissions = {};
   if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
 
+  // Remove deprecated patterns (e.g., :* → literal $HOME migration)
+  const deprecatedSet = new Set(getDeprecatedPermissions());
+  const beforeLen = settings.permissions.allow.length;
+  settings.permissions.allow = settings.permissions.allow.filter(p => !deprecatedSet.has(p));
+  const removed = beforeLen - settings.permissions.allow.length;
+
   const existing = new Set(settings.permissions.allow);
   const added = [];
 
@@ -147,11 +173,16 @@ function syncPermissions(pluginVersion) {
     }
   }
 
-  if (added.length > 0) {
+  if (added.length > 0 || removed > 0) {
     writeSettings(settings);
-    console.log(`[composure:permissions] Added ${added.length} permission(s) to ~/.claude/settings.json`);
-    for (const p of added) {
-      console.log(`  + ${p}`);
+    if (removed > 0) {
+      console.log(`[composure:permissions] Removed ${removed} deprecated permission(s)`);
+    }
+    if (added.length > 0) {
+      console.log(`[composure:permissions] Added ${added.length} permission(s) to ~/.claude/settings.json`);
+      for (const p of added) {
+        console.log(`  + ${p}`);
+      }
     }
   } else {
     console.log("[composure:permissions] All permissions already present.");

@@ -96,5 +96,7 @@ Read backlog items and create TaskCreate entries for the current session.
 Load processing steps through the fetch command:
 
 ```bash
-"$HOME/.composure/bin/composure-fetch.mjs" skill composure backlog {step-filename}
+<home>/.composure/bin/composure-fetch.mjs skill composure backlog {step-filename}
 ```
+
+Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.

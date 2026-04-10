@@ -19,10 +19,21 @@ This skill uses TaskCreate for progress tracking. Before starting work:
 Load each step through the fetch command (handles caching, decryption, and auth):
 
 ```bash
-"$HOME/.composure/bin/composure-fetch.mjs" skill composure initialize {step-filename}
+<home>/.composure/bin/composure-fetch.mjs skill composure initialize {step-filename}
 ```
 
+Replace `<home>` with the user's **resolved absolute home directory** (derive from the working directory path — e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.
+
 **Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
+
+## .gitignore Templates
+
+After creating the `.composure/` and `tasks-plans/` scaffold directories, generate `.gitignore` files if they don't already exist:
+
+- **`.composure/.gitignore`**: Ignore `graph/` (generated DB with absolute paths), `cortex/` (per-developer memory), and ephemeral files (`current-task.json`, `last-health-check`, `hook-activity.log`, `task-sync-debug.jsonl`, `workspaces/`). Track configs (`no-bandaids.json`, `sentinel.json`, etc.) and framework docs (both `generated/` and `project/`).
+- **`tasks-plans/.gitignore`**: Ignore `sessions/` (per-developer daily logs), `archive/` (completed items), and `.session-tasks.jsonl` (native task file). Track everything else (`tasks.md`, `blueprints/`, `research/`, `ideas/`, `audits/`, `docs/`).
+
+The auto-bootstrap in `session-boot.sh` already creates these. If initialize runs on a project that was auto-bootstrapped, the files will already exist — skip creation.
 
 ## Steps
 
