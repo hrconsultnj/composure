@@ -23,6 +23,36 @@ const config = JSON.parse(
   readFileSync(join(__dirname, "classifications.json"), "utf8")
 );
 
+// ── Helper: extract intent snippets for multi-intent preview ────
+// Splits text at topic-shift marker positions and returns short
+// normalized snippets (max 60 chars) for each detected intent.
+// Used to turn the multi-intent count into a bulleted preview.
+function extractIntentSnippets(text, shiftMarkers, maxSnippets = 5) {
+  if (!text || !Array.isArray(shiftMarkers) || shiftMarkers.length === 0) {
+    return [];
+  }
+  const lower = text.toLowerCase();
+  const positions = new Set([0]); // start of prompt = first intent boundary
+  for (const marker of shiftMarkers) {
+    let idx = lower.indexOf(marker);
+    while (idx !== -1) {
+      positions.add(idx);
+      idx = lower.indexOf(marker, idx + marker.length);
+    }
+  }
+  const sorted = Array.from(positions).sort((a, b) => a - b);
+  const snippets = [];
+  for (let i = 0; i < sorted.length && snippets.length < maxSnippets; i++) {
+    const start = sorted[i];
+    const end = sorted[i + 1] ?? Math.min(start + 100, text.length);
+    const raw = text.slice(start, end).trim().replace(/\s+/g, " ");
+    if (raw.length >= 8) {
+      snippets.push(raw.length > 60 ? raw.slice(0, 57) + "..." : raw);
+    }
+  }
+  return snippets;
+}
+
 // ── Read stdin (hook payload) ───────────────────────────────────
 let raw = "";
 for await (const chunk of process.stdin) raw += chunk;
@@ -167,9 +197,18 @@ const lines = [];
 if (multiIntentDetected) {
   // Multi-intent voice prompt: signal decomposition, don't force blueprint
   lines.push(`[composure:request-type] ${type}`);
-  lines.push(
-    `[composure:multi-intent] ~${concernCount} intents detected in this prompt. Use TaskCreate to break down what the user is asking — they likely want ${concernCount}+ separate things addressed. Do NOT start implementing until you have listed back what you understood.`
-  );
+  const intents = extractIntentSnippets(cleaned, mi.topic_shift_markers || [], 5);
+  if (intents.length >= 2) {
+    const bullets = intents.map((s, i) => `  ${i + 1}. ${s}`).join("\n");
+    lines.push(
+      `[composure:multi-intent] ~${concernCount} intents detected. Break down before implementing:\n${bullets}\nUse TaskCreate to track each one. Do NOT start implementing until you have listed back what you understood.`
+    );
+  } else {
+    // Fallback: no distinct snippets extracted → keep original count-only phrasing
+    lines.push(
+      `[composure:multi-intent] ~${concernCount} intents detected in this prompt. Use TaskCreate to break down what the user is asking — they likely want ${concernCount}+ separate things addressed. Do NOT start implementing until you have listed back what you understood.`
+    );
+  }
 } else if (forceTasks) {
   const fallback =
     "Start with /composure:blueprint to plan and break this down — it will classify the work, check for research, and create tracked tasks. If this is a simple list of independent items, use TaskCreate to track them directly.";
@@ -192,6 +231,15 @@ if (multiIntentDetected) {
   lines.push(`[composure:request-type] ${type}`);
   if (matched.guidance) {
     lines.push(`[composure:guidance] ${matched.guidance}`);
+  }
+  if (matched.insight_policy) {
+    const insightText = {
+      always: "Insights welcome — include when you make non-obvious decisions.",
+      on_tradeoff: "Include insights only for trade-offs the user wouldn't catch from the diff.",
+      skip: "Skip insights — mechanical work.",
+    };
+    const text = insightText[matched.insight_policy];
+    if (text) lines.push(`[composure:insight] ${text}`);
   }
 }
 
