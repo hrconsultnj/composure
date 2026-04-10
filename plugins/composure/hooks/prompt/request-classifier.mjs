@@ -33,6 +33,28 @@ if (!prompt) process.exit(0);
 
 const promptHead = prompt.slice(0, 500).toLowerCase();
 
+// ── Precompute (used by conversational gate + later detections) ──
+const cleaned = prompt.replace(/```[\s\S]*?```/g, "");
+const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+
+// ── Conversational fast-exit ───────────────────────────────────
+// Short messages matching greeting/meta patterns with no action
+// keywords exit with zero output — no classification, no hints.
+const conv = config.types.conversational;
+if (conv && conv.max_words) {
+  if (wordCount <= conv.max_words) {
+    const hasPattern = (conv.patterns || []).some((p) =>
+      promptHead.includes(p)
+    );
+    const hasAction = (conv.action_exclude || []).some((a) =>
+      promptHead.includes(a)
+    );
+    if (hasPattern && !hasAction) {
+      process.exit(0);
+    }
+  }
+}
+
 // ── Classify ────────────────────────────────────────────────────
 // Order: iterate types in config order (plan → review → ... → operate)
 // First match wins. Default: "implement"
@@ -41,7 +63,7 @@ let type = config.default_type;
 let matched = config.types[config.default_type];
 
 for (const [name, def] of Object.entries(config.types)) {
-  if (name === config.default_type) continue;
+  if (name === config.default_type || name === "conversational") continue;
   if (def.patterns.some((p) => promptHead.includes(p))) {
     type = name;
     matched = def;
@@ -55,9 +77,6 @@ const mi = config.multi_intent;
 let longPromptTriggered = false;
 let multiIntentDetected = false;
 let concernCount = 0;
-
-const cleaned = prompt.replace(/```[\s\S]*?```/g, "");
-const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
 
 // Structured signals (numbered lists, arrows)
 if (lp.applies_to.includes(type)) {

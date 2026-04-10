@@ -35,6 +35,69 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/resolve-plugin-root.sh"
 
+# ── Detect project type ────────────────────────────────────
+source "${SCRIPT_DIR}/../lib/detect-project-type.sh"
+echo "[composure:project-type] ${PROJECT_TYPE}"
+
+# ── workspace/folder: minimal boot — Cortex identity only ──
+case "$PROJECT_TYPE" in
+  workspace|folder)
+    if [ "$HAS_CLAUDE_HISTORY" -eq 1 ]; then
+      printf '[composure:context] %s (%s) — Claude has session history here\n' "$(basename "$PROJECT_DIR")" "$PROJECT_TYPE"
+    else
+      printf '[composure:context] %s (%s)\n' "$(basename "$PROJECT_DIR")" "$PROJECT_TYPE"
+    fi
+
+    # Cortex global memory injection (cross-project awareness)
+    CLI_PATH="${COMPOSURE_ROOT}/cortex/dist/cli.bundle.js"
+    if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
+      GLOBAL_MEMORIES=$(node --experimental-sqlite "$CLI_PATH" search_memory \
+        "{\"agent_id\":\"global\",\"limit\":5,\"tags\":[\"cross-project\"]}" 2>/dev/null)
+      GLOBAL_COUNT=$(echo "$GLOBAL_MEMORIES" | jq -r '.count // 0' 2>/dev/null)
+
+      if [ "${GLOBAL_COUNT:-0}" -gt 0 ]; then
+        printf '[cortex] Global memories: %d cross-project\n' "$GLOBAL_COUNT"
+        echo "$GLOBAL_MEMORIES" | jq -r '.results[]? | "  - " + (.content // "")[0:80]' 2>/dev/null
+      else
+        printf '[cortex] No cross-project memories yet.\n'
+      fi
+    fi
+
+    # Version sync still applies (plugin-level, not project-level)
+    PLUGIN_VERSION=$(jq -r '.version // ""' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
+
+    # Permissions auto-sync
+    PERMS_SCRIPT="${COMPOSURE_ROOT}/bin/composure-permissions.mjs"
+    if [ -f "$PERMS_SCRIPT" ] && [ -n "$PLUGIN_VERSION" ]; then
+      PERMS_STAMP=""
+      [ -f "${HOME}/.composure/last-permissions-sync" ] && PERMS_STAMP=$(cat "${HOME}/.composure/last-permissions-sync" 2>/dev/null)
+      if [ "$PERMS_STAMP" != "$PLUGIN_VERSION" ]; then
+        PERMS_OUT=$(node "$PERMS_SCRIPT" sync --plugin-version "$PLUGIN_VERSION" 2>/dev/null)
+        echo "$PERMS_OUT" | grep -q "Added" && echo "$PERMS_OUT"
+      fi
+    fi
+
+    # Cache prune (global maintenance — runs everywhere)
+    CACHE_BASE="${HOME}/.claude/plugins/cache/composure-suite"
+    if [ -d "$CACHE_BASE" ]; then
+      for plugin_dir in "$CACHE_BASE"/*/; do
+        [ ! -d "$plugin_dir" ] && continue
+        count=0
+        for ver in $(ls "$(basename "$plugin_dir" | xargs -I{} echo "$CACHE_BASE/{}")" 2>/dev/null | sort -t. -k1,1nr -k2,2nr -k3,3nr); do
+          [ ! -d "${plugin_dir}${ver}" ] && continue
+          count=$((count + 1))
+          [ "$count" -gt 2 ] && rm -rf "${plugin_dir}${ver}"
+        done
+      done
+      rm -rf "${HOME}/.claude/plugins/cache/temp_local_"* 2>/dev/null
+    fi
+
+    exit 0
+    ;;
+esac
+
+# ── From here: PROJECT_TYPE is project or monorepo ─────────
+
 # ── 1. Auto-bootstrap if not initialized ────────────────────
 if [ ! -f "${PROJECT_DIR}/.composure/no-bandaids.json" ] && [ ! -f "${PROJECT_DIR}/.claude/no-bandaids.json" ]; then
   BOOT_VERSION=$(jq -r '.version // "0.0.0"' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)

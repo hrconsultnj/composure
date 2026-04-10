@@ -20,6 +20,16 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
 [ -z "$FILE_PATH" ] && exit 0
 
+# ── Project type gate: skip in non-project dirs ──
+_PT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if command -v md5 >/dev/null 2>&1; then
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5 -q)
+else
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5sum | cut -d' ' -f1)
+fi
+_PT_FILE="/tmp/composure-project-type-${_PT_HASH}"
+[ -f "$_PT_FILE" ] && case "$(cat "$_PT_FILE")" in workspace|folder) exit 0 ;; esac
+
 # Determine file extension
 EXT="${FILE_PATH##*.}"
 

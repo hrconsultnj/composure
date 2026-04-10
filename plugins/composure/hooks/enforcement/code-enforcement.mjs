@@ -40,6 +40,19 @@ for (const pf of PROTECTED_FILES) {
   }
 }
 
+// ── Project type gate: skip enforcement in non-project dirs ────
+{
+  const crypto = await import("node:crypto");
+  const fs = await import("node:fs");
+  const dir = process.env.CLAUDE_PROJECT_DIR || ".";
+  const hash = crypto.createHash("md5").update(dir).digest("hex");
+  const ptFile = `/tmp/composure-project-type-${hash}`;
+  try {
+    const pt = fs.readFileSync(ptFile, "utf8").trim();
+    if (pt === "workspace" || pt === "folder") process.exit(0);
+  } catch {}
+}
+
 // ── Source file gate ────────────────────────────────────────────
 const ext = extname(filePath).slice(1);
 

@@ -2,6 +2,31 @@
   "version": 1,
   "default_type": "implement",
   "types": {
+    "conversational": {
+      "patterns": [
+        "hey ", "hi ", "hello", "howdy", "what's up", "how's it going",
+        "good morning", "good afternoon", "good evening",
+        "before we", "i'm going to", "let me show", "let me give",
+        "after your", "quick question", "so basically",
+        "one thing", "just wanted to", "real quick",
+        "i'll show you", "how are you", "i'll give you",
+        "sounds good", "that's fine", "perfect", "thanks",
+        "thank you", "got it", "okay so", "alright so",
+        "ready", "sure", "go ahead", "go for it", "approved",
+        "lgtm", "yep", "nope", "agreed", "cool"
+      ],
+      "max_words": 50,
+      "action_exclude": [
+        "fix", "add", "create", "build", "review", "deploy",
+        "commit", "push", "install", "configure", "remove",
+        "delete", "update", "refactor", "implement", "migrate",
+        "set up", "audit", "scan", "test", "run", "check",
+        "change", "move", "rename", "debug", "write", "generate"
+      ],
+      "guidance": null,
+      "reasoning": null,
+      "force_tasks": false
+    },
     "plan": {
       "patterns": ["blueprint", "let's plan", "let us plan", "think through", "map out", "scope out", "architect", "design the"],
       "guidance": "Planning request. Consider /composure:blueprint for structured pre-work.",

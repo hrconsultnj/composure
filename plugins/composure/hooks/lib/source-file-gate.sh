@@ -16,6 +16,17 @@
 # No file path = nothing to check
 [ -z "$FILE_PATH" ] && exit 0
 
+# ── Project type gate: skip enforcement in non-project dirs ──
+# Reads cached type written by detect-project-type.sh at session start.
+_PT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if command -v md5 >/dev/null 2>&1; then
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5 -q)
+else
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5sum | cut -d' ' -f1)
+fi
+_PT_FILE="/tmp/composure-project-type-${_PT_HASH}"
+[ -f "$_PT_FILE" ] && case "$(cat "$_PT_FILE")" in workspace|folder) exit 0 ;; esac
+
 # ── Extension check: skip non-source files ───────────────────
 BASENAME=$(basename "$FILE_PATH")
 case "$BASENAME" in
