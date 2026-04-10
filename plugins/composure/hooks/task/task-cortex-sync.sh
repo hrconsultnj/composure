@@ -48,6 +48,23 @@ else
     > "$TASK_FILE" 2>/dev/null
 fi
 
+# ── Project-level JSONL ledger (incremental, no full scan) ──
+LEDGER_DIR="${PROJECT_ROOT}/tasks-plans"
+if [ -d "$LEDGER_DIR" ] || [ -d "$PROJECT_ROOT" ]; then
+  mkdir -p "$LEDGER_DIR" 2>/dev/null
+  PAYLOAD_SESSION=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+  jq -n -c \
+    --arg tid "$TASK_ID" \
+    --arg subject "$TASK_SUBJECT" \
+    --arg desc "$TASK_DESC" \
+    --arg status "$TASK_STATUS" \
+    --arg sid "${PAYLOAD_SESSION:-unknown}" \
+    --arg project "$(basename "$PROJECT_ROOT")" \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{task_id:$tid,subject:$subject,description:$desc,status:$status,session_id:$sid,project:$project,ts:$ts}' \
+    >> "${LEDGER_DIR}/.session-tasks.jsonl" 2>/dev/null
+fi
+
 # ── Cortex sync ─────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_PATH="${SCRIPT_DIR}/../../cortex/dist/cli.bundle.js"
