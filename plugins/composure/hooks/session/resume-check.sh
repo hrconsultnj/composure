@@ -172,8 +172,11 @@ fi
 
 # Cortex pending tasks get their own block for readability
 if [ "$HAS_CORTEX_TASKS" -eq 1 ] && [ -n "${CORTEX_TASK_LIST:-}" ]; then
+  CORTEX_TASK_COUNT=$(echo "$CORTEX_TASK_LIST" | grep -c '^- ' 2>/dev/null || echo 0)
   echo "[composure:resume] Cortex tasks from previous sessions:"
   echo "$CORTEX_TASK_LIST"
+  # Instruct Claude to offer interactive restoration
+  echo "[composure:MANDATORY] Use AskUserQuestion to ask: \"${CORTEX_TASK_COUNT} pending task(s) from previous sessions. Restore them into this session?\" Options: (1) Restore all — recreate as TaskCreate entries, (2) Pick which to restore — show the list and let user choose, (3) Skip — start fresh. Do NOT auto-restore without asking."
 fi
 
 # Stale Cortex tasks (backlog_ref points to completed/removed items)
@@ -199,6 +202,13 @@ if [ "$GRAPH_STALE" -eq 1 ]; then
   else
     echo '[composure:MANDATORY] Code graph stale + MCP may be disconnected. Run /composure:build-graph or restart Claude Code.'
   fi
+fi
+
+# ── Export plugin root for CLI usage ──
+# Agents need this to run Cortex/Graph CLI commands manually.
+# Without it, agents guess wrong paths (e.g., ~/.claude/plugins/composure/).
+if [ -n "$COMPOSURE_ROOT" ]; then
+  echo "[composure:plugin-root] ${COMPOSURE_ROOT}"
 fi
 
 exit 0
