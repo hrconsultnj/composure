@@ -10,6 +10,14 @@ This skill fills the gap between "I have an app idea" and "here's the blueprint.
 
 > **Currently open for beta** — licensing for this feature is being finalized. Full access while in beta.
 
+## Progress Tracking
+
+This skill uses TaskCreate for progress tracking. Before starting work:
+1. Create one task per major step using TaskCreate
+2. Set each task to `in_progress` when starting it (TaskUpdate)
+3. Mark `completed` when done
+4. Write deliverables to files, not inline — inline text is for communication only
+
 ## Content Loading
 
 Load each step through the fetch command (handles caching, decryption, and auth):

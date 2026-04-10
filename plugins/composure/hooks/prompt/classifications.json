@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "default_type": "implement",
+  "types": {
+    "conversational": {
+      "patterns": [
+        "hey ", "hi ", "hello", "howdy", "what's up", "how's it going",
+        "good morning", "good afternoon", "good evening",
+        "before we", "i'm going to", "let me show", "let me give",
+        "after your", "quick question", "so basically",
+        "one thing", "just wanted to", "real quick",
+        "i'll show you", "how are you", "i'll give you",
+        "sounds good", "that's fine", "perfect", "thanks",
+        "thank you", "got it", "okay so", "alright so",
+        "ready", "sure", "go ahead", "go for it", "approved",
+        "lgtm", "yep", "nope", "agreed", "cool"
+      ],
+      "max_words": 50,
+      "action_exclude": [
+        "fix", "add", "create", "build", "review", "deploy",
+        "commit", "push", "install", "configure", "remove",
+        "delete", "update", "refactor", "implement", "migrate",
+        "set up", "audit", "scan", "test", "run", "check",
+        "change", "move", "rename", "debug", "write", "generate"
+      ],
+      "guidance": null,
+      "reasoning": null,
+      "force_tasks": false
+    },
+    "plan": {
+      "patterns": ["blueprint", "let's plan", "let us plan", "think through", "map out", "scope out", "architect", "design the"],
+      "guidance": "Planning request. Consider /composure:blueprint for structured pre-work.",
+      "reasoning": "sequential_think",
+      "force_tasks": true,
+      "task_prompt": "Planning request detected. Break this into tracked tasks. Start with /composure:blueprint to plan and break this down — it will classify the work, check for research, and create tracked tasks. If this is a simple list of independent items, use TaskCreate to track them directly."
+    },
+    "review": {
+      "patterns": ["review the code", "review the changes", "review the pr", "review pr", "code review", "audit the", "audit this project", "check quality", "check the code", "run an audit", "run the audit", "run it? full", "the audit"],
+      "guidance": "Code review request. Consider /composure:review for delta analysis.",
+      "reasoning": "sequential_think",
+      "force_tasks": true,
+      "task_prompt": "Code review request. Create tasks for each review area."
+    },
+    "research": {
+      "patterns": ["look up", "find out", "investigate", "compare ", "research ", "what options", "evaluate ", "what's the best", "should we use", "search the web", "search for"],
+      "guidance": "Research request. Check cache (.composure/research/), then spawn sub-agent if needed. Sub-agent writes file, you Read it directly.",
+      "reasoning": "sequential_think",
+      "force_tasks": "conditional",
+      "force_tasks_signals": ["also", "and also", "plus", "additionally", "as well as"],
+      "force_tasks_signal_gate": 2,
+      "force_tasks_word_threshold": 150,
+      "task_prompt": "Multi-topic research request. Track each research area as a task."
+    },
+    "explain": {
+      "patterns": ["what is", "how does", "explain ", "why does", "why is", "why did", "what happened", "describe ", "show me", "walk me through", "what does", "how do", "your feedback", "your thoughts", "your honest", "what do you think", "do you think", "is the ", "is it ", "are there", "is this", "can they", "would we have to", "can we just"],
+      "guidance": "Explanation request. Read the relevant files before answering.",
+      "reasoning": null,
+      "force_tasks": false
+    },
+    "configure": {
+      "patterns": ["install ", "set up", "setup ", "initialize", "configure ", "enable ", "disable ", "uninstall", "create an instance", "connect to"],
+      "guidance": "Configuration request. Check for a matching /composure: skill.",
+      "reasoning": null,
+      "force_tasks": false
+    },
+    "operate": {
+      "patterns": ["commit", "push to", "merge to", "push and", "deploy", "release", "publish", "tag ", "version bump", "stage the", "stage changes", "republish"],
+      "guidance": "Git/deploy operation. Execute directly.",
+      "reasoning": null,
+      "force_tasks": false
+    },
+    "implement": {
+      "patterns": [],
+      "guidance": null,
+      "reasoning": "sequential_think",
+      "force_tasks": false
+    }
+  },
+  "long_prompt": {
+    "applies_to": ["implement"],
+    "code_block_exclusion": true,
+    "triggers": {
+      "word_count": 120,
+      "arrow_markers": 3,
+      "numbered_items": 3,
+      "signal_gate": 2
+    }
+  },
+  "multi_intent": {
+    "word_threshold": 60,
+    "word_heavy": 100,
+    "topic_shift_markers": [
+      "and regarding", "also ", "so maybe", "but also", "the other thing",
+      "and then", "plus ", "another thing", "on top of that", "besides that",
+      "unless ", "or maybe", "but first", "before that", "after that",
+      "look at ", "regarding the", "as for "
+    ],
+    "shift_gate": 2,
+    "question_gate": 2,
+    "signal_gate": 2
+  },
+  "task_nag": {
+    "applies_to": ["implement", "plan"],
+    "check_file": ".composure/current-task.json",
+    "suppress_if_task_active": true
+  }
+}

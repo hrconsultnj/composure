@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-boot.sh\" 2>&1 || exit 0",
-            "timeout": 8,
+            "timeout": 12,
             "statusMessage": "Booting session..."
           }
         ]
@@ -58,15 +58,9 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/code-enforcement.mjs\" 2>&1 || { EC=$?; [ $EC -eq 2 ] && exit 2; echo '[composure:pre:code-enforcement] hook failed' >&2; exit 0; }",
             "timeout": 5,
-            "statusMessage": "Checking for band-aid fixes..."
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/framework-validation.sh\" 2>&1 || { echo '[composure:pre:framework-validation] hook failed' >&2; exit 0; }",
-            "timeout": 5,
-            "statusMessage": "Validating framework rules..."
+            "statusMessage": "Enforcing code rules..."
           }
         ]
       }
@@ -139,14 +133,91 @@
         ]
       }
     ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-cortex-sync.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/task-cortex-sync.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-end-summary.sh\" 2>&1 || exit 0",
+            "timeout": 5,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/subagent-tracker.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/task/subagent-tracker.sh\" 2>&1 || exit 0",
+            "timeout": 3,
+            "async": true,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt/request-classifier.sh\" 2>&1 || exit 0",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt/request-classifier.mjs\" 2>&1 || exit 0",
             "timeout": 2,
+            "statusMessage": ""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session/turn-capture.mjs\" 2>&1 || exit 0",
+            "timeout": 3,
             "statusMessage": ""
           }
         ]

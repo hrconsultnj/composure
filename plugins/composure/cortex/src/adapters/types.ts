@@ -41,7 +41,7 @@ export interface SupabaseAdapterConfig {
 
 export interface SqliteAdapterConfig {
   type: "sqlite";
-  dbPath?: string; // defaults to .composure/cortex.db
+  dbPath?: string; // defaults to .composure/cortex/cortex.db
 }
 
 export type AdapterConfig = SupabaseAdapterConfig | SqliteAdapterConfig;

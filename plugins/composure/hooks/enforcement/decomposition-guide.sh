@@ -20,6 +20,16 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
 [ -z "$FILE_PATH" ] && exit 0
 
+# ── Project type gate: skip in non-project dirs ──
+_PT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if command -v md5 >/dev/null 2>&1; then
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5 -q)
+else
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5sum | cut -d' ' -f1)
+fi
+_PT_FILE="/tmp/composure-project-type-${_PT_HASH}"
+[ -f "$_PT_FILE" ] && case "$(cat "$_PT_FILE")" in workspace|folder) exit 0 ;; esac
+
 # Determine file extension
 EXT="${FILE_PATH##*.}"
 
@@ -147,5 +157,6 @@ if [ "$IS_NEW" -eq 1 ]; then
   RULES="${RULES}\nThis is a NEW file — plan the structure before writing. If it will exceed its type limit (150 for components, 300 for forms/types), split upfront."
 fi
 
+printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 printf '{"systemMessage": "%s"}' "$(echo -e "$RULES" | sed 's/"/\\"/g' | tr '\n' ' ')"
 exit 0

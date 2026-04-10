@@ -6,6 +6,14 @@ argument-hint: "[--force] [--dry-run]"
 
 Assess the project's security surface and bootstrap Sentinel configuration by detecting the tech stack, available package managers, system installers, and security tooling.
 
+## Progress Tracking
+
+This skill uses TaskCreate for progress tracking. Before starting work:
+1. Create one task per major step using TaskCreate
+2. Set each task to `in_progress` when starting it (TaskUpdate)
+3. Mark `completed` when done
+4. Write deliverables to files, not inline — inline text is for communication only
+
 ## Content Loading
 
 Load each step through the fetch command (handles caching, decryption, and auth):

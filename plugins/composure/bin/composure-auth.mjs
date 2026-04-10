@@ -31,7 +31,8 @@ import {
   COMPOSURE_DIR,
   CREDENTIALS_PATH,
 } from "./composure-token.mjs";
-import { existsSync, mkdirSync, symlinkSync, lstatSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, copyFileSync, writeFileSync, lstatSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -58,12 +59,19 @@ function generateState() {
 
 function openBrowser(url) {
   const os = platform();
-  const cmd =
-    os === "darwin" ? "open" :
-    os === "win32" ? "start" :
-    "xdg-open";
+  let cmd;
 
-  exec(`${cmd} "${url}"`, (err) => {
+  if (os === "darwin") {
+    cmd = `open "${url}"`;
+  } else if (os === "win32") {
+    // Windows `start` treats first quoted arg as window title — use empty title.
+    // Use cmd /c to ensure shell built-in `start` is available.
+    cmd = `cmd /c start "" "${url}"`;
+  } else {
+    cmd = `xdg-open "${url}"`;
+  }
+
+  exec(cmd, (err) => {
     if (err) {
       console.error(`\nCould not open browser automatically.`);
       console.error(`Open this URL manually:\n  ${url}\n`);
@@ -265,25 +273,47 @@ function clearCache() {
 function setupBinSymlinks() {
   const binDir = join(COMPOSURE_DIR, "bin");
   if (!existsSync(binDir)) {
-    mkdirSync(binDir, { recursive: true, mode: 0o755 });
+    mkdirSync(binDir, { recursive: true });
   }
 
-  // Resolve the directory containing this script (composure plugin's bin/)
-  const scriptDir = new URL(".", import.meta.url).pathname;
+  // fileURLToPath handles Windows paths correctly (no leading / on C:\...)
+  const scriptDir = fileURLToPath(new URL(".", import.meta.url));
   const binaries = ["composure-fetch.mjs", "composure-token.mjs", "composure-cache.mjs", "composure-auth.mjs"];
+  const isWin = platform() === "win32";
 
   for (const bin of binaries) {
     const target = join(scriptDir, bin);
     const link = join(binDir, bin);
     try {
-      // Skip if symlink already points to the right place
+      // Skip if link already exists and points somewhere valid
       if (existsSync(link)) {
         const stat = lstatSync(link);
         if (stat.isSymbolicLink()) continue;
+        // On Windows, skip if copy already exists (same size = same file)
+        if (isWin && stat.isFile()) continue;
       }
-      symlinkSync(target, link);
+      if (isWin) {
+        // Symlinks require admin/Developer Mode on Windows — use copy instead
+        copyFileSync(target, link);
+      } else {
+        symlinkSync(target, link);
+      }
     } catch {
-      // Non-fatal — symlink may already exist or permissions issue
+      // Non-fatal — symlink/copy may already exist or permissions issue
+    }
+
+    // On Windows, generate .cmd shims so users can run `composure-auth login`
+    // without the `node` prefix — same pattern npm uses for global installs.
+    if (isWin) {
+      const cmdName = bin.replace(".mjs", "");
+      const cmdPath = join(binDir, `${cmdName}.cmd`);
+      try {
+        if (!existsSync(cmdPath)) {
+          writeFileSync(cmdPath, `@echo off\r\nnode "%~dp0${bin}" %*\r\n`);
+        }
+      } catch {
+        // Non-fatal
+      }
     }
   }
 }
@@ -379,7 +409,7 @@ async function refresh() {
 
 // ── Migrate (.claude/ → .composure/) ─────────────────────────────────
 
-import { cpSync, readFileSync, writeFileSync, readdirSync, renameSync } from "node:fs";
+import { cpSync, readFileSync, readdirSync, renameSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { execSync } from "node:child_process";
 
@@ -474,8 +504,14 @@ async function upgradeProject() {
   const legacyFw = join(claudeDir, "frameworks");
   if (readdirSync(fwGenerated).length > 0) {
     ok.push("frameworks/generated");
+    // Clean up legacy if it still exists alongside the new one
+    if (existsSync(legacyFw)) {
+      try { rmSync(legacyFw, { recursive: true }); } catch {}
+      fixed.push("Removed: stale .claude/frameworks/ (already in .composure/frameworks/)");
+    }
   } else if (existsSync(legacyFw)) {
     cpSync(legacyFw, join(composureDir, "frameworks"), { recursive: true });
+    try { rmSync(legacyFw, { recursive: true }); } catch {}
     fixed.push("Migrated: .claude/frameworks/ → .composure/frameworks/");
   } else {
     warn.push("frameworks/generated empty — run /composure:initialize");
@@ -505,10 +541,24 @@ async function upgradeProject() {
     warn.push("No graph DB — run /composure:build-graph");
   }
 
-  // ── 8. Cortex DB (project-level) ───────────────────────────────
-  const cortexDb = join(composureDir, "cortex.db");
-  if (existsSync(cortexDb)) {
-    ok.push("Cortex DB (.composure/cortex.db)");
+  // ── 8. Cortex DB (project-level): .composure/cortex.db → .composure/cortex/cortex.db
+  const cortexDbNew = join(composureDir, "cortex", "cortex.db");
+  const cortexDbOld = join(composureDir, "cortex.db");
+  if (existsSync(cortexDbNew)) {
+    ok.push("Cortex DB (.composure/cortex/cortex.db)");
+    // Clean up legacy loose DB if it still exists alongside the new one
+    for (const suffix of ["", "-shm", "-wal"]) {
+      const f = cortexDbOld + suffix;
+      if (existsSync(f)) try { rmSync(f); } catch {}
+    }
+  } else if (existsSync(cortexDbOld)) {
+    // Move loose cortex.db + WAL files into cortex/ subfolder
+    for (const suffix of ["", "-shm", "-wal"]) {
+      const src = cortexDbOld + suffix;
+      const dst = cortexDbNew + suffix;
+      if (existsSync(src)) renameSync(src, dst);
+    }
+    fixed.push("Migrated: .composure/cortex.db → .composure/cortex/cortex.db");
   } else {
     warn.push("No project Cortex DB — will be created on first use");
   }

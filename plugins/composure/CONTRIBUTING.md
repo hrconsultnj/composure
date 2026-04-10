@@ -8,7 +8,7 @@ Thank you for helping improve code quality across languages.
 
 If you've built patterns that work well in your projects, share them:
 
-1. Start with a **project-level override** at `.claude/frameworks/{lang}/*.md` in your project
+1. Start with a **project-level override** at `.composure/frameworks/{lang}/*.md` in your project
 2. Test it across multiple sessions — make sure Claude consistently follows the pattern
 3. Move the file to `skills/app-architecture/{lang}/references/universal/`
 4. Submit a PR using the template

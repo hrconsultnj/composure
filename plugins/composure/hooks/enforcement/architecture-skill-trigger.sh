@@ -20,6 +20,16 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.command 
 
 [ -z "$FILE_PATH" ] && exit 0
 
+# ── Project type gate: skip in non-project dirs ──
+_PT_DIR="${CLAUDE_PROJECT_DIR:-.}"
+if command -v md5 >/dev/null 2>&1; then
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5 -q)
+else
+  _PT_HASH=$(echo -n "$_PT_DIR" | md5sum | cut -d' ' -f1)
+fi
+_PT_FILE="/tmp/composure-project-type-${_PT_HASH}"
+[ -f "$_PT_FILE" ] && case "$(cat "$_PT_FILE")" in workspace|folder) exit 0 ;; esac
+
 # Only trigger on source files
 case "$FILE_PATH" in
   *.tsx|*.ts|*.jsx|*.js|*.sql) ;;
@@ -113,11 +123,14 @@ if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
   IS_NEW_FILE=1
 fi
 
+# ── Activity counter ──
+printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
+
 # ── Return system message with clear thresholds ──
 if [ "$IS_NEW_FILE" -eq 1 ]; then
-  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s\n\nBefore writing code, determine the scope:\n• Creating new routes/pages → MUST run /composure:blueprint first\n• Adding database tables or migrations → MUST run /composure:blueprint first\n• Work will touch 5+ files → SHOULD run /composure:blueprint first\n• Single-file edit or small fix → MUST invoke /composure:app-architecture for reference docs\n\nYou MUST load framework reference docs before writing any source code. This is NOT optional — generated docs at .claude/frameworks/ contain version-specific patterns that prevent incorrect fixes.\n\nBlueprint uses the code graph for pre-scan and impact analysis — always prefer graph MCP tools over Explore agents for structural questions."}' "$ARCH_HINT"
+  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s\n\nBefore writing code, determine the scope:\n• Creating new routes/pages → MUST run /composure:blueprint first\n• Adding database tables or migrations → MUST run /composure:blueprint first\n• Work will touch 5+ files → SHOULD run /composure:blueprint first\n• Single-file edit or small fix → MUST invoke /composure:app-architecture for reference docs\n\nYou MUST load framework reference docs before writing any source code. This is NOT optional — generated docs at .composure/frameworks/ contain version-specific patterns that prevent incorrect fixes.\n\nBlueprint uses the code graph for pre-scan and impact analysis — always prefer graph MCP tools over Explore agents for structural questions."}' "$ARCH_HINT"
 else
-  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s You MUST invoke /composure:app-architecture now if you have not loaded reference docs this session. This is a BLOCKING requirement — do not proceed with edits until framework docs are loaded. Generated docs at .claude/frameworks/ contain version-specific patterns (e.g. Next.js 16 Suspense boundaries, Tailwind 4 oklch). For structural questions, use graph MCP tools (query_graph with 10 patterns including references_of and dependency_chain, semantic_search_nodes, get_impact_radius) — not Explore agents."}' "$ARCH_HINT"
+  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s You MUST invoke /composure:app-architecture now if you have not loaded reference docs this session. This is a BLOCKING requirement — do not proceed with edits until framework docs are loaded. Generated docs at .composure/frameworks/ contain version-specific patterns (e.g. Next.js 16 Suspense boundaries, Tailwind 4 oklch). For structural questions, use graph MCP tools (query_graph with 10 patterns including references_of and dependency_chain, semantic_search_nodes, get_impact_radius) — not Explore agents."}' "$ARCH_HINT"
 fi
 
 exit 0

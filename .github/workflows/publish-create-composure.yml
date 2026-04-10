@@ -1,0 +1,59 @@
+name: Auto-bump create-composure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/create-composure/src/**'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip-publish]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PREVIEW_DISPATCH_TOKEN }}
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          cd tools/create-composure
+          CURRENT=$(jq -r '.version' package.json)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+          jq --arg v "$NEW" '.version = $v' package.json > tmp.json && mv tmp.json package.json
+          echo "old=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tools/create-composure/package.json
+          git diff --cached --quiet && echo "No change" && exit 0
+          git commit -m "chore: bump create-composure to v${{ steps.bump.outputs.new }} [skip-publish]"
+          git push
+
+      - name: Create reminder issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const old = '${{ steps.bump.outputs.old }}';
+            const ver = '${{ steps.bump.outputs.new }}';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Publish create-composure@${ver} to npm`,
+              body: [
+                `Source changed in \`tools/create-composure/src/\` — version bumped ${old} → ${ver}.`,
+                '',
+                '**To publish:**',
+                '```bash',
+                'cd tools/create-composure && npm publish',
+                '```',
+                '',
+                `Triggered by ${context.sha.slice(0, 7)}: ${context.payload.head_commit?.message?.split('\n')[0] ?? 'unknown'}`,
+              ].join('\n'),
+              labels: ['publish'],
+            });

@@ -1,7 +1,10 @@
 #!/bin/bash
 # PostToolUse hook: write current in-progress task to .composure/current-task.json
-# Fires on TaskCreate, TaskUpdate, TaskList tool calls
-# Contract file between task system and context-resolver.ts + seq-think capture
+# Fires on TaskCreate, TaskUpdate, TaskList tool calls.
+# Contract file between task system and context-resolver.ts + seq-think capture.
+#
+# NOTE: Cortex sync is handled by task-cortex-sync.sh via native
+# TaskCreated/TaskCompleted events. This hook only writes the contract file.
 set -e
 
 INPUT=$(cat)
@@ -17,10 +20,8 @@ TASK_FILE="${PROJECT_ROOT}/.composure/current-task.json"
 mkdir -p "$(dirname "$TASK_FILE")" 2>/dev/null
 
 # Extract in-progress task from tool result
-# TaskList returns .tasks array, TaskCreate/Update return the single task
 RESULT=$(echo "$INPUT" | jq -c '.tool_result // {}' 2>/dev/null || echo "{}")
 
-# Try to find an in-progress task from the result
 IN_PROGRESS=$(echo "$RESULT" | jq -c '
   if .tasks then
     [.tasks[] | select(.status == "in_progress")] | .[0] // null
@@ -32,12 +33,10 @@ IN_PROGRESS=$(echo "$RESULT" | jq -c '
 ' 2>/dev/null || echo "null")
 
 if [ "$IN_PROGRESS" = "null" ] || [ -z "$IN_PROGRESS" ]; then
-  # No task in progress — write null values
   jq -n --arg updated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{ task_id: null, task_subject: null, updated_at: $updated }' \
     > "$TASK_FILE" 2>/dev/null &
 else
-  # Write the current task
   TASK_ID=$(echo "$IN_PROGRESS" | jq -r '.id // .taskId // empty')
   TASK_SUBJECT=$(echo "$IN_PROGRESS" | jq -r '.subject // empty')
   jq -n \
