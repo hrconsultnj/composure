@@ -60,6 +60,48 @@ if [ ! -f "${PROJECT_DIR}/.composure/no-bandaids.json" ] && [ ! -f "${PROJECT_DI
            "${PROJECT_DIR}/tasks-plans/archive" \
            "${PROJECT_DIR}/tasks-plans/docs" 2>/dev/null
 
+  # Write .gitignore templates (only if missing)
+  if [ ! -f "${PROJECT_DIR}/.composure/.gitignore" ]; then
+    cat > "${PROJECT_DIR}/.composure/.gitignore" 2>/dev/null <<'EOIGNORE'
+# Composure — auto-generated .gitignore
+# Configs and framework docs are tracked. Generated DBs and ephemeral state are ignored.
+# Customize: remove lines for paths your team wants to track.
+
+# Graph database (rebuilt by /composure:build-graph, contains absolute paths)
+graph/
+
+# Cortex memory (per-developer, lives at ~/.composure/cortex/)
+cortex/
+cortex.db*
+
+# Ephemeral session state
+current-task.json
+last-health-check
+hook-activity.log
+task-sync-debug.jsonl
+
+# Scratch space
+workspaces/
+EOIGNORE
+  fi
+
+  if [ ! -f "${PROJECT_DIR}/tasks-plans/.gitignore" ]; then
+    cat > "${PROJECT_DIR}/tasks-plans/.gitignore" 2>/dev/null <<'EOIGNORE'
+# Composure — auto-generated .gitignore
+# Backlog, blueprints, research, ideas, and audits are tracked.
+# Per-developer session logs and archives are ignored.
+
+# Per-developer daily session logs
+sessions/
+
+# Archived completed items (git history preserves them)
+archive/
+
+# Native task file (auto-generated)
+.session-tasks.jsonl
+EOIGNORE
+  fi
+
   # Write minimal config
   cat > "${PROJECT_DIR}/.composure/no-bandaids.json" 2>/dev/null <<EOJSON
 {
@@ -141,6 +183,48 @@ if [ -f "$PERMS_SCRIPT" ] && [ -n "$PLUGIN_VERSION" ]; then
   fi
 fi
 
+# ── 2c. Gitignore backfill (create if missing) ────────────────
+if [ ! -f "${PROJECT_DIR}/.composure/.gitignore" ]; then
+  cat > "${PROJECT_DIR}/.composure/.gitignore" 2>/dev/null <<'EOIGNORE'
+# Composure — auto-generated .gitignore
+# Configs and framework docs are tracked. Generated DBs and ephemeral state are ignored.
+# Customize: remove lines for paths your team wants to track.
+
+# Graph database (rebuilt by /composure:build-graph, contains absolute paths)
+graph/
+
+# Cortex memory (per-developer, lives at ~/.composure/cortex/)
+cortex/
+cortex.db*
+
+# Ephemeral session state
+current-task.json
+last-health-check
+hook-activity.log
+task-sync-debug.jsonl
+
+# Scratch space
+workspaces/
+EOIGNORE
+fi
+
+if [ ! -f "${PROJECT_DIR}/tasks-plans/.gitignore" ] && [ -d "${PROJECT_DIR}/tasks-plans" ]; then
+  cat > "${PROJECT_DIR}/tasks-plans/.gitignore" 2>/dev/null <<'EOIGNORE'
+# Composure — auto-generated .gitignore
+# Backlog, blueprints, research, ideas, and audits are tracked.
+# Per-developer session logs and archives are ignored.
+
+# Per-developer daily session logs
+sessions/
+
+# Archived completed items (git history preserves them)
+archive/
+
+# Native task file (auto-generated)
+.session-tasks.jsonl
+EOIGNORE
+fi
+
 # ── 3. Stack note ────────────────────────────────────────────
 FRONTEND=$(jq -r '.frameworks | to_entries[0].value.frontend // "null"' "$COMPOSURE_CONFIG" 2>/dev/null)
 BACKEND=$(jq -r '.frameworks | to_entries[0].value.backend // "null"' "$COMPOSURE_CONFIG" 2>/dev/null)
@@ -199,9 +283,9 @@ if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
       echo "$GLOBAL_MEMORIES" | jq -r '.results[]? | "  - " + (.content // "")[0:80]' 2>/dev/null
     fi
 
-    # Output active thinking sessions
+    # Note active thinking sessions count (lazy-loaded on sequential_think)
     if [ "${SESSION_COUNT:-0}" -gt 0 ]; then
-      echo "$ACTIVE_SESSIONS" | jq -r '.sessions[]? | "[cortex] Active session: \"" + .title + "\" (" + (.thought_count // 0 | tostring) + " thoughts)"' 2>/dev/null
+      printf '[cortex] %d active thinking session(s) — auto-loaded when you use sequential_think.\n' "$SESSION_COUNT"
     fi
   else
     printf '[cortex] agent_id=%s | No memories yet — notable changes auto-captured.\n' "$AGENT_ID"
@@ -327,13 +411,15 @@ if [ "$RUN_HEALTH" -eq 1 ]; then
   date +%s > "$CHECK_FILE" 2>/dev/null
 fi
 
-# ── 7. Task count + graph staleness (was resume-check.sh) ────
+# ── 7. Tasks + Cortex pending + graph staleness ─────────────
+# Consolidated from resume-check.sh — single block output.
 TASKS_FILE="$PROJECT_DIR/tasks-plans/tasks.md"
 GRAPH_DB="$PROJECT_DIR/.composure/graph/graph.db"
 [ ! -f "$GRAPH_DB" ] && GRAPH_DB="$PROJECT_DIR/.code-review-graph/graph.db"
 
 RESUME_PARTS=()
 OPEN=0
+DONE=0
 
 if [ -f "$TASKS_FILE" ]; then
   OPEN=$(grep -c '^\- \[ \]' "$TASKS_FILE" 2>/dev/null || echo 0)
@@ -341,6 +427,68 @@ if [ -f "$TASKS_FILE" ]; then
   [ "$OPEN" -gt 0 ] && RESUME_PARTS+=("Tasks: ${OPEN} open, ${DONE} done. Run /composure:backlog to process.")
 fi
 
+# ── Cortex pending tasks from previous sessions ──
+CORTEX_TASK_LIST=""
+CORTEX_STALE_LIST=""
+CORTEX_STALE_COUNT=0
+CORTEX_DB="${HOME}/.composure/cortex/cortex.db"
+
+if [ -f "$CORTEX_DB" ] && [ -f "$CLI_PATH" ]; then
+  AGENT_ID="$COMPOSURE_AGENT_ID"
+
+  CORTEX_RAW=$(timeout 2 node --experimental-sqlite "$CLI_PATH" search_memory_text \
+    "{\"agent_id\":\"${AGENT_ID}\",\"query\":\"Task #\",\"limit\":20}" 2>/dev/null || true)
+
+  if [ -n "$CORTEX_RAW" ]; then
+    PENDING_JSON=$(echo "$CORTEX_RAW" | jq -c '
+      .results[]?
+      | select(
+          .metadata.task_status != null and
+          .metadata.task_status != "completed" and
+          .metadata.task_status != "deleted"
+        )
+      | {
+          tid: .metadata.task_id,
+          subject: .metadata.task_subject,
+          status: .metadata.task_status,
+          ref: (.metadata.backlog_ref // "")
+        }
+    ' 2>/dev/null || true)
+
+    # Validate backlog_refs against on-disk state
+    while IFS= read -r row; do
+      [ -z "$row" ] && continue
+      TID=$(echo "$row" | jq -r '.tid')
+      SUBJ=$(echo "$row" | jq -r '.subject')
+      STAT=$(echo "$row" | jq -r '.status')
+      REF=$(echo "$row" | jq -r '.ref')
+      LINE="- Task #${TID}: ${SUBJ} [${STAT}]"
+
+      if [ -n "$REF" ]; then
+        REF_FILE="${PROJECT_DIR}/$(echo "$REF" | cut -d'#' -f1)"
+        if [ -f "$REF_FILE" ]; then
+          ANCHOR=$(echo "$REF" | cut -d'#' -f2)
+          if grep -q "^\- \[ \].*${ANCHOR}" "$REF_FILE" 2>/dev/null; then
+            CORTEX_TASK_LIST="${CORTEX_TASK_LIST}${LINE} (linked: ${REF})"$'\n'
+          else
+            CORTEX_STALE_LIST="${CORTEX_STALE_LIST}${LINE} (completed in backlog)"$'\n'
+            CORTEX_STALE_COUNT=$((CORTEX_STALE_COUNT + 1))
+          fi
+        else
+          CORTEX_STALE_LIST="${CORTEX_STALE_LIST}${LINE} (source file removed)"$'\n'
+          CORTEX_STALE_COUNT=$((CORTEX_STALE_COUNT + 1))
+        fi
+      else
+        CORTEX_TASK_LIST="${CORTEX_TASK_LIST}${LINE}"$'\n'
+      fi
+    done <<< "$PENDING_JSON"
+
+    CORTEX_TASK_LIST=$(printf '%s' "$CORTEX_TASK_LIST" | sed '/^$/d')
+    CORTEX_STALE_LIST=$(printf '%s' "$CORTEX_STALE_LIST" | sed '/^$/d')
+  fi
+fi
+
+# ── Graph staleness ──
 GRAPH_STALE=0
 if [ -f "$GRAPH_DB" ]; then
   GRAPH_MOD=$(stat -f %m "$GRAPH_DB" 2>/dev/null || stat -c %Y "$GRAPH_DB" 2>/dev/null)
@@ -351,8 +499,10 @@ if [ -f "$GRAPH_DB" ]; then
   fi
 else
   GRAPH_STALE=1
+  RESUME_PARTS+=("No code graph found.")
 fi
 
+# ── Output consolidated resume block ──
 if [ ${#RESUME_PARTS[@]} -gt 0 ]; then
   printf "[composure:resume] %s" "${RESUME_PARTS[0]}"
   for ((i=1; i<${#RESUME_PARTS[@]}; i++)); do
@@ -361,15 +511,38 @@ if [ ${#RESUME_PARTS[@]} -gt 0 ]; then
   echo
 fi
 
+# Cortex pending tasks get their own block for readability
+if [ -n "$CORTEX_TASK_LIST" ]; then
+  CORTEX_TASK_COUNT=$(echo "$CORTEX_TASK_LIST" | grep -c '^- ' 2>/dev/null || echo 0)
+  echo "[composure:resume] Cortex tasks from previous sessions:"
+  echo "$CORTEX_TASK_LIST"
+  # Interactive restoration only on startup (not clear/compact)
+  if [ "$EVENT" = "startup" ]; then
+    echo "[composure:MANDATORY] Use AskUserQuestion to ask: \"${CORTEX_TASK_COUNT} pending task(s) from previous sessions. Restore them into this session?\" Options: (1) Restore all — recreate as TaskCreate entries, (2) Pick which to restore — show the list and let user choose, (3) Skip — start fresh. Do NOT auto-restore without asking."
+  fi
+fi
+
+# Stale Cortex tasks
+if [ -n "$CORTEX_STALE_LIST" ]; then
+  echo "[composure:hint] ${CORTEX_STALE_COUNT} stale task(s) found (backlog items already completed or removed):"
+  echo "$CORTEX_STALE_LIST"
+fi
+
 [ "$OPEN" -gt 5 ] && echo "[composure:hint] ${OPEN} open tasks is high. Mention this early — the user may want to clear the backlog before adding more work."
 
 if [ "$GRAPH_STALE" -eq 1 ]; then
   GRAPH_SERVER_JS="${COMPOSURE_ROOT}/graph/dist/server.js"
   if [ -n "$COMPOSURE_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ]; then
     echo '[composure:MANDATORY] Code graph stale — run build_or_update_graph({ full_rebuild: true }) before other work.'
+    echo '[composure:hint] Graph for structure (query_graph, get_impact_radius, semantic_search_nodes). Explore agents only for intent/business-logic.'
   else
     echo '[composure:MANDATORY] Code graph stale + MCP may be disconnected. Run /composure:build-graph or restart Claude Code.'
   fi
+fi
+
+# Export plugin root for CLI usage (agents need this for Cortex/Graph CLI)
+if [ -n "$COMPOSURE_ROOT" ]; then
+  echo "[composure:plugin-root] ${COMPOSURE_ROOT}"
 fi
 
 # ── 8. Guardrails ruleset detection (was guardrails-load.sh) ──

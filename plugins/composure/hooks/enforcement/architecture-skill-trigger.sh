@@ -113,6 +113,9 @@ if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
   IS_NEW_FILE=1
 fi
 
+# ── Activity counter ──
+printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
+
 # ── Return system message with clear thresholds ──
 if [ "$IS_NEW_FILE" -eq 1 ]; then
   printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s\n\nBefore writing code, determine the scope:\n• Creating new routes/pages → MUST run /composure:blueprint first\n• Adding database tables or migrations → MUST run /composure:blueprint first\n• Work will touch 5+ files → SHOULD run /composure:blueprint first\n• Single-file edit or small fix → MUST invoke /composure:app-architecture for reference docs\n\nYou MUST load framework reference docs before writing any source code. This is NOT optional — generated docs at .composure/frameworks/ contain version-specific patterns that prevent incorrect fixes.\n\nBlueprint uses the code graph for pre-scan and impact analysis — always prefer graph MCP tools over Explore agents for structural questions."}' "$ARCH_HINT"

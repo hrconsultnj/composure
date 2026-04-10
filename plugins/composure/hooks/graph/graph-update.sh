@@ -49,5 +49,6 @@ fi
 
 # Run incremental update for this single file
 node --experimental-sqlite "$GRAPH_UPDATE" --file "$FILE_PATH" 2>/dev/null || true
+printf 'graph_update\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 
 exit 0

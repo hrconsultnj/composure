@@ -60,6 +60,34 @@ PAYLOAD=$(jq -n \
 
 node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null
 
+# ── Hook activity summary ────────────────────────────────────
+ACTIVITY_LOG="${PROJECT_ROOT}/.composure/hook-activity.log"
+if [ -f "$ACTIVITY_LOG" ]; then
+  # Count each category
+  CHECKS=$(grep -c '^check$' "$ACTIVITY_LOG" 2>/dev/null || echo 0)
+  ENFORCEMENTS=$(grep -c '^enforcement$' "$ACTIVITY_LOG" 2>/dev/null || echo 0)
+  GRAPH_UPDATES=$(grep -c '^graph_update$' "$ACTIVITY_LOG" 2>/dev/null || echo 0)
+  QUALITY=$(grep -c '^quality$' "$ACTIVITY_LOG" 2>/dev/null || echo 0)
+  TOTAL=$(wc -l < "$ACTIVITY_LOG" 2>/dev/null | tr -d ' ')
+
+  SUMMARY_PARTS=()
+  [ "$CHECKS" -gt 0 ] && SUMMARY_PARTS+=("${CHECKS} checks passed")
+  [ "$ENFORCEMENTS" -gt 0 ] && SUMMARY_PARTS+=("${ENFORCEMENTS} enforcements triggered")
+  [ "$GRAPH_UPDATES" -gt 0 ] && SUMMARY_PARTS+=("${GRAPH_UPDATES} graph updates")
+  [ "$QUALITY" -gt 0 ] && SUMMARY_PARTS+=("${QUALITY} quality scans")
+
+  if [ ${#SUMMARY_PARTS[@]} -gt 0 ]; then
+    printf '[composure] Session: %s' "${SUMMARY_PARTS[0]}"
+    for ((i=1; i<${#SUMMARY_PARTS[@]}; i++)); do
+      printf ', %s' "${SUMMARY_PARTS[$i]}"
+    done
+    printf '.\n'
+  fi
+
+  # Clear for next session
+  rm -f "$ACTIVITY_LOG" 2>/dev/null
+fi
+
 # ── Final JSONL ledger sync (safety net) ─────────────────────
 # The incremental sync in task-cortex-sync.sh handles task-by-task.
 # This catches the full session snapshot on close — pending tasks

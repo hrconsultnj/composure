@@ -352,6 +352,7 @@ fi
 TOTAL_OPEN=$(grep -c '^\- \[ \]' "$TASK_FILE" 2>/dev/null || echo "0")
 
 MSG=""
+printf 'quality\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 if [ "$TASKS_ADDED" -gt 0 ]; then
   MSG="Code quality: ${TASKS_ADDED} task(s) logged for \`${RELATIVE_PATH}\` (${TOTAL_OPEN} open total). Continue current work."
 fi

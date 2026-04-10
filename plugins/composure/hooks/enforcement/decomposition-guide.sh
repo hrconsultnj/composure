@@ -147,5 +147,6 @@ if [ "$IS_NEW" -eq 1 ]; then
   RULES="${RULES}\nThis is a NEW file — plan the structure before writing. If it will exceed its type limit (150 for components, 300 for forms/types), split upfront."
 fi
 
+printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 printf '{"systemMessage": "%s"}' "$(echo -e "$RULES" | sed 's/"/\\"/g' | tr '\n' ' ')"
 exit 0

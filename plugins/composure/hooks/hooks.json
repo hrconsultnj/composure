@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-boot.sh\" 2>&1 || exit 0",
-            "timeout": 8,
+            "timeout": 12,
             "statusMessage": "Booting session..."
           }
         ]
@@ -20,28 +20,6 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-auth.sh\" 2>&1 || exit 0",
             "timeout": 8,
             "statusMessage": "Checking authentication..."
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/resume-check.sh\" 2>&1 || exit 0",
-            "timeout": 10,
-            "statusMessage": "Checking tasks & graph..."
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guardrails/guardrails-load.sh\" 2>&1 || exit 0",
-            "timeout": 3,
-            "statusMessage": ""
           }
         ]
       }
@@ -80,15 +58,9 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/no-bandaids.sh\" 2>&1 || { echo '[composure:pre:no-bandaids] hook failed' >&2; exit 0; }",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/code-enforcement.mjs\" 2>&1 || { EC=$?; [ $EC -eq 2 ] && exit 2; echo '[composure:pre:code-enforcement] hook failed' >&2; exit 0; }",
             "timeout": 5,
-            "statusMessage": "Checking for band-aid fixes..."
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/framework-validation.sh\" 2>&1 || { echo '[composure:pre:framework-validation] hook failed' >&2; exit 0; }",
-            "timeout": 5,
-            "statusMessage": "Validating framework rules..."
+            "statusMessage": "Enforcing code rules..."
           }
         ]
       }
