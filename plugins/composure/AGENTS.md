@@ -30,6 +30,7 @@ A project may have its own `AGENTS.md` at the project root — that file takes p
 
 ## Research sub-agent chain
 - Context7 lookups: ALWAYS spawn a background sub-agent. Never query in main context.
+- Every delegated research prompt MUST include the current date + a note that Claude's training cutoff is ~11 months stale. Force the sub-agent to prefer Context7/WebFetch over its own training data, and to flag when docs contradict what it "knows".
 - Sub-agent writes FULL findings to `.composure/research/{topic}-{date}.md`.
 - Sub-agent returns ONLY the file path — no summary, no re-processing.
 - Read the file directly to get the findings.
