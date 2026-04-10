@@ -60,4 +60,13 @@ PAYLOAD=$(jq -n \
 
 node --experimental-sqlite "$CLI_PATH" create_memory_node "$PAYLOAD" 2>/dev/null
 
+# ── Final JSONL ledger sync (safety net) ─────────────────────
+# The incremental sync in task-cortex-sync.sh handles task-by-task.
+# This catches the full session snapshot on close — pending tasks
+# that were never completed get their final state recorded.
+RESOLVER="${SCRIPT_DIR}/../../scripts/task-resolver.mjs"
+if [ -f "$RESOLVER" ]; then
+  node "$RESOLVER" --sync --project "$(basename "$PROJECT_ROOT")" 2>/dev/null || true
+fi
+
 exit 0
