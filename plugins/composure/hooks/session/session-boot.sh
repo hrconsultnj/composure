@@ -28,6 +28,7 @@ if read -t 2 -r INPUT_LINE 2>/dev/null; then
 fi
 EVENT=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null)
 [ -z "$EVENT" ] && EVENT="startup"
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null)
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 
@@ -401,6 +402,61 @@ if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
       [ -d "${HOME}/.claude/memory" ] && bash "$PRUNE_SCRIPT" "${HOME}/.claude/memory" "global" 2>/dev/null || true
     fi
   fi
+
+  # ── 4d. Cross-session visibility (startup + resume) ─────────
+  # Surface OTHER sessions that have been active in this project
+  # within the last hour. Data source: turn-capture.mjs writes
+  # session-turn observations to global Cortex under __system__.
+  # Silent when no other sessions active.
+  if [ -n "$SESSION_ID" ]; then
+    PROJECT_NAME="$(basename "$PROJECT_DIR")"
+
+    ACTIVE_RAW=$(node --experimental-sqlite "$CLI_PATH" search_memory \
+      "{\"agent_id\":\"__system__\",\"limit\":200}" 2>/dev/null || true)
+
+    if [ -n "$ACTIVE_RAW" ]; then
+      ACTIVE_SUMMARY=$(echo "$ACTIVE_RAW" | jq -c --arg proj "$PROJECT_NAME" --arg me "$SESSION_ID" '
+        def ts_parse: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+        [.results[]?
+         | select(
+             .metadata.category == "session-turn" and
+             .metadata.project == $proj and
+             .metadata.session_id != $me and
+             (.metadata.timestamp | ts_parse) > (now - 3600)
+           )
+        ]
+        | group_by(.metadata.session_id)
+        | map({
+            sid:   (.[0].metadata.session_id_short // (.[0].metadata.session_id | .[0:8])),
+            turns: ([.[].metadata.turn_number | select(. != null)] | max // 0),
+            last:  ([.[].metadata.timestamp] | max),
+            files: ([.[] | (.metadata.files.edit // []) + (.metadata.files.write // []) | .[]?] | unique | length)
+          })
+        | sort_by(.last) | reverse
+        | .[:5]
+      ' 2>/dev/null)
+
+      COUNT=$(echo "$ACTIVE_SUMMARY" | jq -r 'length // 0' 2>/dev/null)
+      if [ "${COUNT:-0}" -gt 0 ]; then
+        if [ "$COUNT" -eq 1 ]; then
+          printf '[composure:active-sessions] 1 other session recently active in %s:\n' "$PROJECT_NAME"
+        else
+          printf '[composure:active-sessions] %d other sessions recently active in %s:\n' "$COUNT" "$PROJECT_NAME"
+        fi
+        echo "$ACTIVE_SUMMARY" | jq -r '
+          def ts_parse: sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601;
+          .[] |
+          ((now - (.last | ts_parse)) | floor) as $secs |
+          (if $secs < 60 then "\($secs)s"
+           elif $secs < 3600 then "\(($secs / 60) | floor)m"
+           else "\(($secs / 3600) | floor)h"
+           end) as $ago |
+          "  - session \(.sid) — \(.turns) turn\(if .turns == 1 then "" else "s" end), last \($ago) ago (\(.files) file\(if .files == 1 then "" else "s" end))"
+        ' 2>/dev/null
+        echo "[composure:hint] Another Claude session is working here. Coordinate via Cortex before editing shared files."
+      fi
+    fi
+  fi
 fi
 
 # ── 5. Companion plugin auto-install + config check ──────────
@@ -611,6 +667,32 @@ fi
 # Export plugin root for CLI usage (agents need this for Cortex/Graph CLI)
 if [ -n "$COMPOSURE_ROOT" ]; then
   echo "[composure:plugin-root] ${COMPOSURE_ROOT}"
+fi
+
+# ── 7b. Open decision threads (tasks-plans/research/ subdirs) ──
+# Surface decision folders as resumable context. A folder (not a flat file)
+# under tasks-plans/research/ is the convention for a multi-decision research
+# thread — see ideas/composure-hook-improvements spec §5.
+if [ "$EVENT" = "startup" ] || [ "$EVENT" = "resume" ]; then
+  RESEARCH_DIR="${PROJECT_DIR}/tasks-plans/research"
+  if [ -d "$RESEARCH_DIR" ]; then
+    DECISION_FOLDERS=$(find "$RESEARCH_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -10)
+    if [ -n "$DECISION_FOLDERS" ]; then
+      DECISION_COUNT=$(echo "$DECISION_FOLDERS" | wc -l | tr -d ' ')
+      echo "[composure:decisions] ${DECISION_COUNT} open decision thread(s) in tasks-plans/research/:"
+      echo "$DECISION_FOLDERS" | while read -r dfolder; do
+        dname=$(basename "$dfolder")
+        dreadme="${dfolder}/README.md"
+        dstatus=""
+        [ -f "$dreadme" ] && dstatus=$(head -5 "$dreadme" | grep -iE "^status:" | head -1 | sed 's/^[Ss]tatus: *//' | tr -d '\r')
+        if [ -n "$dstatus" ]; then
+          echo "  - ${dname} (${dstatus})"
+        else
+          echo "  - ${dname}"
+        fi
+      done
+    fi
+  fi
 fi
 
 # ── 8. Guardrails ruleset detection (was guardrails-load.sh) ──
