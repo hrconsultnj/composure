@@ -22119,8 +22119,8 @@ var SqliteAdapter = class _SqliteAdapter {
         total_thoughts INTEGER DEFAULT 0,
         conclusion TEXT,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
-        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_thinking_steps (
@@ -22135,7 +22135,7 @@ var SqliteAdapter = class _SqliteAdapter {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -22150,8 +22150,8 @@ var SqliteAdapter = class _SqliteAdapter {
         chunk_index INTEGER DEFAULT 0,
         parent_node_id TEXT,
         status TEXT DEFAULT 'active',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
-        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_edges (
@@ -22162,7 +22162,7 @@ var SqliteAdapter = class _SqliteAdapter {
         relationship_type TEXT NOT NULL,
         weight REAL DEFAULT 1.0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        created_at TEXT DEFAULT (datetime('now')),
         UNIQUE(from_node_id, to_node_id, relationship_type)
       );
 
@@ -22196,7 +22196,7 @@ var SqliteAdapter = class _SqliteAdapter {
         graph_file_path TEXT,
         link_type TEXT DEFAULT 'about',
         agent_id TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        created_at TEXT DEFAULT (datetime('now')),
         CHECK (memory_node_id IS NOT NULL OR thinking_session_id IS NOT NULL)
       );
       CREATE INDEX IF NOT EXISTS idx_graph_links_qualified ON ai_graph_links(graph_qualified_name);
@@ -22207,6 +22207,35 @@ var SqliteAdapter = class _SqliteAdapter {
     try {
       this.db.exec("ALTER TABLE ai_thinking_sessions ADD COLUMN feed_id TEXT REFERENCES local_entity_feed(id)");
     } catch {
+    }
+    const versionRow = this.db.prepare("PRAGMA user_version").get();
+    const currentVersion = versionRow?.user_version ?? 0;
+    if (currentVersion < 1) {
+      this.db.exec(`
+        UPDATE ai_thinking_sessions
+           SET created_at = datetime(created_at, 'utc'),
+               updated_at = datetime(updated_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_thinking_steps
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_memory_nodes
+           SET created_at = datetime(created_at, 'utc'),
+               updated_at = datetime(updated_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_memory_edges
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_graph_links
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        PRAGMA user_version = 1;
+      `);
     }
   }
   parseJson(val) {

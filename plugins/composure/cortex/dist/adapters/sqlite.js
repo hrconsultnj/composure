@@ -96,8 +96,8 @@ export class SqliteAdapter {
         total_thoughts INTEGER DEFAULT 0,
         conclusion TEXT,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
-        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_thinking_steps (
@@ -112,7 +112,7 @@ export class SqliteAdapter {
         branch_from_thought INTEGER,
         needs_more_thoughts INTEGER DEFAULT 0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_nodes (
@@ -127,8 +127,8 @@ export class SqliteAdapter {
         chunk_index INTEGER DEFAULT 0,
         parent_node_id TEXT,
         status TEXT DEFAULT 'active',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
-        updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
       );
 
       CREATE TABLE IF NOT EXISTS ai_memory_edges (
@@ -139,7 +139,7 @@ export class SqliteAdapter {
         relationship_type TEXT NOT NULL,
         weight REAL DEFAULT 1.0,
         metadata TEXT DEFAULT '{}',
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        created_at TEXT DEFAULT (datetime('now')),
         UNIQUE(from_node_id, to_node_id, relationship_type)
       );
 
@@ -173,7 +173,7 @@ export class SqliteAdapter {
         graph_file_path TEXT,
         link_type TEXT DEFAULT 'about',
         agent_id TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now', 'localtime')),
+        created_at TEXT DEFAULT (datetime('now')),
         CHECK (memory_node_id IS NOT NULL OR thinking_session_id IS NOT NULL)
       );
       CREATE INDEX IF NOT EXISTS idx_graph_links_qualified ON ai_graph_links(graph_qualified_name);
@@ -187,6 +187,48 @@ export class SqliteAdapter {
         }
         catch {
             // Column already exists — fine
+        }
+        // ── One-time migration: localtime → UTC normalization ───────
+        // Before 2026-04-10, DEFAULT was datetime('now','localtime') — stored
+        // wall-clock time without timezone info. Any sync comparison would be
+        // off by the local TZ offset. This block rewrites existing rows to UTC
+        // using SQLite's datetime(X,'utc') modifier, which treats X as localtime
+        // and converts using the current system TZ. Runs exactly once per DB,
+        // gated by PRAGMA user_version.
+        //
+        // Note: if a user traveled between writing old rows and running this
+        // migration, the conversion uses the CURRENT TZ, not the TZ-at-write.
+        // This is a pragmatic tradeoff — we don't know the historical TZ and
+        // the error is bounded to one offset shift. Acceptable vs. leaving
+        // mixed localtime/UTC data that sync can't reason about.
+        const versionRow = this.db.prepare("PRAGMA user_version").get();
+        const currentVersion = versionRow?.user_version ?? 0;
+        if (currentVersion < 1) {
+            this.db.exec(`
+        UPDATE ai_thinking_sessions
+           SET created_at = datetime(created_at, 'utc'),
+               updated_at = datetime(updated_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_thinking_steps
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_memory_nodes
+           SET created_at = datetime(created_at, 'utc'),
+               updated_at = datetime(updated_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_memory_edges
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        UPDATE ai_graph_links
+           SET created_at = datetime(created_at, 'utc')
+         WHERE created_at IS NOT NULL;
+
+        PRAGMA user_version = 1;
+      `);
         }
     }
     parseJson(val) {
