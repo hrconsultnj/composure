@@ -43050,10 +43050,14 @@ function generateId() {
   return crypto.randomUUID();
 }
 function generatePrefix(prefix) {
-  const bytes = new Uint8Array(5);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return prefix.toUpperCase() + hex;
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const indices = new Uint32Array(12);
+  crypto.getRandomValues(indices);
+  let result = "";
+  for (let i = 0; i < 12; i++) {
+    result += chars[indices[i] % 36];
+  }
+  return prefix.toUpperCase() + result;
 }
 function now() {
   const d = /* @__PURE__ */ new Date();
