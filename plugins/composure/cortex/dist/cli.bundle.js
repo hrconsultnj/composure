@@ -21789,7 +21789,21 @@ var SupabaseAdapter = class {
   type = "supabase";
   client;
   constructor(config) {
-    this.client = createClient(config.url, config.key);
+    this.client = createClient(config.url, config.key, {
+      auth: {
+        debug: false
+      },
+      global: {
+        headers: {}
+      },
+      realtime: {
+        logger: () => {
+        },
+        params: {
+          log_level: "error"
+        }
+      }
+    });
   }
   // ── Thinking — Sessions ──────────────────────────────────────
   async createSession(agent_id, title, options) {
