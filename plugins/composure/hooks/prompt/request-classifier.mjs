@@ -24,33 +24,82 @@ const config = JSON.parse(
 );
 
 // ── Helper: extract intent snippets for multi-intent preview ────
-// Splits text at topic-shift marker positions and returns short
-// normalized snippets (max 60 chars) for each detected intent.
-// Used to turn the multi-intent count into a bulleted preview.
+// Scans text for topic-shift markers (e.g., "also", "another thing")
+// that appear at sentence boundaries, returns a normalized 60-char
+// snippet starting AFTER each marker. Position 0 (prompt start) is
+// included only as a fallback when no markers are found. Min snippet
+// length of 25 chars filters out bare-marker and preamble fragments.
+// Stress-tested 2026-04-10 against 20 real voice recordings.
 function extractIntentSnippets(text, shiftMarkers, maxSnippets = 5) {
   if (!text || !Array.isArray(shiftMarkers) || shiftMarkers.length === 0) {
     return [];
   }
   const lower = text.toLowerCase();
-  const positions = new Set([0]); // start of prompt = first intent boundary
+
+  // A position counts only if preceded by sentence-ending punctuation,
+  // a comma, or at the very start of the prompt. Comma is included
+  // because voice transcripts from speech-to-text often use commas
+  // where typed text would use periods, and paired with the strong-only
+  // marker list this still rejects mid-clause noise.
+  const isSentenceBoundary = (pos) => {
+    if (pos === 0) return true;
+    let i = pos - 1;
+    while (i >= 0 && /\s/.test(text[i])) i--;
+    if (i < 0) return true;
+    return /[.!?,;]/.test(text[i]);
+  };
+
+  // Collect (position, markerLength) hits that pass the boundary check.
+  const hits = [];
   for (const marker of shiftMarkers) {
     let idx = lower.indexOf(marker);
     while (idx !== -1) {
-      positions.add(idx);
+      if (isSentenceBoundary(idx)) {
+        hits.push({ pos: idx, markerLen: marker.length });
+      }
       idx = lower.indexOf(marker, idx + marker.length);
     }
   }
-  const sorted = Array.from(positions).sort((a, b) => a - b);
+
+  // Fallback: no sentence-boundary markers → use start-of-prompt as the
+  // single intent boundary. Preserves legacy behavior for short prompts.
+  if (hits.length === 0) {
+    hits.push({ pos: 0, markerLen: 0 });
+  }
+
+  // Dedupe by position, keeping the longer marker match where collisions occur.
+  const byPos = new Map();
+  for (const h of hits) {
+    const existing = byPos.get(h.pos);
+    if (!existing || h.markerLen > existing.markerLen) byPos.set(h.pos, h);
+  }
+  const sorted = Array.from(byPos.values()).sort((a, b) => a.pos - b.pos);
+
   const snippets = [];
   for (let i = 0; i < sorted.length && snippets.length < maxSnippets; i++) {
-    const start = sorted[i];
-    const end = sorted[i + 1] ?? Math.min(start + 100, text.length);
+    const { pos, markerLen } = sorted[i];
+    const start = pos + markerLen; // skip past the marker itself
+    const nextPos = sorted[i + 1]?.pos ?? text.length;
+    const end = Math.min(nextPos, start + 120);
     const raw = text.slice(start, end).trim().replace(/\s+/g, " ");
-    if (raw.length >= 8) {
-      snippets.push(raw.length > 60 ? raw.slice(0, 57) + "..." : raw);
-    }
+    if (raw.length < 25) continue; // skip preamble / bare marker fragments
+    snippets.push(raw.length > 60 ? raw.slice(0, 57) + "..." : raw);
   }
   return snippets;
+}
+
+// ── Helper: format insight policy line ──────────────────────────
+// Used by all three output branches (multi-intent, forceTasks, normal)
+// so insight_policy configured per type always emits, regardless of
+// which detection path the classifier took.
+function insightLine(policy) {
+  const insightText = {
+    always: "Insights welcome — include when you make non-obvious decisions.",
+    on_tradeoff: "Include insights only for trade-offs the user wouldn't catch from the diff.",
+    skip: "Skip insights — mechanical work.",
+  };
+  const text = insightText[policy];
+  return text ? `[composure:insight] ${text}` : null;
 }
 
 // ── Read stdin (hook payload) ───────────────────────────────────
@@ -124,28 +173,17 @@ if (lp.applies_to.includes(type)) {
   }
 }
 
-// Voice-transcribed signals (topic shifts, questions, high word count)
-if (mi && !longPromptTriggered && wordCount >= (mi.word_threshold || 60)) {
-  const lower = cleaned.toLowerCase();
-  const shifts = (mi.topic_shift_markers || []).filter((m) =>
-    lower.includes(m)
-  ).length;
-  const questions = (cleaned.match(/\?/g) || []).length;
-
-  // Two paths to multi-intent:
-  // 1. Topic shifts alone (voice rambles): shifts >= gate AND enough words
-  // 2. Combined signals: any 2 of (shifts, questions, heavy word count)
-  if (shifts >= (mi.shift_gate || 2)) {
+// Voice-transcribed signals — sentence-boundary-aware detection.
+// Calls extractIntentSnippets during detection so the count we trust is
+// the count of snippets that actually survived the boundary filter. Kills
+// false positives on long rambles with many mid-sentence "also"/"plus"
+// fillers (stress-tested 2026-04-10 against 20 real voice recordings).
+let candidateIntents = null;
+if (mi && !longPromptTriggered && wordCount >= (mi.word_threshold || 120)) {
+  candidateIntents = extractIntentSnippets(cleaned, mi.topic_shift_markers || [], 5);
+  if (candidateIntents.length >= (mi.shift_gate || 2)) {
     multiIntentDetected = true;
-    concernCount = Math.max(shifts, questions, 2);
-  } else {
-    let miSignals = 0;
-    if (questions >= (mi.question_gate || 2)) miSignals++;
-    if (wordCount >= (mi.word_heavy || 100)) miSignals++;
-    if (miSignals >= 1 && shifts >= 1) {
-      multiIntentDetected = true;
-      concernCount = Math.max(shifts, questions, 2);
-    }
+    concernCount = candidateIntents.length;
   }
 }
 
@@ -194,21 +232,17 @@ const forceTasks =
 // ── Output ──────────────────────────────────────────────────────
 const lines = [];
 
-if (multiIntentDetected) {
-  // Multi-intent voice prompt: signal decomposition, don't force blueprint
+if (multiIntentDetected && candidateIntents) {
+  // Multi-intent voice prompt: candidateIntents was computed during detection
+  // using sentence-boundary-aware extraction, so the count and bullet preview
+  // always agree (no more ~N vs bullet-count mismatch).
   lines.push(`[composure:request-type] ${type}`);
-  const intents = extractIntentSnippets(cleaned, mi.topic_shift_markers || [], 5);
-  if (intents.length >= 2) {
-    const bullets = intents.map((s, i) => `  ${i + 1}. ${s}`).join("\n");
-    lines.push(
-      `[composure:multi-intent] ~${concernCount} intents detected. Break down before implementing:\n${bullets}\nUse TaskCreate to track each one. Do NOT start implementing until you have listed back what you understood.`
-    );
-  } else {
-    // Fallback: no distinct snippets extracted → keep original count-only phrasing
-    lines.push(
-      `[composure:multi-intent] ~${concernCount} intents detected in this prompt. Use TaskCreate to break down what the user is asking — they likely want ${concernCount}+ separate things addressed. Do NOT start implementing until you have listed back what you understood.`
-    );
-  }
+  const bullets = candidateIntents.map((s, i) => `  ${i + 1}. ${s}`).join("\n");
+  lines.push(
+    `[composure:multi-intent] ${candidateIntents.length} intents detected. Break down before implementing:\n${bullets}\nUse TaskCreate to track each one. Do NOT start implementing until you have listed back what you understood.`
+  );
+  const insight = insightLine(matched.insight_policy);
+  if (insight) lines.push(insight);
 } else if (forceTasks) {
   const fallback =
     "Start with /composure:blueprint to plan and break this down — it will classify the work, check for research, and create tracked tasks. If this is a simple list of independent items, use TaskCreate to track them directly.";
@@ -222,25 +256,20 @@ if (multiIntentDetected) {
     detail = fallback;
   }
 
-  lines.push("<system-reminder>");
-  lines.push(`UserPromptSubmit hook success: <system-reminder>`);
-  lines.push(detail);
-  lines.push("</system-reminder>");
-  lines.push("</system-reminder>");
+  // Clean single-tag output. The harness wraps hook output in a
+  // <system-reminder> block automatically; the previous code double-wrapped
+  // which produced nested tags in the final message.
+  lines.push(`[composure:request-type] ${type}`);
+  lines.push(`[composure:force-tasks] ${detail}`);
+  const insight = insightLine(matched.insight_policy);
+  if (insight) lines.push(insight);
 } else {
   lines.push(`[composure:request-type] ${type}`);
   if (matched.guidance) {
     lines.push(`[composure:guidance] ${matched.guidance}`);
   }
-  if (matched.insight_policy) {
-    const insightText = {
-      always: "Insights welcome — include when you make non-obvious decisions.",
-      on_tradeoff: "Include insights only for trade-offs the user wouldn't catch from the diff.",
-      skip: "Skip insights — mechanical work.",
-    };
-    const text = insightText[matched.insight_policy];
-    if (text) lines.push(`[composure:insight] ${text}`);
-  }
+  const insight = insightLine(matched.insight_policy);
+  if (insight) lines.push(insight);
 }
 
 if (matched.reasoning) {

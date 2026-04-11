@@ -38,7 +38,12 @@ try {
 const transcriptPath = payload.transcript_path;
 const sessionId = payload.session_id || "unknown";
 const cwd = payload.cwd || process.env.CLAUDE_PROJECT_DIR || ".";
-const stopReason = payload.reason || "";
+// NOTE: Claude Code's Stop hook stdin payload does NOT reliably include
+// a stop_reason field — auditing 77 live session-turn rows (2026-04-10)
+// found all 77 had empty string. The transcript jsonl DOES record
+// stop_reason per assistant message. We track the last one below and
+// use the payload value only as a fallback.
+const stopReasonFromPayload = payload.stop_reason || payload.reason || "";
 
 if (!transcriptPath || !existsSync(transcriptPath)) process.exit(0);
 
@@ -76,6 +81,12 @@ let writeLines = 0;
 let editLines = 0;
 const tokens = { input: 0, output: 0, cache_read: 0, cache_creation: 0 };
 const taskEvents = [];
+// Track the LAST assistant message's stop_reason as we iterate — a turn
+// has many assistant messages (one per tool_use round-trip) and the
+// terminal one carries the meaningful stop_reason ("end_turn", "stop_sequence",
+// "max_tokens", etc.). Intermediate messages all have "tool_use" which is
+// uninformative as a turn-level label.
+let stopReasonFromTranscript = "";
 
 for (let i = lastUserIdx + 1; i < lines.length; i++) {
   let obj;
@@ -85,6 +96,11 @@ for (let i = lastUserIdx + 1; i < lines.length; i++) {
     continue;
   }
   if (obj.type !== "assistant" || !Array.isArray(obj.message?.content)) continue;
+
+  // Track the running-last stop_reason (running overwrite = final wins)
+  if (obj.message?.stop_reason) {
+    stopReasonFromTranscript = obj.message.stop_reason;
+  }
 
   // Aggregate token usage
   const usage = obj.message.usage;
@@ -132,6 +148,11 @@ const sessionIdShort = sessionId.slice(0, 8);
 const totalLines = writeLines + editLines;
 const totalTokens = tokens.input + tokens.output + tokens.cache_read + tokens.cache_creation;
 const filesTouched = files.read.size + files.write.size + files.edit.size;
+
+// Prefer the transcript-derived stop_reason (terminal value from the last
+// assistant message of the turn). Fall back to the payload value if the
+// transcript didn't yield one (shouldn't happen, but defensive).
+const stopReason = stopReasonFromTranscript || stopReasonFromPayload || "";
 
 const metadata = {
   category: "session-turn",
