@@ -14,7 +14,28 @@ export class SupabaseAdapter {
     type = "supabase";
     client;
     constructor(config) {
-        this.client = createClient(config.url, config.key);
+        // Suppress Supabase's noisy auth/realtime debug output. The bundled
+        // @supabase/supabase-js + gotrue-js + realtime-js ship with console.log
+        // calls for lock acquisition, auth state changes, navigatorLock, etc.
+        // In a Cortex CLI context (spawned from hooks), those writes would leak
+        // into Claude Code's hook output. Disabling debug + providing a no-op
+        // logger keeps the CLI silent unless the caller explicitly wants logs.
+        this.client = createClient(config.url, config.key, {
+            auth: {
+                debug: false,
+            },
+            global: {
+                headers: {},
+            },
+            realtime: {
+                logger: () => {
+                    /* no-op */
+                },
+                params: {
+                    log_level: "error",
+                },
+            },
+        });
     }
     // ── Thinking — Sessions ──────────────────────────────────────
     async createSession(agent_id, title, options) {
