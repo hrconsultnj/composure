@@ -21,7 +21,10 @@ const sharedOptions = {
   platform: "node",
   target: "node22",
   format: "esm",
-  external: ["node:*"],
+  // Externalize the shared content-fetch module so esbuild doesn't try to bundle
+  // a file from outside this package. Node resolves it at runtime relative to
+  // dist/server.js → ../../bin/composure-content.mjs (sibling of enforce/).
+  external: ["node:*", "../../bin/composure-content.mjs"],
   banner: {
     js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
   },

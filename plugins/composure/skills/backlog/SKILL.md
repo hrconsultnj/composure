@@ -93,7 +93,15 @@ Read backlog items and create TaskCreate entries for the current session.
 
 ## Content Loading
 
-Load processing steps through the fetch command:
+**Preferred (MCP tool):**
+
+Invoke the `composure_fetch_skill` MCP tool with:
+- `plugin`: `"composure"`
+- `skill`: `"backlog"`
+- `step`: the step filename without the `.md` extension
+
+
+**Fallback (Bash CLI — for sandbox environments where MCP servers are not available):**
 
 ```bash
 <home>/.composure/bin/composure-fetch.mjs skill composure backlog {step-filename}

@@ -82,6 +82,15 @@ const REQUIRED_PERMISSIONS = [
   mcpTool("composure-enforce", "get_rules"),
   mcpTool("composure-enforce", "get_stack"),
 
+  // ── Enforce (content fetch — mirrors bin/composure-fetch.mjs) ──
+  // These three MCP tools serve skill/hook/ref content via the composure-enforce
+  // server. They share the fetch/cache logic with bin/composure-fetch.mjs through
+  // bin/composure-content.mjs (single source of truth). The Bash(composure-fetch.mjs)
+  // permission above stays for environments where MCP servers aren't available.
+  mcpTool("composure-enforce", "composure_fetch_skill"),
+  mcpTool("composure-enforce", "composure_fetch_hook"),
+  mcpTool("composure-enforce", "composure_fetch_ref"),
+
   // ── Guardrails (response safety) ──
   mcpTool("composure-guardrails", "evaluate_response"),
   mcpTool("composure-guardrails", "generate_prompt"),

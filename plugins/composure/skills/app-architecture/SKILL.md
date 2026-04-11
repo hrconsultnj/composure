@@ -10,7 +10,15 @@ Read `.composure/no-bandaids.json` (or `.claude/no-bandaids.json` for existing p
 
 ## Content Loading
 
-Load each step through the fetch command (handles caching, decryption, and auth):
+**Preferred (MCP tool):**
+
+Invoke the `composure_fetch_skill` MCP tool with:
+- `plugin`: `"composure"`
+- `skill`: `"app-architecture"`
+- `step`: the step filename without the `.md` extension (category content uses `"{category}/{filename}"`)
+
+
+**Fallback (Bash CLI — for sandbox environments where MCP servers are not available):**
 
 ```bash
 <home>/.composure/bin/composure-fetch.mjs skill composure app-architecture {step-filename}
@@ -18,7 +26,7 @@ Load each step through the fetch command (handles caching, decryption, and auth)
 
 Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.
 
-**Do NOT read cache files directly** — they are encrypted at rest. Always use the fetch command above.
+**Do NOT read cache files directly** — they are encrypted at rest. Always use one of the methods above.
 
 ## Categories
 
@@ -31,4 +39,4 @@ This skill has category-specific content:
 - `mobile/` — 7 files
 - `sdks/` — 2 files
 
-Fetch category content: `<home>/.composure/bin/composure-fetch.mjs skill composure app-architecture {category}/{filename}`
+Fetch category content via the `composure_fetch_skill` MCP tool with `step="{category}/{filename}"`, or fall back to the Bash CLI: `<home>/.composure/bin/composure-fetch.mjs skill composure app-architecture {category}/{filename}`

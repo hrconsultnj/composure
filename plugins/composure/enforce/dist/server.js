@@ -21747,6 +21747,7 @@ function getRules(language) {
 }
 
 // dist/server.js
+import { fetchSkillContent, fetchHookContent, fetchRefContent, FetchError } from "../../bin/composure-content.mjs";
 var server = new McpServer({
   name: "composure-enforce",
   version: "1.0.0"
@@ -21808,6 +21809,62 @@ server.tool("validate_all", "Run ALL enforcement checks (no-bandaids + framework
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };
+});
+function formatFetchError(err) {
+  let message;
+  if (err instanceof FetchError) {
+    message = err.toCliMessage();
+  } else if (err instanceof Error) {
+    message = `[composure:fetch-failed] Unexpected error: ${err.message}
+Report this to the user and wait for instructions.`;
+  } else {
+    message = `[composure:fetch-failed] Unexpected error: ${String(err)}
+Report this to the user and wait for instructions.`;
+  }
+  return {
+    content: [{ type: "text", text: message }],
+    isError: true
+  };
+}
+server.tool("composure_fetch_skill", "Fetch a Composure skill step's content by plugin/skill/step. Returns the full content body. Cache-first, with API fallback when the cache is stale.", {
+  plugin: external_exports.string().describe('Plugin slug (e.g., "composure", "sentinel", "testbench").'),
+  skill: external_exports.string().describe('Skill name (e.g., "blueprint", "initialize", "review-pr").'),
+  step: external_exports.string().describe('Step filename without extension (e.g., "01-classify", "00a-preflight").')
+}, async ({ plugin, skill, step }) => {
+  try {
+    const { content } = await fetchSkillContent(plugin, skill, step);
+    return {
+      content: [{ type: "text", text: content }]
+    };
+  } catch (err) {
+    return formatFetchError(err);
+  }
+});
+server.tool("composure_fetch_hook", "Fetch a Composure hook script's content by plugin/hook. Returns the full script body. Cache-first, with API fallback.", {
+  plugin: external_exports.string().describe('Plugin slug (e.g., "composure").'),
+  hook: external_exports.string().describe('Hook filename (e.g., "session/session-boot.sh", "quality/decomposition-check.sh").')
+}, async ({ plugin, hook }) => {
+  try {
+    const { content } = await fetchHookContent(plugin, hook);
+    return {
+      content: [{ type: "text", text: content }]
+    };
+  } catch (err) {
+    return formatFetchError(err);
+  }
+});
+server.tool("composure_fetch_ref", "Fetch a Composure reference document's content by plugin/path. Used for shared pattern guides, templates, and cross-skill references. Cache-first, with API fallback.", {
+  plugin: external_exports.string().describe('Plugin slug (e.g., "composure").'),
+  path: external_exports.string().describe(`Reference path under the plugin's references/ directory (e.g., "integration-builder/auth-patterns", "blueprint/04b-blueprint-document").`)
+}, async ({ plugin, path }) => {
+  try {
+    const { content } = await fetchRefContent(plugin, path);
+    return {
+      content: [{ type: "text", text: content }]
+    };
+  } catch (err) {
+    return formatFetchError(err);
+  }
 });
 async function main() {
   const transport = new StdioServerTransport();

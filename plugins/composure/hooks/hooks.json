@@ -1,4 +1,5 @@
 {
+  "_comment_no_fetch_hook": "Implementation note: do not add PostToolUse hooks matching 'mcp__.*composure_fetch_.*'. Hooks emitting 'updatedMCPToolOutput' on these tools interfere with the intended tool result rendering. If you need to transform fetch results, do it inside the tool handler in enforce/src/server.ts instead.",
   "hooks": {
     "SessionStart": [
       {
