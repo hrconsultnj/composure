@@ -43201,6 +43201,163 @@ var SqliteAdapter = class _SqliteAdapter {
       CREATE INDEX IF NOT EXISTS idx_graph_links_memory ON ai_graph_links(memory_node_id);
       CREATE INDEX IF NOT EXISTS idx_graph_links_session ON ai_graph_links(thinking_session_id);
       CREATE INDEX IF NOT EXISTS idx_graph_links_agent ON ai_graph_links(agent_id);
+
+      -- \u2500\u2500 Phase S1 (schema v2): Cortex parity tables \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+      -- Additive-only pass toward full local\u2194cloud parity per
+      -- tasks-plans/reference/cortex-schema-postgres-reference-2026-04-10.md \xA74.3.
+      -- All tables via CREATE TABLE IF NOT EXISTS so existing DBs gain them
+      -- cleanly on next init with zero data impact. CHECK constraints emulate
+      -- the corresponding Postgres enum types (SQLite has no native enum).
+      -- Existing ai_memory_nodes / ai_thinking_sessions get their scope
+      -- columns in Phase S2 (separate migration gate at user_version < 3).
+
+      CREATE TABLE IF NOT EXISTS accounts (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        account_type TEXT NOT NULL CHECK (account_type IN ('master','tenant')),
+        account_plan TEXT DEFAULT 'free',
+        name TEXT NOT NULL,
+        slug TEXT,
+        parent_account_id TEXT,
+        account_level INTEGER DEFAULT 0,
+        metadata TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        synced_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        feed TEXT,
+        account_id TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+        email TEXT,
+        display_name TEXT,
+        user_role TEXT,
+        privacy_group TEXT,
+        preferred_mode TEXT NOT NULL DEFAULT 'developer' CHECK (preferred_mode IN ('creator','developer')),
+        metadata TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        synced_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS ai_agents (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        feed TEXT,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        agent_type TEXT NOT NULL DEFAULT 'cortex'
+          CHECK (agent_type IN ('chat','voice_inbound','voice_outbound','sms','cortex')),
+        industry TEXT NOT NULL DEFAULT 'general',
+        system_prompt TEXT,
+        guardrail_config TEXT DEFAULT '{}',
+        tools_enabled TEXT DEFAULT '[]',
+        metadata TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        synced_at TEXT
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_agents_user_account_cortex_local
+        ON ai_agents(user_id, account_id)
+        WHERE agent_type = 'cortex' AND user_id IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        feed TEXT,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        slug TEXT,
+        description TEXT,
+        project_root TEXT,
+        project_type TEXT NOT NULL DEFAULT 'project'
+          CHECK (project_type IN ('workspace','monorepo','project','folder')),
+        frontend TEXT,
+        backend TEXT,
+        language TEXT NOT NULL DEFAULT 'typescript',
+        frameworks TEXT DEFAULT '{}',
+        git_remote_url TEXT,
+        git_default_branch TEXT,
+        default_mode TEXT NOT NULL DEFAULT 'developer'
+          CHECK (default_mode IN ('creator','developer')),
+        default_agent_id TEXT REFERENCES ai_agents(id),
+        metadata TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        synced_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        feed TEXT,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+        subject TEXT NOT NULL,
+        description TEXT,
+        active_form TEXT,
+        task_type TEXT,
+        priority TEXT NOT NULL DEFAULT 'p2',
+        status TEXT NOT NULL DEFAULT 'backlog'
+          CHECK (status IN ('backlog','requirements','design','implement','review','done','blocked','cancelled')),
+        blocked_reason TEXT,
+        parent_task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+        blocked_by TEXT DEFAULT '[]',
+        blocks TEXT DEFAULT '[]',
+        owner_text TEXT,
+        owner_agent_id TEXT REFERENCES ai_agents(id),
+        owner_user_id TEXT REFERENCES users(id),
+        cortex_session_id TEXT,
+        backlog_ref TEXT,
+        metadata TEXT DEFAULT '{}',
+        lifecycle_status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        started_at TEXT,
+        completed_at TEXT,
+        synced_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+      CREATE INDEX IF NOT EXISTS idx_tasks_account_status ON tasks(account_id, status);
+
+      CREATE TABLE IF NOT EXISTS cortex_sessions (
+        id TEXT PRIMARY KEY,
+        id_prefix TEXT UNIQUE,
+        feed TEXT,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+        device_id TEXT,
+        active_agent_id TEXT NOT NULL REFERENCES ai_agents(id) ON DELETE CASCADE,
+        project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+        mode TEXT NOT NULL DEFAULT 'developer' CHECK (mode IN ('creator','developer')),
+        project_root TEXT,
+        transcript_path TEXT,
+        turn_count INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT DEFAULT (datetime('now')),
+        last_activity TEXT DEFAULT (datetime('now')),
+        ended_at TEXT,
+        user_name TEXT,
+        account_name TEXT,
+        project_name TEXT,
+        agent_name TEXT,
+        metadata TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cortex_sessions_active_local
+        ON cortex_sessions(user_id, status) WHERE ended_at IS NULL;
     `);
     try {
       this.db.exec("ALTER TABLE ai_thinking_sessions ADD COLUMN feed_id TEXT REFERENCES local_entity_feed(id)");
@@ -43234,6 +43391,9 @@ var SqliteAdapter = class _SqliteAdapter {
 
         PRAGMA user_version = 1;
       `);
+    }
+    if (currentVersion < 2) {
+      this.db.exec("PRAGMA user_version = 2");
     }
   }
   parseJson(val) {
