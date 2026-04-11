@@ -20,26 +20,28 @@ function generateId() {
     return crypto.randomUUID();
 }
 /**
- * Generates an id_prefix matching the cloud format.
+ * Generates an id_prefix matching the cortex parity format.
  *
- * Cloud side uses `generate_url_friendly_id_prefix()` which produces
- * `PREFIX || substring(md5(random()::text) from 1 for 10)` — i.e., the
- * uppercase prefix followed by 10 hex characters. 40 bits of entropy.
+ * Format: UPPERCASE_PREFIX + 12 lowercase alphanumeric chars (a-z, 0-9)
+ * Example: USRa1b2c3d4e5f6, AMN0a6ullh21zty
  *
- * This helper matches that shape so sync reconciliation compares like-for-like.
- * Uses Web Crypto's getRandomValues (cryptographically secure, unlike the
- * prior Math.random implementation).
+ * Uses Web Crypto's getRandomValues via Uint32Array (cryptographically
+ * secure source, modulo bias < 10^-8 — negligible for id purposes).
  *
- * Supported prefixes (matches Appendix A of the reference doc):
+ * Supported prefixes:
  *   ACC  account         USR  user            AIA  ai_agent
  *   AMN  ai_memory       ATS  ai_thinking     PRJ  project
  *   TSK  task            CSN  cortex_session
  */
 function generatePrefix(prefix) {
-    const bytes = new Uint8Array(5);
-    crypto.getRandomValues(bytes);
-    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-    return prefix.toUpperCase() + hex;
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    const indices = new Uint32Array(12);
+    crypto.getRandomValues(indices);
+    let result = "";
+    for (let i = 0; i < 12; i++) {
+        result += chars[indices[i] % 36];
+    }
+    return prefix.toUpperCase() + result;
 }
 function now() {
     const d = new Date();
