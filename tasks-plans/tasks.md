@@ -21,6 +21,10 @@
   - **Test project**: composure-web has `inline-data` rule with `severity: "error"` and `[[:space:]]` POSIX patterns. Use `src/components/pages/test-hook.tsx` as test target.
   - **Workaround applied**: composure-web `no-bandaids.json` updated to `[[:space:]]` patterns. Still doesn't fire due to Issue 2.
 
+- [ ] 🔴 **DECOMPOSE** `plugins/composure/cortex/src/adapters/sqlite.ts` (771 lines) [2026-04-11]
+  - EXTRACT: `SqliteAdapter` (lines 79-771, ~693 lines)
+  - EXTRACT: `initSchema` (lines 130-443, ~314 lines)
+
 ## 🟡 High
 
 - [ ] 🟡 **DECOMPOSE** `plugins/composure/graph/src/entities.ts` (326 lines) — monitor: internally cohesive, defer to split-on-next-touch
