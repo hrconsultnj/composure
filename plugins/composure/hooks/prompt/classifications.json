@@ -95,16 +95,16 @@
     }
   },
   "multi_intent": {
-    "word_threshold": 60,
-    "word_heavy": 100,
+    "word_threshold": 40,
+    "word_heavy": 160,
+    "_markers_note": "STRONG shift indicators only. Voice speech uses 'also', 'plus', 'and then', 'look at' constantly as fillers — NOT topic shifts. Curated 2026-04-10 after stress test on 20 real voice recordings where the broader list produced 7/20 false positives; the strong-only list + sentence-boundary check reduces that to 0/20 on the same sample while still catching genuine multi-topic prompts.",
     "topic_shift_markers": [
-      "and regarding", "also ", "so maybe", "but also", "the other thing",
-      "and then", "plus ", "another thing", "on top of that", "besides that",
-      "unless ", "or maybe", "but first", "before that", "after that",
-      "look at ", "regarding the", "as for "
+      "another thing", "the other thing", "on top of that", "besides that",
+      "and regarding", "regarding the", "as for ", "separately",
+      "unrelated to that", "one more thing"
     ],
     "shift_gate": 2,
-    "question_gate": 2,
+    "question_gate": 3,
     "signal_gate": 2
   },
   "task_nag": {
