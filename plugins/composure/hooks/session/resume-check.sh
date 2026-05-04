@@ -162,46 +162,27 @@ for part in "${PARTS[@]}"; do
   fi
 done
 
-if [ ${#INLINE_PARTS[@]} -gt 0 ]; then
-  printf "[composure:resume] %s" "${INLINE_PARTS[0]}"
-  for ((i=1; i<${#INLINE_PARTS[@]}; i++)); do
-    printf " | %s" "${INLINE_PARTS[$i]}"
-  done
-  echo
-fi
+# Stage 5c (2026-05-03): inline output for tasks-open count, high-task hint, and
+# graph-stale MANDATORY removed — the digest at by-project/<proj>/<date>/<sid>/
+# session-<sid8>.md absorbs all three (Project state section). The model reads
+# the digest on-demand via the [sessions] cue. KEEPING below: Cortex pending-task
+# AskUserQuestion (interactive, must run inline before first response) + stale
+# Cortex tasks hint (data-integrity warning, not info).
 
-# Cortex pending tasks get their own block for readability
+# Cortex pending tasks: AskUserQuestion is INTERACTIVE — must stay inline so the
+# model asks the user before silently dropping prior work.
 if [ "$HAS_CORTEX_TASKS" -eq 1 ] && [ -n "${CORTEX_TASK_LIST:-}" ]; then
   CORTEX_TASK_COUNT=$(echo "$CORTEX_TASK_LIST" | grep -c '^- ' 2>/dev/null || echo 0)
   echo "[composure:resume] Cortex tasks from previous sessions:"
   echo "$CORTEX_TASK_LIST"
-  # Instruct Claude to offer interactive restoration
   echo "[composure:MANDATORY] Use AskUserQuestion to ask: \"${CORTEX_TASK_COUNT} pending task(s) from previous sessions. Restore them into this session?\" Options: (1) Restore all — recreate as TaskCreate entries, (2) Pick which to restore — show the list and let user choose, (3) Skip — start fresh. Do NOT auto-restore without asking."
 fi
 
-# Stale Cortex tasks (backlog_ref points to completed/removed items)
+# Stale Cortex tasks: data-integrity warning (backlog_ref points to completed/removed
+# items) — kept inline because it indicates an inconsistency the digest can't capture.
 if [ -n "${CORTEX_STALE_LIST:-}" ]; then
   echo "[composure:hint] ${STALE_COUNT:-0} stale task(s) found (backlog items already completed or removed):"
   echo "$CORTEX_STALE_LIST"
-fi
-
-# High task count hint
-if [ "$OPEN" -gt 5 ]; then
-  echo "[composure:hint] ${OPEN} open tasks is high. Mention this early — the user may want to clear the backlog before adding more work."
-fi
-
-# Stale/missing graph: instruct Claude to build BEFORE any work
-if [ "$GRAPH_STALE" -eq 1 ]; then
-  GRAPH_SERVER_JS="${COMPOSURE_ROOT}/graph/dist/server.js"
-  MCP_AVAILABLE=0
-  [ -n "$COMPOSURE_ROOT" ] && [ -f "$GRAPH_SERVER_JS" ] && MCP_AVAILABLE=1
-
-  if [ "$MCP_AVAILABLE" -eq 1 ]; then
-    echo '[composure:MANDATORY] Code graph stale — run build_or_update_graph({ full_rebuild: true }) before other work.'
-    echo '[composure:hint] Graph for structure (query_graph, get_impact_radius, semantic_search_nodes). Explore agents only for intent/business-logic.'
-  else
-    echo '[composure:MANDATORY] Code graph stale + MCP may be disconnected. Run /composure:build-graph or restart Claude Code.'
-  fi
 fi
 
 # ── Export plugin root for CLI usage ──

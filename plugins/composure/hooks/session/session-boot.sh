@@ -54,20 +54,10 @@ case "$PROJECT_TYPE" in
       printf '[composure:context] %s (%s)\n' "$(basename "$PROJECT_DIR")" "$PROJECT_TYPE"
     fi
 
-    # Cortex global memory injection (cross-project awareness)
-    CLI_PATH="${COMPOSURE_ROOT}/cortex/dist/cli.bundle.js"
-    if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
-      GLOBAL_MEMORIES=$(node --experimental-sqlite "$CLI_PATH" search_memory \
-        "{\"agent_id\":\"global\",\"limit\":5,\"tags\":[\"cross-project\"]}" 2>/dev/null)
-      GLOBAL_COUNT=$(echo "$GLOBAL_MEMORIES" | jq -r '.count // 0' 2>/dev/null)
-
-      if [ "${GLOBAL_COUNT:-0}" -gt 0 ]; then
-        printf '[cortex] Global memories: %d cross-project\n' "$GLOBAL_COUNT"
-        echo "$GLOBAL_MEMORIES" | jq -r '.results[]? | "  - " + (.content // "")[0:80]' 2>/dev/null
-      else
-        printf '[cortex] No cross-project memories yet.\n'
-      fi
-    fi
+    # Stage 5c (2026-05-03): cortex global-memory inline preview removed.
+    # The session-digest writer (cli/write-session-digest.mjs) populates a
+    # "Global memories" section in the digest; the [sessions] cue points at it.
+    # No need to dump previews inline at SessionStart anymore.
 
     # Version sync still applies (plugin-level, not project-level)
     PLUGIN_VERSION=$(jq -r '.version // ""' "${COMPOSURE_ROOT}/.claude-plugin/plugin.json" 2>/dev/null)
@@ -317,47 +307,33 @@ else
   echo "[composure:stack] ${LANGS} | ${FRONTEND} | arch=${CATEGORY}"
 fi
 
+# ── Pro data-patterns banner (Supabase backends only) ────────
+# Surfaces the canonical pattern catalog in turn 1 so DB decisions
+# don't wait for a PreToolUse trigger. Silent for non-Supabase or
+# free-tier without env override.
+if [ "$BACKEND" = "supabase" ]; then
+  if [ -f "${SCRIPT_DIR}/../lib/resolve-data-patterns.sh" ]; then
+    # shellcheck disable=SC1091
+    source "${SCRIPT_DIR}/../lib/resolve-data-patterns.sh"
+    data_patterns_banner
+  fi
+fi
+
 # ── 4. Cortex memory injection ───────────────────────────────
+# Stage 5c (2026-05-03): inline previews moved to the session digest.
+# `cli/write-session-digest.mjs` queries ai_memory_nodes directly and renders
+# "Project memories" + "Global memories" sections in the digest; the [sessions]
+# cue points the model at the file. No inline emission at SessionStart anymore.
+# A single thinking-session count line stays inline because it's an action
+# cue ("auto-loads on sequential_think"), not info — different concern.
 CLI_PATH="${COMPOSURE_ROOT}/cortex/dist/cli.bundle.js"
 if [ -f "$CLI_PATH" ] && [ -f "${HOME}/.composure/cortex/cortex.db" ]; then
   AGENT_ID="$COMPOSURE_AGENT_ID"
-
-  # Search project memories (fast — local SQLite, no network)
-  PROJECT_MEMORIES=$(node --experimental-sqlite "$CLI_PATH" search_memory \
-    "{\"agent_id\":\"${AGENT_ID}\",\"limit\":8}" 2>/dev/null)
-  PROJECT_COUNT=$(echo "$PROJECT_MEMORIES" | jq -r '.count // 0' 2>/dev/null)
-
-  # Search global cross-project memories
-  GLOBAL_MEMORIES=$(node --experimental-sqlite "$CLI_PATH" search_memory \
-    "{\"agent_id\":\"global\",\"limit\":5,\"tags\":[\"cross-project\"]}" 2>/dev/null)
-  GLOBAL_COUNT=$(echo "$GLOBAL_MEMORIES" | jq -r '.count // 0' 2>/dev/null)
-
-  # Check for active thinking sessions
   ACTIVE_SESSIONS=$(node --experimental-sqlite "$CLI_PATH" list_thinking_sessions \
     "{\"agent_id\":\"${AGENT_ID}\",\"status\":\"active\"}" 2>/dev/null)
   SESSION_COUNT=$(echo "$ACTIVE_SESSIONS" | jq -r '.count // 0' 2>/dev/null)
-
-  if [ "${PROJECT_COUNT:-0}" -gt 0 ] || [ "${GLOBAL_COUNT:-0}" -gt 0 ] || [ "${SESSION_COUNT:-0}" -gt 0 ]; then
-    printf '[cortex] agent_id=%s\n' "$AGENT_ID"
-
-    # Output project memory summaries (truncated to first 80 chars each)
-    if [ "${PROJECT_COUNT:-0}" -gt 0 ]; then
-      printf '[cortex] Project memories: %d loaded\n' "$PROJECT_COUNT"
-      echo "$PROJECT_MEMORIES" | jq -r '.results[]? | "  - " + (.content // "")[0:80]' 2>/dev/null
-    fi
-
-    # Output global memories
-    if [ "${GLOBAL_COUNT:-0}" -gt 0 ]; then
-      printf '[cortex] Global memories: %d cross-project\n' "$GLOBAL_COUNT"
-      echo "$GLOBAL_MEMORIES" | jq -r '.results[]? | "  - " + (.content // "")[0:80]' 2>/dev/null
-    fi
-
-    # Note active thinking sessions count (lazy-loaded on sequential_think)
-    if [ "${SESSION_COUNT:-0}" -gt 0 ]; then
-      printf '[cortex] %d active thinking session(s) — auto-loaded when you use sequential_think.\n' "$SESSION_COUNT"
-    fi
-  else
-    printf '[cortex] agent_id=%s | No memories yet — notable changes auto-captured.\n' "$AGENT_ID"
+  if [ "${SESSION_COUNT:-0}" -gt 0 ]; then
+    printf '[cortex] %d active thinking session(s) — auto-loaded when you use sequential_think.\n' "$SESSION_COUNT"
   fi
 
   # ── 4b. Recent activity context (resume only) ────────────────

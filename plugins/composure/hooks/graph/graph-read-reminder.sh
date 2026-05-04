@@ -24,9 +24,10 @@ MARKER="/tmp/composure-graph-remind-${SESSION_ID}"
 # Read tool output from stdin to check if it returned file paths
 OUTPUT=$(cat)
 if echo "$OUTPUT" | grep -q '"file_path"'; then
-  # Graph returned file paths — set marker and remind
+  # Graph returned file paths — set marker and emit cue (Stage 5b conversion).
+  # Phase 2: hooks that catch IGNORANCE convert from BLOCK to CUE per noise-reduction-moat.
   touch "$MARKER"
-  printf '{"systemMessage":"GRAPH RESULTS → READ FILES: The graph returned file paths. Read the key files (Read tool) before presenting findings. Graph shows structure; file content shows domain details, comments, and implementation patterns. Cost: $0.005/file vs $0.15/agent. Do NOT spawn agents to read these files."}\n'
+  printf '{"systemMessage":"[graph] Returned file paths. Read directly (~$0.005/file) for content; spawning agents on these is overkill. Graph = structure, file content = domain detail."}\n'
 fi
 
 exit 0

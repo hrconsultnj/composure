@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "generated": "2026-04-09T19:28:15Z",
+  "generated": "2026-05-03T23:05:56Z",
   "files": {
     "seq-think-capture.sh": {
       "path": "cortex/seq-think-capture.sh",
@@ -24,7 +24,7 @@
     },
     "decomposition-check.sh": {
       "path": "quality/decomposition-check.sh",
-      "sha256": "5f6eadfb3a5716833bc0b6d01189e8bb7e3a3afc9b97fb908d522f0dd3efafe5"
+      "sha256": "94515af43f983475310e15f4290b79cf370712d5dc126373237467a0926d506a"
     },
     "graph-read-clear.sh": {
       "path": "graph/graph-read-clear.sh",
@@ -36,7 +36,7 @@
     },
     "graph-update.sh": {
       "path": "graph/graph-update.sh",
-      "sha256": "512848c0b1f1f9b57d6c8839e8f3e235215ea0ca756e428eb119220e93f01181"
+      "sha256": "8a338cf3cf41ce49a12ce94639c7478f1b07165de9695e2b598516af45fdcdc4"
     },
     "request-classifier.sh": {
       "path": "prompt/request-classifier.sh",
@@ -48,7 +48,7 @@
     },
     "task-cortex-sync.sh": {
       "path": "task/task-cortex-sync.sh",
-      "sha256": "6a77189b6e9281bd3033cb48559ee6bff7895e1a41e923d2d4c4f799f151f285"
+      "sha256": "ee33d3b05cdec5a7fd3e9a3ee5687dbaffabf0b6e0f2d82e76a6a724e1b4a74d"
     },
     "subagent-tracker.sh": {
       "path": "task/subagent-tracker.sh",
@@ -68,19 +68,19 @@
     },
     "no-bandaids.sh": {
       "path": "enforcement/no-bandaids.sh",
-      "sha256": "5cabd485836afb3de4de0c193da898030a2785fe1b9ac7a341c3aa60e8d8a324"
+      "sha256": "07f756c4a33959b0beb3b52180bb40650b53c756dd2e41b0ba56b8dff53bbfcb"
     },
     "architecture-skill-trigger.sh": {
       "path": "enforcement/architecture-skill-trigger.sh",
-      "sha256": "37744201a2ff4634036005f5f2d7cbd779f8870d858e620d49a9bdc4f14ce68a"
+      "sha256": "5d366c294af1060255859c68b674ecb3d3d4efd541debcdd9a8b262c890eb8e5"
     },
     "decomposition-guide.sh": {
       "path": "enforcement/decomposition-guide.sh",
-      "sha256": "6d67792f1ae37691a540545f5b9ea96fdc83bf56cbc1bc7e5f3aadc9d8903aea"
+      "sha256": "88ffa642b8193740340d894bd8d94b54a804800b91053fba590437a65bef000a"
     },
     "framework-validation.sh": {
       "path": "enforcement/framework-validation.sh",
-      "sha256": "ce0cea9cdd70beeb07c76f9267102e7a1d93f9ebf3b7051743bbf88aa2fff481"
+      "sha256": "399b0e5a1362cd0988bab187e249ad237b1db76b6c7e47197d67c227ff344abc"
     },
     "session-stack-note.sh": {
       "path": "session/session-stack-note.sh",
@@ -88,11 +88,11 @@
     },
     "init-check.sh": {
       "path": "session/init-check.sh",
-      "sha256": "240a1b9bcaab7c21cff013949916775e0e67b4278e85f8ce91d1b471b9bb1861"
+      "sha256": "56ceb66f91856bdd7072d2f9404c22936c3174d581a36db13b9e41d43ba93324"
     },
     "session-boot.sh": {
       "path": "session/session-boot.sh",
-      "sha256": "dea690c2cd0e997d910c93a76ee4ef2f7c8b8f9b1435322b1f57cda6ea0b510c"
+      "sha256": "8d1f25fa995e88ea248553a2c7c7036dbabf68fe0a674cceac154b7e9ccb4bc8"
     },
     "health-nudge.sh": {
       "path": "session/health-nudge.sh",
@@ -108,7 +108,7 @@
     },
     "session-end-summary.sh": {
       "path": "session/session-end-summary.sh",
-      "sha256": "6666a05430937816a1aba3fedfa4317a0ef4b8804801b6129abfdc7c3f782dd7"
+      "sha256": "5b28ca7b156f0bab9f3e62eb405836fab86ab5597c4b13747b7d07401ebc88bb"
     },
     "auth-check.sh": {
       "path": "session/auth-check.sh",
@@ -116,7 +116,11 @@
     },
     "resume-check.sh": {
       "path": "session/resume-check.sh",
-      "sha256": "3c3050c4822498223f4498570590bf12ad5e1022dab7490f4a6129d5687dadfe"
+      "sha256": "94a566425f08ceff125b40d0e6d0c47419618ac7f4c9c091203622d9e84ca322"
+    },
+    "resolve-data-patterns.sh": {
+      "path": "lib/resolve-data-patterns.sh",
+      "sha256": "87bd41327f7528258cc38c771bf2d825d0c2e30f1d9cfe07a110b37fa3ec646d"
     }
   }
 }

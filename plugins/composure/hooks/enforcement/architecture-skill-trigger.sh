@@ -117,6 +117,33 @@ if [ -f "$CONFIG" ]; then
   esac
 fi
 
+# ── Pro data-patterns injection (Supabase / multi-tenant) ────
+# Resolves the canonical pattern catalog and picks the relevant
+# files for this edit. Free tier gets an MCP-fetch hint instead.
+DP_HINT=""
+case "$FILE_PATH" in
+  *.sql|*/lib/supabase/*|*/supabase/migrations/*|*/supabase/functions/*|*/hooks/*supabase*|*/queries/*|*/repositories/*|*/rls/*|*/policies/*)
+    SCRIPT_DIR_DP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "${SCRIPT_DIR_DP}/../lib/resolve-data-patterns.sh" ]; then
+      # shellcheck disable=SC1091
+      source "${SCRIPT_DIR_DP}/../lib/resolve-data-patterns.sh"
+      DP_FILES=$(data_patterns_for "$FILE_PATH")
+      case "$DATA_PATTERNS_SOURCE" in
+        env|dev|cache)
+          if [ -n "$DP_FILES" ]; then
+            DP_HINT=" Pro data-patterns: ${DATA_PATTERNS_PATH} — read first: ${DP_FILES}."
+          else
+            DP_HINT=" Pro data-patterns: ${DATA_PATTERNS_PATH} — see INDEX for the relevant pattern."
+          fi
+          ;;
+        mcp)
+          DP_HINT=" Pro data-patterns: no local copy — call composure_fetch_ref({category:\"data-patterns\"}) for the catalog."
+          ;;
+      esac
+    fi
+    ;;
+esac
+
 # ── Check if this is a NEW file creation (Write to non-existent path) ──
 IS_NEW_FILE=0
 if [ "$TOOL_NAME" = "Write" ] && [ ! -f "$FILE_PATH" ]; then
@@ -126,11 +153,15 @@ fi
 # ── Activity counter ──
 printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 
-# ── Return system message with clear thresholds ──
+# ── Phase 2 cue (per noise-reduction-moat criterion + Stage 5b conversion) ──
+# This hook catches IGNORANCE (forgot to load framework docs), not mistakes,
+# so it converts to a CUE: terse, advisory, never-blocking. With Stage 2 memory
+# loaded at SessionStart, the model already has continuity; this hook now nudges
+# rather than gates. Once-per-session via dedup is preserved.
 if [ "$IS_NEW_FILE" -eq 1 ]; then
-  printf '{"systemMessage": "ARCHITECTURE: Creating new source file. %s\n\nBefore writing code, determine the scope:\n• Creating new routes/pages → MUST run /composure:blueprint first\n• Adding database tables or migrations → MUST run /composure:blueprint first\n• Work will touch 5+ files → SHOULD run /composure:blueprint first\n• Single-file edit or small fix → MUST invoke /composure:app-architecture for reference docs\n\nYou MUST load framework reference docs before writing any source code. This is NOT optional — generated docs at .composure/frameworks/ contain version-specific patterns that prevent incorrect fixes.\n\nBlueprint uses the code graph for pre-scan and impact analysis — always prefer graph MCP tools over Explore agents for structural questions."}' "$ARCH_HINT"
+  printf '{"systemMessage": "[architecture] New source file. %s%s Use /composure:blueprint for routes/migrations/5+ files; /composure:app-architecture for reference docs if not yet loaded. Graph MCP tools beat Explore for structural questions."}' "$ARCH_HINT" "$DP_HINT"
 else
-  printf '{"systemMessage": "ARCHITECTURE: Modifying source file. %s You MUST invoke /composure:app-architecture now if you have not loaded reference docs this session. This is a BLOCKING requirement — do not proceed with edits until framework docs are loaded. Generated docs at .composure/frameworks/ contain version-specific patterns (e.g. Next.js 16 Suspense boundaries, Tailwind 4 oklch). For structural questions, use graph MCP tools (query_graph with 10 patterns including references_of and dependency_chain, semantic_search_nodes, get_impact_radius) — not Explore agents."}' "$ARCH_HINT"
+  printf '{"systemMessage": "[architecture] %s%s Refresh /composure:app-architecture if framework docs not loaded this session. Graph MCP tools (query_graph, semantic_search_nodes, get_impact_radius) for structure."}' "$ARCH_HINT" "$DP_HINT"
 fi
 
 exit 0

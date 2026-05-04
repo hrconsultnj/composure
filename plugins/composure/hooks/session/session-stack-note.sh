@@ -68,21 +68,9 @@ case "$FRONTEND" in
     ;;
 esac
 
-if [ "$EVENT" = "startup" ]; then
-  cat <<EOF
-[composure:stack] Detected: ${LANGS} | frontend=${FRONTEND} | backend=${BACKEND:-none}
-Architecture category: ${CATEGORY} (entry: ${ENTRY})
-
-When building features:
-- Non-trivial work (multi-file, new routes, new data models): Run /composure:blueprint first
-- Routine edits: /composure:app-architecture loads reference docs on demand
-- The PreToolUse hook will remind you on first source file touch
-
-Architecture docs load ONLY when invoked — not pre-loaded. This saves ~200 lines of context.
-EOF
-else
-  # resume/clear/compact: single line — context already has the full note
-  echo "[composure:stack] ${LANGS} | ${FRONTEND} | arch=${CATEGORY}"
-fi
+# Stage 5b conversion: trim verbose 8-line startup note → single-line cue.
+# Per direction doc 07 (minimal-cue, lazy-load): name the stack, point at entry, exit.
+# Builders/refresh details are 1 slash-command away — no need to pre-load instructions.
+echo "[composure:stack] ${LANGS} | ${FRONTEND} | ${CATEGORY} (entry: ${ENTRY}). /composure:blueprint for non-trivial · /composure:app-architecture for refs."
 
 exit 0

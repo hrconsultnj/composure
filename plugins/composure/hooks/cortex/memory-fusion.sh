@@ -12,6 +12,11 @@
 #
 # The hook reads the tool result to understand what file was
 # modified, then checks if the graph knows about it.
+#
+# Stage 5b audit (2026-05-03): output already follows the cue
+# pattern ("[cortex-memory] ..." advisory lines, no MUST/BLOCKING
+# wording). Conversion to Phase 2 = no changes needed; this hook
+# is already on the right side of the criterion.
 # ============================================================
 
 # Only run if Cortex is configured
