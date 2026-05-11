@@ -49,9 +49,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d \"${CLAUDE_PLUGIN_ROOT}\" && bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/architecture-skill-trigger.sh\" 2>/dev/null; exit 0",
+            "command": "test -d \"${CLAUDE_PLUGIN_ROOT}\" && bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforcement/pattern-loader.sh\" 2>/dev/null; exit 0",
             "timeout": 5,
-            "statusMessage": "Checking architecture..."
+            "statusMessage": "Loading pattern context..."
           }
         ]
       },

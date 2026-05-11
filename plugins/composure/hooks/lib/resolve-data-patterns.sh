@@ -10,16 +10,18 @@
 #   1. $COMPOSURE_DATA_PATTERNS_PATH    — explicit override
 #   2. Sibling dev repo                  — for plugin authors working
 #      against composure-pro alongside claude-plugins
-#   3. Plugin cache install              — installed pro-patterns plugin
-#   4. None                              — emit MCP fetch hint instead
+#   3. None                              — emit MCP fetch hint instead
 #
 # Plan gating:
 #   Pro / Enterprise → local path takes precedence.
 #   Free            → no path; suggest composure_fetch_ref tool.
 #
+# composure-pro is content-only since 2026-05-11 (no longer distributed
+# as a Claude Code plugin), so the legacy plugin-cache check is removed.
+#
 # Sets:
 #   DATA_PATTERNS_PATH   — absolute dir (or empty if none)
-#   DATA_PATTERNS_SOURCE — env|dev|cache|mcp|none
+#   DATA_PATTERNS_SOURCE — env|dev|mcp|none
 #   DATA_PATTERNS_PLAN   — plan tier (free|pro|enterprise|unknown)
 #
 # Usage:
@@ -46,28 +48,18 @@ if [ -n "$COMPOSURE_DATA_PATTERNS_PATH" ] && [ -d "$COMPOSURE_DATA_PATTERNS_PATH
 fi
 
 # ── 3. Sibling dev repo (plugin authors) ─────────────────────
-# Layout: <repo>/claude-plugins/plugins/composure ↔ <repo>/composure-pro/plugins/pro-patterns
+# Layout: <repo>/claude-plugins/plugins/composure ↔ <repo>/composure-pro/content
+# Pro-patterns content lives at composure-pro/content/data-patterns/ since
+# the 2026-05-11 restructure (pro-patterns is content, not a plugin).
 if [ -z "$DATA_PATTERNS_PATH" ] && [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
-  CANDIDATE="${CLAUDE_PLUGIN_ROOT}/../../../composure-pro/plugins/pro-patterns/data-patterns"
+  CANDIDATE="${CLAUDE_PLUGIN_ROOT}/../../../composure-pro/content/data-patterns"
   if [ -d "$CANDIDATE" ]; then
     DATA_PATTERNS_PATH=$(cd "$CANDIDATE" 2>/dev/null && pwd)
     DATA_PATTERNS_SOURCE="dev"
   fi
 fi
 
-# ── 4. Plugin cache install ──────────────────────────────────
-if [ -z "$DATA_PATTERNS_PATH" ]; then
-  CACHE_BASE="${HOME}/.claude/plugins/cache/composure-suite/pro-patterns"
-  if [ -d "$CACHE_BASE" ]; then
-    LATEST=$(ls -td "$CACHE_BASE"/*/ 2>/dev/null | head -1)
-    if [ -n "$LATEST" ] && [ -d "${LATEST}data-patterns" ]; then
-      DATA_PATTERNS_PATH="${LATEST}data-patterns"
-      DATA_PATTERNS_SOURCE="cache"
-    fi
-  fi
-fi
-
-# ── 5. MCP fallback (for Pro/Enterprise users without local copy) ──
+# ── 4. MCP fallback (for Pro/Enterprise users without local copy) ──
 if [ -z "$DATA_PATTERNS_PATH" ]; then
   case "$DATA_PATTERNS_PLAN" in
     pro|enterprise) DATA_PATTERNS_SOURCE="mcp" ;;
@@ -79,7 +71,7 @@ fi
 # Hooks call this AFTER sourcing if they want a ready-made banner.
 data_patterns_banner() {
   case "$DATA_PATTERNS_SOURCE" in
-    env|dev|cache)
+    env|dev)
       printf '[composure:data-patterns] %s (%s, %s plan)\n' \
         "$DATA_PATTERNS_PATH" "$DATA_PATTERNS_SOURCE" "$DATA_PATTERNS_PLAN"
       ;;
