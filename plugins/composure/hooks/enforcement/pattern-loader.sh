@@ -1,16 +1,24 @@
 #!/bin/bash
 # ============================================================
-# Architecture Skill Auto-Trigger — Global PreToolUse Hook
+# Pattern Loader — Pre-Write Pattern Injection Hook
 # ============================================================
-# Fires BEFORE Write/Edit on source files. If the target is an
-# architecture-relevant file, injects a framework-specific
-# reminder with the exact architecture docs to load.
+# Renamed from architecture-skill-trigger.sh per blueprint
+# composure-pre-guided-hooks-2026-05-11.md. Same purpose,
+# refined dedup + cue surface.
 #
-# Reads .claude/no-bandaids.json for stack detection so the
-# message tells Claude WHICH category to load, not just
-# "invoke /app-architecture" generically.
+# Fires BEFORE Write/Edit on source files. If the target file
+# matches a pro-pattern (resolved via the offline data-patterns
+# catalog), injects a terse advisory line pointing Claude at
+# the exact docs to read before writing.
 #
-# Uses session-based dedup so it only fires ONCE per session.
+# Per-pattern dedup (NOT session-wide): each pattern category
+# fires at most once per session, but multiple pattern categories
+# can fire across the session (one for migrations, one for
+# components, etc.). Replaces the old "first source file wins"
+# session-wide dedup that meant only ONE category ever fired.
+#
+# Reads .composure/no-bandaids.json (then .claude/ fallback) for
+# stack detection so the message names the actual framework.
 # Non-blocking (exit 0 always). Timeout: 5 seconds.
 # ============================================================
 
@@ -68,17 +76,32 @@ esac
 
 [ "$IS_ARCH" -eq 0 ] && exit 0
 
-# ── Session dedup: only trigger once per session ──
+# ── Per-pattern dedup: each pattern category fires once per session ──
+# Categorize the target file into a coarse pattern bucket so we dedup at
+# the BUCKET level (migrations, components, hooks, lib-supabase, etc.) —
+# not session-wide. This way the hook fires for both a migration and a
+# component in the same session, instead of "first file wins."
 SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
-DEDUP_DIR="/tmp/claude-arch-trigger"
+case "$FILE_PATH" in
+  */migrations/*.sql|*.sql)                            PATTERN_BUCKET="migrations" ;;
+  */app/*/page.tsx|*/app/*/layout.tsx|*/app/*/route.ts) PATTERN_BUCKET="routes" ;;
+  */components/*)                                       PATTERN_BUCKET="components" ;;
+  */hooks/*)                                            PATTERN_BUCKET="hooks" ;;
+  */providers/*)                                        PATTERN_BUCKET="providers" ;;
+  */actions/*)                                          PATTERN_BUCKET="actions" ;;
+  */lib/supabase/*|*/supabase/functions/*)             PATTERN_BUCKET="lib-supabase" ;;
+  */queries/*|*/repositories/*)                         PATTERN_BUCKET="queries" ;;
+  *)                                                    PATTERN_BUCKET="generic" ;;
+esac
+DEDUP_DIR="/tmp/composure-pattern-fired/${SESSION_ID}"
 mkdir -p "$DEDUP_DIR" 2>/dev/null
-DEDUP_FILE="${DEDUP_DIR}/${SESSION_ID}"
+DEDUP_FILE="${DEDUP_DIR}/${PATTERN_BUCKET}"
 
 if [ -f "$DEDUP_FILE" ]; then
-  exit 0  # Already triggered this session
+  exit 0  # This pattern bucket already fired this session
 fi
 
-# Mark as triggered
+# Mark this bucket as fired
 touch "$DEDUP_FILE"
 
 # ── Detect framework from config ──
@@ -153,15 +176,15 @@ fi
 # ── Activity counter ──
 printf 'check\n' >> "${CLAUDE_PROJECT_DIR:-.}/.composure/hook-activity.log" 2>/dev/null
 
-# ── Phase 2 cue (per noise-reduction-moat criterion + Stage 5b conversion) ──
-# This hook catches IGNORANCE (forgot to load framework docs), not mistakes,
-# so it converts to a CUE: terse, advisory, never-blocking. With Stage 2 memory
-# loaded at SessionStart, the model already has continuity; this hook now nudges
-# rather than gates. Once-per-session via dedup is preserved.
+# ── Cue emission (terse, advisory, never-blocking) ──
+# Per blueprint Decision 11 ("tonal cleanup"): pre-write cues use the
+# [composure:pattern-match] tag so the agent can distinguish them from
+# post-hoc enforcement (which still uses [architecture] or framework
+# names). Per-pattern dedup above means each bucket fires once per session.
 if [ "$IS_NEW_FILE" -eq 1 ]; then
-  printf '{"systemMessage": "[architecture] New source file. %s%s Use /composure:blueprint for routes/migrations/5+ files; /composure:app-architecture for reference docs if not yet loaded. Graph MCP tools beat Explore for structural questions."}' "$ARCH_HINT" "$DP_HINT"
+  printf '{"systemMessage": "[composure:pattern-match] %s — New source file. %s%s Use /composure:blueprint for routes/migrations/5+ files; /composure:app-architecture for reference docs if not yet loaded. Graph MCP tools beat Explore for structural questions."}' "$PATTERN_BUCKET" "$ARCH_HINT" "$DP_HINT"
 else
-  printf '{"systemMessage": "[architecture] %s%s Refresh /composure:app-architecture if framework docs not loaded this session. Graph MCP tools (query_graph, semantic_search_nodes, get_impact_radius) for structure."}' "$ARCH_HINT" "$DP_HINT"
+  printf '{"systemMessage": "[composure:pattern-match] %s — %s%s Refresh /composure:app-architecture if framework docs not loaded this session. Graph MCP tools (query_graph, semantic_search_nodes, get_impact_radius) for structure."}' "$PATTERN_BUCKET" "$ARCH_HINT" "$DP_HINT"
 fi
 
 exit 0
