@@ -120,7 +120,7 @@
     },
     "resolve-data-patterns.sh": {
       "path": "lib/resolve-data-patterns.sh",
-      "sha256": "87bd41327f7528258cc38c771bf2d825d0c2e30f1d9cfe07a110b37fa3ec646d"
+      "sha256": "1c4f2e5d9b2fcddebc35d3d62b53976ab46c32f48dd29a5cb02956ff13293bd9"
     }
   }
 }
