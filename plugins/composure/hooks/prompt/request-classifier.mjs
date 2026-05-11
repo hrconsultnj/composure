@@ -204,8 +204,14 @@ if (type === "research" && matched.force_tasks === "conditional") {
 
 // ── Task nag check ──────────────────────────────────────────────
 // Only nag if: type is in task_nag.applies_to AND no active task
+// AND (open task count < suppression.open_task_cutoff). The cutoff
+// keeps us from nagging when the user already has a backlog (the
+// signal that "you should make a task" is wrong if there are 65 of them).
 const nag = config.task_nag;
+const suppression = config.suppression || {};
+const openTaskCutoff = suppression.open_task_cutoff ?? 20;
 let shouldNag = false;
+let openTaskCount = 0;
 
 if (nag.applies_to.includes(type) && nag.suppress_if_task_active) {
   const projectDir = process.env.CLAUDE_PROJECT_DIR || ".";
@@ -215,6 +221,9 @@ if (nag.applies_to.includes(type) && nag.suppress_if_task_active) {
       const taskData = JSON.parse(readFileSync(taskFile, "utf8"));
       // Suppress nag if a task is active (non-null task_id)
       shouldNag = !taskData.task_id;
+      // Read open count if present — used to flip the nag into a
+      // contextual line when the count is high.
+      openTaskCount = Number(taskData.open_count ?? 0);
     } else {
       shouldNag = true;
     }
@@ -281,11 +290,39 @@ if (matched.reasoning) {
   lines.push(`[composure:reasoning] ${text}`);
 }
 
-// Task nag — only if no force_tasks and type qualifies
-if (!forceTasks && shouldNag) {
+// Task nag — only if no force_tasks and type qualifies AND below cutoff.
+// When open_task_count is high, the nag is the wrong signal — the user
+// has a backlog, not a missing-task problem. Suppress entirely (don't
+// replace with another line; the SessionStart [composure:open-tasks] line
+// already surfaces the count once per session).
+if (!forceTasks && shouldNag && openTaskCount < openTaskCutoff) {
   lines.push(
     `[composure:hint] No active task detected. Consider using TaskCreate if this is multi-step work.`
   );
+}
+
+// ── Domain-keyword detection (pre-load relevant pattern docs) ────────
+// Scans the prompt for known pattern keywords (curated map in
+// classifications.json → domain_keywords.entries) and emits a
+// [composure:pattern-hint] line per unique target pattern. Catches the
+// case where the user *says* "org switcher" or "RLS" before any Write/Edit
+// fires — pre-loads the right pattern doc instead of waiting for the
+// PreToolUse pattern-loader.sh hook.
+const domainKeywords = config.domain_keywords?.entries ?? {};
+if (Object.keys(domainKeywords).length > 0) {
+  const matchedPatterns = new Set();
+  for (const [keyword, patternId] of Object.entries(domainKeywords)) {
+    if (promptHead.includes(keyword)) {
+      matchedPatterns.add(patternId);
+    }
+  }
+  // Emit at most 3 hints per turn — more would crowd the context.
+  const hints = Array.from(matchedPatterns).slice(0, 3);
+  for (const patternId of hints) {
+    lines.push(
+      `[composure:pattern-hint] Mentioned pattern → data-patterns/${patternId}.md (read before responding)`
+    );
+  }
 }
 
 process.stdout.write(lines.join("\n") + "\n");

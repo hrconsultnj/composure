@@ -38,9 +38,9 @@
       "path": "graph/graph-update.sh",
       "sha256": "8a338cf3cf41ce49a12ce94639c7478f1b07165de9695e2b598516af45fdcdc4"
     },
-    "request-classifier.sh": {
-      "path": "prompt/request-classifier.sh",
-      "sha256": "fb215a57bb61a95ed08a85f6a6a17d329339a4d3b135084380b65af98e0f212b"
+    "request-classifier.mjs": {
+      "path": "prompt/request-classifier.mjs",
+      "sha256": "517e0df90dc934a70768961826aa5b75be3b7486696c77372ae8f87d7ea15fa9"
     },
     "task-state-writer.sh": {
       "path": "task/task-state-writer.sh",
@@ -70,9 +70,9 @@
       "path": "enforcement/no-bandaids.sh",
       "sha256": "07f756c4a33959b0beb3b52180bb40650b53c756dd2e41b0ba56b8dff53bbfcb"
     },
-    "architecture-skill-trigger.sh": {
-      "path": "enforcement/architecture-skill-trigger.sh",
-      "sha256": "5d366c294af1060255859c68b674ecb3d3d4efd541debcdd9a8b262c890eb8e5"
+    "pattern-loader.sh": {
+      "path": "enforcement/pattern-loader.sh",
+      "sha256": "b1aaa7a1bf0228977d799851ac8ad9970f13a447075b2eb77cf69f0e87cbd961"
     },
     "decomposition-guide.sh": {
       "path": "enforcement/decomposition-guide.sh",
