@@ -33,6 +33,7 @@ import {
 } from "./composure-token.mjs";
 import { existsSync, mkdirSync, symlinkSync, copyFileSync, writeFileSync, lstatSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -407,233 +408,19 @@ async function refresh() {
   }
 }
 
-// ── Migrate (.claude/ → .composure/) ─────────────────────────────────
+// ── Migrate logic REMOVED 2026-05-11 ─────────────────────────────────
+//
+// The 222-line `upgradeProject()` function that previously lived here was
+// the body of the `migrate` subcommand. Per blueprint
+// composure-auth-update-unification-2026-05-11.md (no-legacy rule), the
+// migrate subcommand is hard-removed and the migration logic now lives
+// in `composure-update.mjs` (callable via the `composure-update` binary
+// or the `/composure:update` skill).
+//
+// NOTE FOR FUTURE CONTRIBUTORS: do NOT re-add a migrate function here.
+// All workspace-currency logic belongs in composure-update.mjs.
+// =====================================================================
 
-import { cpSync, readFileSync, readdirSync, renameSync } from "node:fs";
-import { resolve, join } from "node:path";
-import { execSync } from "node:child_process";
-
-async function upgradeProject() {
-  // Find project root
-  let projectDir;
-  try {
-    projectDir = execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
-  } catch {
-    projectDir = process.cwd();
-  }
-
-  const claudeDir = join(projectDir, ".claude");
-  const composureDir = join(projectDir, ".composure");
-
-  console.log(`\nComposure Migrate — Verify & repair project structure\n`);
-  console.log(`Project: ${projectDir}`);
-
-  const ok = [];
-  const fixed = [];
-  const warn = [];
-
-  // ── 1. Scaffold: ensure .composure/ directory structure ─────────
-  const requiredDirs = [
-    composureDir,
-    join(composureDir, "frameworks", "generated"),
-    join(composureDir, "frameworks", "project"),
-    join(composureDir, "development", "workspaces"),
-    join(composureDir, "cortex"),
-    join(composureDir, "graph"),
-  ];
-  for (const dir of requiredDirs) {
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-      fixed.push(`Created: ${dir.replace(projectDir + "/", "")}`);
-    }
-  }
-  ok.push(`.composure/ scaffold (${requiredDirs.length} dirs)`);
-
-  // ── 2. Scaffold: tasks-plans/ ───────────────────────────────────
-  const taskDirs = [
-    join(projectDir, "tasks-plans"),
-    join(projectDir, "tasks-plans", "backlog"),
-    join(projectDir, "tasks-plans", "blueprints"),
-    join(projectDir, "tasks-plans", "archive"),
-    join(projectDir, "tasks-plans", "ideas"),
-    join(projectDir, "tasks-plans", "reference"),
-  ];
-  for (const dir of taskDirs) {
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-      fixed.push(`Created: ${dir.replace(projectDir + "/", "")}`);
-    }
-  }
-  ok.push(`tasks-plans/ scaffold (${taskDirs.length} dirs)`);
-
-  // ── 3. Global Cortex DB directory ───────────────────────────────
-  const globalCortexDir = join(COMPOSURE_DIR, "cortex");
-  if (!existsSync(globalCortexDir)) {
-    mkdirSync(globalCortexDir, { recursive: true });
-    fixed.push("Created: ~/.composure/cortex/");
-  }
-  ok.push("Global Cortex directory");
-
-  // ── 4. Config: no-bandaids.json ─────────────────────────────────
-  const noBandaids = join(composureDir, "no-bandaids.json");
-  const legacyNoBandaids = join(claudeDir, "no-bandaids.json");
-  if (existsSync(noBandaids)) {
-    ok.push("no-bandaids.json");
-  } else if (existsSync(legacyNoBandaids)) {
-    cpSync(legacyNoBandaids, noBandaids);
-    fixed.push("Migrated: .claude/no-bandaids.json → .composure/");
-  } else {
-    warn.push("no-bandaids.json missing — run /composure:initialize");
-  }
-
-  // ── 5. Companion configs ────────────────────────────────────────
-  for (const companion of ["sentinel", "shipyard", "testbench", "composure-pro"]) {
-    const target = join(composureDir, `${companion}.json`);
-    const legacy = join(claudeDir, `${companion}.json`);
-    if (existsSync(target)) {
-      ok.push(`${companion}.json`);
-    } else if (existsSync(legacy)) {
-      cpSync(legacy, target);
-      fixed.push(`Migrated: .claude/${companion}.json → .composure/`);
-    }
-    // No warning if missing — companions are optional
-  }
-
-  // ── 6. Frameworks ───────────────────────────────────────────────
-  const fwGenerated = join(composureDir, "frameworks", "generated");
-  const legacyFw = join(claudeDir, "frameworks");
-  if (readdirSync(fwGenerated).length > 0) {
-    ok.push("frameworks/generated");
-    // Clean up legacy if it still exists alongside the new one
-    if (existsSync(legacyFw)) {
-      try { rmSync(legacyFw, { recursive: true }); } catch {}
-      fixed.push("Removed: stale .claude/frameworks/ (already in .composure/frameworks/)");
-    }
-  } else if (existsSync(legacyFw)) {
-    cpSync(legacyFw, join(composureDir, "frameworks"), { recursive: true });
-    try { rmSync(legacyFw, { recursive: true }); } catch {}
-    fixed.push("Migrated: .claude/frameworks/ → .composure/frameworks/");
-  } else {
-    warn.push("frameworks/generated empty — run /composure:initialize");
-  }
-
-  // ── 7. Graph DB: .code-review-graph/ → .composure/graph/ ───────
-  const newGraphDir = join(composureDir, "graph");
-  const newGraphDb = join(newGraphDir, "graph.db");
-  const legacyGraphDir = join(projectDir, ".code-review-graph");
-  const legacyGraphDb = join(legacyGraphDir, "graph.db");
-  if (existsSync(newGraphDb)) {
-    ok.push("Graph DB (.composure/graph/graph.db)");
-    // Clean up legacy if it still exists alongside the new one
-    if (existsSync(legacyGraphDir)) {
-      try { rmSync(legacyGraphDir, { recursive: true }); } catch {}
-      fixed.push("Removed: stale .code-review-graph/ (DB already in .composure/graph/)");
-    }
-  } else if (existsSync(legacyGraphDb)) {
-    const files = readdirSync(legacyGraphDir);
-    for (const file of files) {
-      if (file === ".gitignore") continue;
-      renameSync(join(legacyGraphDir, file), join(newGraphDir, file));
-    }
-    try { rmSync(legacyGraphDir, { recursive: true }); } catch {}
-    fixed.push("Migrated: .code-review-graph/ → .composure/graph/");
-  } else {
-    warn.push("No graph DB — run /composure:build-graph");
-  }
-
-  // ── 8. Cortex DB (project-level): .composure/cortex.db → .composure/cortex/cortex.db
-  const cortexDbNew = join(composureDir, "cortex", "cortex.db");
-  const cortexDbOld = join(composureDir, "cortex.db");
-  if (existsSync(cortexDbNew)) {
-    ok.push("Cortex DB (.composure/cortex/cortex.db)");
-    // Clean up legacy loose DB if it still exists alongside the new one
-    for (const suffix of ["", "-shm", "-wal"]) {
-      const f = cortexDbOld + suffix;
-      if (existsSync(f)) try { rmSync(f); } catch {}
-    }
-  } else if (existsSync(cortexDbOld)) {
-    // Move loose cortex.db + WAL files into cortex/ subfolder
-    for (const suffix of ["", "-shm", "-wal"]) {
-      const src = cortexDbOld + suffix;
-      const dst = cortexDbNew + suffix;
-      if (existsSync(src)) renameSync(src, dst);
-    }
-    fixed.push("Migrated: .composure/cortex.db → .composure/cortex/cortex.db");
-  } else {
-    warn.push("No project Cortex DB — will be created on first use");
-  }
-
-  // ── 9. Global Cortex DB ─────────────────────────────────────────
-  const globalCortexDb = join(COMPOSURE_DIR, "cortex", "cortex.db");
-  if (existsSync(globalCortexDb)) {
-    ok.push("Global Cortex DB");
-  } else {
-    warn.push("No global Cortex DB — will be created on first use");
-  }
-
-  // ── 10. .gitignore entries ──────────────────────────────────────
-  const gitignorePath = join(projectDir, ".gitignore");
-  if (existsSync(gitignorePath)) {
-    const content = readFileSync(gitignorePath, "utf8");
-    const missing = [];
-    if (!content.includes(".composure/")) missing.push(".composure/");
-    if (!content.includes(".code-review-graph")) missing.push(".code-review-graph/");
-    if (missing.length > 0) {
-      writeFileSync(gitignorePath, content.trimEnd() + "\n\n# Composure\n" + missing.join("\n") + "\n");
-      fixed.push(`Updated .gitignore: added ${missing.join(", ")}`);
-    }
-    ok.push(".gitignore");
-  }
-
-  // ── 11. Companion plugins — auto-install missing ─────────────
-  const COMPANIONS = ["design-forge", "sentinel", "shipyard", "testbench"];
-  const MARKETPLACE = "composure-suite";
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const installedPluginsPath = join(homeDir, ".claude", "plugins", "installed_plugins.json");
-
-  if (existsSync(installedPluginsPath)) {
-    try {
-      const installed = JSON.parse(readFileSync(installedPluginsPath, "utf8"));
-      const pluginKeys = Object.keys(installed.plugins || {});
-
-      for (const companion of COMPANIONS) {
-        const key = `${companion}@${MARKETPLACE}`;
-        const isInstalled = pluginKeys.some(k => k === key);
-
-        if (isInstalled) {
-          ok.push(`${companion} plugin`);
-          continue;
-        }
-
-        // Use claude CLI to properly install the plugin
-        try {
-          execSync(`claude plugin install ${companion}@${MARKETPLACE}`, {
-            encoding: "utf8",
-            stdio: "pipe",
-            timeout: 30000,
-          });
-          fixed.push(`Installed: ${companion} plugin`);
-        } catch (err) {
-          warn.push(`${companion}: install failed — run \`claude plugin install ${companion}@${MARKETPLACE}\``);
-        }
-      }
-
-    } catch (err) {
-      warn.push(`Companion install error: ${err.message}`);
-    }
-  }
-
-  // ── Report ──────────────────────────────────────────────────────
-  console.log("\n── Structure Check ──\n");
-  for (const item of ok) console.log(`  ✓ ${item}`);
-  for (const item of fixed) console.log(`  ⚡ ${item}`);
-  for (const item of warn) console.log(`  ⚠ ${item}`);
-  console.log(`\n${ok.length} OK · ${fixed.length} fixed · ${warn.length} warnings`);
-
-  if (fixed.length > 0) {
-    console.log("\nRestart Claude Code to pick up changes.");
-  }
-}
 
 // ── HTML Response Page ───────────────────────────────────────────────
 
@@ -677,12 +464,21 @@ switch (subcommand) {
     upgrade();
     break;
 
-  case "migrate":
-    await upgradeProject();
-    break;
-
   case "refresh":
     await refresh();
+    break;
+
+  case "migrate":
+    // REMOVED 2026-05-11. Was: await upgradeProject().
+    // Per the no-legacy rule from blueprint composure-auth-update-unification-2026-05-11.md,
+    // the migrate subcommand is hard-removed (not deprecation-aliased). The migration
+    // logic (move .claude/no-bandaids.json -> .composure/no-bandaids.json) is now step 03
+    // of /composure:update. Surface the migration path with exit 1 so any scripted callers
+    // surface the change loudly.
+    console.error("Subcommand 'migrate' was REMOVED on 2026-05-11.");
+    console.error("Run /composure:update for the unified workspace-current sequence");
+    console.error("(includes the .claude/ -> .composure/ migration as step 03).");
+    process.exit(1);
     break;
 
   default:
@@ -691,9 +487,11 @@ switch (subcommand) {
     console.log("  composure-auth login     Authenticate via browser (OAuth 2.1 + PKCE)");
     console.log("  composure-auth logout    Clear stored credentials and cache");
     console.log("  composure-auth status    Show account, plan, and token info");
-    console.log("  composure-auth upgrade   Open pricing page to upgrade your plan");
-    console.log("  composure-auth migrate   Migrate project configs (.claude/ → .composure/)");
+    console.log("  composure-auth upgrade   Open pricing page to upgrade your PLAN/PRICING");
     console.log("  composure-auth refresh   Refresh an expired token without re-login");
+    console.log("");
+    console.log("For software/installation updates (NOT pricing): /composure:update");
+    console.log("For read-only diagnostics: /composure:health");
     console.log(`\nCredentials: ${CREDENTIALS_PATH}`);
     break;
 }

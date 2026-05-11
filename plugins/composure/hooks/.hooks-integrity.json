@@ -94,6 +94,10 @@
       "path": "session/session-boot.sh",
       "sha256": "8d1f25fa995e88ea248553a2c7c7036dbabf68fe0a674cceac154b7e9ccb4bc8"
     },
+    "auto-fix.sh": {
+      "path": "session/auto-fix.sh",
+      "sha256": "b60df6daafde89fcdb6c0b1a29103bbedec0a0ae14a7cc31283b02e6f39d2414"
+    },
     "health-nudge.sh": {
       "path": "session/health-nudge.sh",
       "sha256": "75722516fcf1289c49889c652a4d75d26e6b3ef5eb0c3fe4c7ac530668e63c0a"
