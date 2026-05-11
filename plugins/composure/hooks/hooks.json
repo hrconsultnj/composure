@@ -17,6 +17,12 @@
             "command": "test -d \"${CLAUDE_PLUGIN_ROOT}\" && bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/session-boot.sh\" 2>/dev/null; exit 0",
             "timeout": 12,
             "statusMessage": "Booting session..."
+          },
+          {
+            "type": "command",
+            "command": "test -d \"${CLAUDE_PLUGIN_ROOT}\" && bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session/auto-fix.sh\" 2>/dev/null; exit 0",
+            "timeout": 5,
+            "statusMessage": ""
           }
         ]
       },
