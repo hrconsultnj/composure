@@ -128,7 +128,7 @@
     },
     "composure-freshness.sh": {
       "path": "session/composure-freshness.sh",
-      "sha256": "6d49d3052a0a2c3de999da34560db49a7a40ed1ebd04baeaf8135105f7120674"
+      "sha256": "ee469bd742650db192768417ebd071c7ed9855269920ef4c6b5c23aa8d316414"
     }
   }
 }

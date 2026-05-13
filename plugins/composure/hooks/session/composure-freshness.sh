@@ -32,13 +32,31 @@ fi
 . "$RESOLVE_LIB"
 composure_resolve_init
 
-[ -z "${COMPOSURE_RUNTIME_ROOT:-}" ] && exit 0   # nothing installed; cold cold boot
-
-BOOTSTRAP="${COMPOSURE_RUNTIME_ROOT}/scripts/manifest-bootstrap.mjs"
 COMPOSURE_HOME="${HOME}/.composure"
 MANIFEST="${COMPOSURE_HOME}/manifest.json"
 AUTOUPDATE_STAMP="${COMPOSURE_HOME}/last-autoupdate-check"
 FRESHNESS_STAMP="${COMPOSURE_HOME}/last-freshness-check"
+
+# ── 0a. Reachability probes ────────────────────────────────────
+# When the agent can't reach Composure, every other step downstream of
+# this hook will fail with cryptic errors. Surface the canonical "what to
+# do" message here, BEFORE anything else tries to use the plugin.
+
+if [ -z "${COMPOSURE_RUNTIME_ROOT:-}" ]; then
+  # No runtime path resolvable from manifest OR fallback chain.
+  echo "[composure:not-installed] Composure plugin runtime not detected on this machine"
+  echo "[composure:not-installed] step 1 — in Claude Code: /plugin install composure@composure-suite"
+  echo "[composure:not-installed] step 2 — then /reload"
+  exit 0
+fi
+
+if [ ! -f "${COMPOSURE_RUNTIME_ROOT}/.claude-plugin/plugin.json" ]; then
+  echo "[composure:degraded] runtime path exists but plugin.json is missing — install is broken"
+  echo "[composure:degraded] run /composure:update (or /plugin install composure@composure-suite if that fails)"
+  exit 0
+fi
+
+BOOTSTRAP="${COMPOSURE_RUNTIME_ROOT}/scripts/manifest-bootstrap.mjs"
 
 # ── 1. Bootstrap manifest if missing ──────────────────────────
 if ! composure_manifest_fresh; then
@@ -47,9 +65,14 @@ if ! composure_manifest_fresh; then
   fi
 fi
 
-# Manifest still absent → nothing more to do. session-boot will keep working
-# off CLAUDE_PLUGIN_ROOT (fallback chain in composure-resolve covers this).
-[ -f "$MANIFEST" ] || exit 0
+# Manifest still absent → emit degraded notice; session-boot keeps running
+# off CLAUDE_PLUGIN_ROOT fallback. Not silent — user should know the
+# manifest didn't get written (likely permission issue under ~/.composure/).
+if [ ! -f "$MANIFEST" ]; then
+  echo "[composure:degraded] ~/.composure/manifest.json could not be written — check ~/.composure/ permissions"
+  echo "[composure:degraded] freshness checks disabled this session; run /composure:update once permissions are fixed"
+  exit 0
+fi
 command -v jq >/dev/null 2>&1 || exit 0
 
 # ── 2. Drift check (cheap) ────────────────────────────────────
