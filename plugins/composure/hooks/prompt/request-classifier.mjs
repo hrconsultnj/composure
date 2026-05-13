@@ -325,4 +325,25 @@ if (Object.keys(domainKeywords).length > 0) {
   }
 }
 
+// ── Design/feature-build keyword detection ──────────────────────────
+// Mirrors domain_keywords but for prompts that build a UI surface.
+// Emits a single [composure:design-hint] when any trigger phrase fires.
+// Skipped for review/operate/explain — those don't build UI.
+// The hint points the model at /design-forge:ui-designer, which itself
+// reads /composure:app-architecture → content/data-patterns + content/examples
+// for the architectural backing. Pure-DB work without a UI surface keeps
+// using the data-side [composure:pattern-hint] lines above.
+const designKeywords = config.design_keywords?.entries ?? {};
+const designEmitTypes = new Set(["implement", "plan", "configure"]);
+if (designEmitTypes.has(type) && Object.keys(designKeywords).length > 0) {
+  for (const keyword of Object.keys(designKeywords)) {
+    if (promptHead.includes(keyword)) {
+      lines.push(
+        `[composure:design-hint] Feature-build prompt → /design-forge:ui-designer. The skill reads /composure:app-architecture, content/data-patterns/, and content/examples/ for the architecture; taxonomy + sections + components are layered on top. For pure DB/schema work without UI, ignore this hint and rely on the [composure:pattern-hint] lines (or run /composure:app-architecture directly).`
+      );
+      break; // single hint per turn — keep context clean
+    }
+  }
+}
+
 process.stdout.write(lines.join("\n") + "\n");
