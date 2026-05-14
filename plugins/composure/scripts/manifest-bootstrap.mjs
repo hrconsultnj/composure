@@ -71,13 +71,22 @@ function detectInstalledPlugins() {
   const installedFile = join(CLAUDE_PLUGINS, "installed_plugins.json");
   const installed = readJSON(installedFile);
   if (!installed || typeof installed !== "object") return {};
+  // Claude Code's installed_plugins.json has two known schemas:
+  //   v2 (current): { version: 2, plugins: { "name@marketplace": [ {gitCommitSha,...} ] } }
+  //   v1 (legacy):  { "name@marketplace": {gitCommitSha,...} }
+  // Normalize both to a flat { "name@marketplace" -> record } map before scanning.
+  const entries = installed.plugins && typeof installed.plugins === "object"
+    ? installed.plugins
+    : installed;
   const out = {};
-  for (const [key, val] of Object.entries(installed)) {
+  for (const [key, val] of Object.entries(entries)) {
     if (!key.endsWith("@composure-suite")) continue;
     const name = key.split("@")[0];
+    // v2 values are arrays of install records; v1 values are plain objects.
+    const record = Array.isArray(val) ? val[0] : val;
     out[name] = {
-      gitCommitSha: val?.gitCommitSha ?? null,
-      installedAt: val?.installedAt ?? null,
+      gitCommitSha: record?.gitCommitSha ?? null,
+      installedAt: record?.installedAt ?? null,
     };
   }
   return out;

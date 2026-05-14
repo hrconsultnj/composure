@@ -84,9 +84,10 @@ fi
 
 # ── 6. Plugin version check (24h throttled) ──────────────────
 INSTALLED_PLUGINS="${HOME_DIR}/.claude/plugins/installed_plugins.json"
-PLUGIN_CACHE="${HOME_DIR}/.claude/plugins/cache/composure-suite"
+# The git repo is the marketplace CLONE — the cache dir is NOT a git repo.
+MARKETPLACE_SRC="${HOME_DIR}/.claude/plugins/marketplaces/composure-suite"
 LAST_CHECK="${HOME_DIR}/.composure/last-autoupdate-check"
-if [ -f "$INSTALLED_PLUGINS" ] && [ -d "$PLUGIN_CACHE" ] && command -v jq >/dev/null 2>&1; then
+if [ -f "$INSTALLED_PLUGINS" ] && [ -d "${MARKETPLACE_SRC}/.git" ] && command -v jq >/dev/null 2>&1; then
   # Skip if checked < 24h ago
   SHOULD_CHECK=true
   if [ -f "$LAST_CHECK" ]; then
@@ -98,9 +99,9 @@ if [ -f "$INSTALLED_PLUGINS" ] && [ -d "$PLUGIN_CACHE" ] && command -v jq >/dev/
   if $SHOULD_CHECK; then
     INSTALLED_SHA=$(jq -r '.plugins["composure@composure-suite"][0].gitCommitSha // empty' "$INSTALLED_PLUGINS" 2>/dev/null)
     if [ -n "$INSTALLED_SHA" ]; then
-      HEAD_SHA=$(git -C "$PLUGIN_CACHE" rev-parse origin/HEAD 2>/dev/null)
+      HEAD_SHA=$(git -C "$MARKETPLACE_SRC" rev-parse HEAD 2>/dev/null)
       if [ -n "$HEAD_SHA" ] && [ "$INSTALLED_SHA" != "$HEAD_SHA" ]; then
-        BEHIND=$(git -C "$PLUGIN_CACHE" rev-list --count "$INSTALLED_SHA".."$HEAD_SHA" 2>/dev/null || echo "?")
+        BEHIND=$(git -C "$MARKETPLACE_SRC" rev-list --count "$INSTALLED_SHA".."$HEAD_SHA" 2>/dev/null || echo "?")
         USER_ACTIONS+=("plugin $BEHIND commits behind — in Claude Code: /plugin install composure@composure-suite")
       fi
     fi

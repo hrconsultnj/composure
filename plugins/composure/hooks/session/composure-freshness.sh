@@ -119,7 +119,18 @@ echo "$NOW" > "$FRESHNESS_STAMP"
 echo "$NOW" > "$AUTOUPDATE_STAMP"
 
 if [ -z "$HEAD_SHA" ] || [ -z "$INSTALLED_SHA" ]; then
-  exit 0   # fail-open — never block boot
+  # Fail-open — never block boot — but NOT silent. This branch silently
+  # swallowed a real bug (manifest missing claude_commit_sha) for entire
+  # releases. Surface which side is missing so it's diagnosable.
+  if [ -z "$INSTALLED_SHA" ]; then
+    echo "[composure:degraded] freshness check skipped — manifest has no installed_plugins.composure.claude_commit_sha"
+    echo "[composure:degraded] fix: rm ~/.composure/manifest.json (rebuilds on next boot), or run /composure:update"
+  fi
+  if [ -z "$HEAD_SHA" ]; then
+    echo "[composure:degraded] freshness check skipped — no git HEAD in ${MARKETPLACE_SRC}"
+    echo "[composure:degraded] fix: /plugin marketplace update composure-suite"
+  fi
+  exit 0
 fi
 
 if [ "$HEAD_SHA" = "$INSTALLED_SHA" ]; then
