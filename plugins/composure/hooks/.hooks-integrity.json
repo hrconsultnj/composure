@@ -125,6 +125,10 @@
     "resolve-data-patterns.sh": {
       "path": "lib/resolve-data-patterns.sh",
       "sha256": "1c4f2e5d9b2fcddebc35d3d62b53976ab46c32f48dd29a5cb02956ff13293bd9"
+    },
+    "composure-freshness.sh": {
+      "path": "session/composure-freshness.sh",
+      "sha256": "ee469bd742650db192768417ebd071c7ed9855269920ef4c6b5c23aa8d316414"
     }
   }
 }

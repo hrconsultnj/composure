@@ -43,7 +43,7 @@ Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/U
 | # | File | Purpose |
 |---|------|---------|
 | 01 | `01-auth-check.md` | Verify ~/.composure/credentials.json + token validity; auto-prompt login if missing |
-| 02 | `02-plugin-version.md` | Compare installed plugin SHA vs marketplace HEAD; surface install command if outdated |
+| 02 | `02-plugin-version.md` | Compare installed plugin SHA vs marketplace HEAD; refresh `~/.composure/manifest.json`; emit reload-prompt block if outdated |
 | 03 | `03-config-migration.md` | Move legacy `.claude/no-bandaids.json` → `.composure/no-bandaids.json` (idempotent) |
 | 04 | `04-framework-detect.md` | Re-run stack detection if `.composure/no-bandaids.json` missing OR project package.json mtime > config mtime |
 | 05 | `05-hook-integrity.md` | Walk `.hooks-integrity.json`; verify SHA-256 matches; surface mismatches |
