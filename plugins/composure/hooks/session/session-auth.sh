@@ -61,24 +61,33 @@ fi
 
 # ── 2. Auth status ───────────────────────────────────────────
 AUTH_PLAN=""
+ACCOUNT="$HOME/.composure/account.json"
 
 if [ ! -f "$CREDS" ]; then
-  printf '[composure] Not authenticated. Run /composure:auth login to connect your account.\n'
+  printf '[composure] Not authenticated. Run /composure:account login to connect your account.\n'
   exit 0
 fi
+
+# Proactive background refresh (Slice N3, 2026-05-17): if token is within the
+# 5-min pre-expiry buffer, refresh now in background. Copilot CLI pattern.
+# Exits 0 immediately whether refresh happened or not.
+"${COMPOSURE_BIN}/composure-token.mjs" refresh-bg >/dev/null 2>&1 &
 
 VALIDATE_RESULT=$("${COMPOSURE_BIN}/composure-token.mjs" validate 2>/dev/null)
 VALIDATE_EXIT=$?
 
+# Plan now lives in account.json (post-v2 migration). validate output is
+# `valid:plan:email` — parse it directly; fall back to account.json if needed.
 if [ $VALIDATE_EXIT -eq 0 ]; then
   AUTH_PLAN=$(echo "$VALIDATE_RESULT" | cut -d: -f2)
+  [ -z "$AUTH_PLAN" ] && AUTH_PLAN=$(jq -r '.plan // "free"' "$ACCOUNT" 2>/dev/null || echo "free")
   printf '[composure] Authenticated (%s plan).\n' "$AUTH_PLAN"
 elif [ $VALIDATE_EXIT -eq 2 ]; then
   "${COMPOSURE_BIN}/composure-token.mjs" refresh >/dev/null 2>&1 &
-  AUTH_PLAN=$(node -e "try{const c=JSON.parse(require('fs').readFileSync('$CREDS','utf8'));console.log(c.plan||'free')}catch{console.log('free')}" 2>/dev/null)
-  printf '[composure] Session refreshing (%s plan). If this persists, run /composure:auth login.\n' "$AUTH_PLAN"
+  AUTH_PLAN=$(jq -r '.plan // "free"' "$ACCOUNT" 2>/dev/null || echo "free")
+  printf '[composure] Session refreshing (%s plan). If this persists, run /composure:account login.\n' "$AUTH_PLAN"
 else
-  printf '[composure] Auth check inconclusive. Run /composure:auth status to diagnose.\n'
+  printf '[composure] Auth check inconclusive. Run /composure:account status to diagnose.\n'
 fi
 
 # ── 3. Content protection (only if authed + cached content) ──

@@ -11,7 +11,7 @@ program
   .version("1.0.0");
 
 program
-  .option("--skip-auth", "Skip authentication (do it later via /composure:auth login)")
+  .option("--skip-auth", "Skip authentication (do it later via /composure:account login)")
   .option("--skip-claude", "Don't offer to install Claude Code")
   .option("--skip-adapters", "Don't generate rules files for non-Claude tools")
   .option("--plugins <list>", "Comma-separated plugin list (default: composure,sentinel,shipyard,testbench,design-forge)")

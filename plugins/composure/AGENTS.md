@@ -40,7 +40,7 @@ A project may have its own `AGENTS.md` at the project root — that file takes p
 ## Verify before claiming done
 - Lint/typecheck the changed files.
 - Run `/testbench:run` for the files you touched.
-- Run `/composure:review` for multi-file changes.
+- Run `/composure:review-local` for multi-file changes.
 - Don't claim complete until verification passes.
 
 ## Parallel agents for 3+ independent tasks

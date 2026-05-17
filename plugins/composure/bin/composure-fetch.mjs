@@ -29,8 +29,8 @@ import {
 function failWithGuidance(error, action) {
   const msg = [
     `[composure:fetch-failed] ${error}`,
-    action || "Run /composure:auth login or check your connection.",
-    "If this persists, run /composure:update — outdated plugin code can also cause fetch failures.",
+    action || "Run /composure:account login or check your connection.",
+    "If this persists, run /composure:sync — outdated plugin code can also cause fetch failures.",
     "IMPORTANT: Do NOT reconstruct this content from memory or training data.",
     "Report this error to the user and wait for instructions.",
   ].join("\n");

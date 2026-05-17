@@ -144,9 +144,9 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     if (authenticated) {
       authSpinner.succeed(`Authenticated${email ? ` as ${email}` : ""}${plan ? ` (${plan} plan)` : ""}`);
     } else if (options.skipAuth) {
-      authSpinner.info("Auth skipped (use /composure:auth login later)");
+      authSpinner.info("Auth skipped (use /composure:account login later)");
     } else {
-      authSpinner.info("Auth deferred — run /composure:auth login in Claude Code");
+      authSpinner.info("Auth deferred — run /composure:account login in Claude Code");
     }
 
     // ── Step 09: Generate adapters ──────────────────────────────

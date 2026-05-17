@@ -12,7 +12,7 @@
 //
 // Invoked by:
 //   1. composure-freshness.sh on cold boot (manifest missing)
-//   2. /composure:update after a successful version bump
+//   2. /composure:sync after a successful version bump
 //   3. Manual:  node manifest-bootstrap.mjs [--force]
 //
 // Exit codes: 0 = ok, 1 = unrecoverable (no install detected).
@@ -145,7 +145,7 @@ function buildManifest() {
       check_interval_seconds: 14400,     // 4h — matches existing autoupdate cadence
       drift_action: "warn",              // warn | heal | block
       reload_prompt: true,                // ask the user to /reload when an update lands
-      auto_update: false,                 // future: when true, /composure:update runs unattended
+      auto_update: false,                 // future: when true, /composure:sync runs unattended
     },
   };
 }

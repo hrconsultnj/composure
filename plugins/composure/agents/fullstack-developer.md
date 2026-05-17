@@ -23,4 +23,4 @@ You are a fullstack developer. You own features end-to-end — from database sch
 ## Related Skills
 - `/composure:app-architecture` — load framework-specific patterns
 - `/composure:commit` — commit with task queue hygiene
-- `/composure:review` — review your own changes before PR
+- `/composure:review-local` — review your own changes before PR

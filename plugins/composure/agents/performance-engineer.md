@@ -19,5 +19,5 @@ You are a performance engineer. You identify bottlenecks, optimize systems, and 
 - Composure plugin installed (graph for dependency analysis)
 
 ## Related Skills
-- `/composure:review` — review performance-sensitive changes
+- `/composure:review-local` — review performance-sensitive changes
 - `/composure:app-architecture` — performance patterns by framework

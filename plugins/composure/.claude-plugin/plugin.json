@@ -12,7 +12,8 @@
     "composure-auth": "./bin/composure-auth.mjs",
     "composure-token": "./bin/composure-token.mjs",
     "composure-fetch": "./bin/composure-fetch.mjs",
-    "composure-cache": "./bin/composure-cache.mjs"
+    "composure-cache": "./bin/composure-cache.mjs",
+    "composure-sync-pull": "./bin/composure-sync-pull.mjs"
   },
   "mcpServers": {
     "composure-graph": {

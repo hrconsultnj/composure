@@ -32,7 +32,7 @@ export function printSummary(data: SummaryData): void {
   const pluginNames = data.installedPlugins.join(", ");
   const authStatus = data.authenticated
     ? `${kleur.green("authenticated")}${data.email ? ` as ${data.email}` : ""}${data.plan ? ` (${data.plan} plan)` : ""}`
-    : "not yet (run /composure:auth login)";
+    : "not yet (run /composure:account login)";
 
   console.log(`
 ${kleur.green().bold("Composure Suite installed")}
@@ -63,9 +63,9 @@ ${kleur.green().bold("Composure Suite installed")}
 
   if (!data.authenticated) {
     if (data.claudeInstalled) {
-      steps.push("Open Claude Code and run /composure:auth login");
+      steps.push("Open Claude Code and run /composure:account login");
     } else {
-      steps.push("After installing Claude Code, run /composure:auth login");
+      steps.push("After installing Claude Code, run /composure:account login");
     }
   }
 

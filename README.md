@@ -100,7 +100,7 @@ claude plugin install composure@composure-suite
 After installing, restart Claude Code and authenticate:
 
 ```
-/composure:auth login
+/composure:account login
 ```
 
 This opens your browser for a one-time OAuth login. Your credentials are stored locally at `~/.composure/credentials.json`.
@@ -249,15 +249,15 @@ Every graph tool accepts a `repo_root` parameter. From a parent directory like `
 /composure:app-architecture      # Feature-building guide — framework-specific refs
 /composure:commit                # Commit with auto task queue hygiene + graph update
 /composure:audit                 # Full codebase health audit with letter grades
-/composure:report                # Generate self-contained HTML audit report
+/composure:audit                # Generate self-contained HTML audit report
 /composure:backlog               # Manage task queue (add, batch, delegate, verify, archive)
 /composure:review-pr             # PR review with blast-radius analysis
-/composure:review                # Review changes since last commit
+/composure:review-local                # Review changes since last commit
 /composure:build-graph           # Build/update code review knowledge graph
-/composure:view-graph            # Open graph visualization in browser
+/composure:build-graph            # Open graph visualization in browser
 /composure:code-organizer        # Restructure project layout to framework conventions
 /composure:integration-builder   # Stack-agnostic third-party API integration scaffolding
-/composure:mcp-setup             # Discover and configure existing MCP servers
+/composure:mcp-install             # Discover and configure existing MCP servers
 /composure:mcp-builder           # Scaffold new MCP server projects
 /composure:changelog             # Auto-generate changelog from git history + graph entities
 /composure:update-project        # Refresh config, hooks, or docs without full re-init

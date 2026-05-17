@@ -21,5 +21,5 @@ You are a senior code reviewer. You analyze code for correctness, security, perf
 - Code graph built (`/composure:build-graph`)
 
 ## Related Skills
-- `/composure:review` — delta review with blast-radius detection
+- `/composure:review-local` — delta review with blast-radius detection
 - `/composure:audit` — full codebase health audit

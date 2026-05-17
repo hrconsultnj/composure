@@ -13,6 +13,7 @@
 #   6. Health drift check (24h throttled)
 #   7. Task count + graph staleness (was resume-check.sh)
 #   8. Guardrails ruleset detection (was guardrails-load.sh)
+#   9. Workspace drift auto-fix (was auto-fix.sh, merged 2026-05-17)
 #
 # Lifecycle-aware via stdin JSON `source` field:
 #   startup → full boot (all 8 sections)
@@ -713,7 +714,7 @@ for cfg in sentinel.json shipyard.json testbench.json composure-pro.json; do
 done
 
 if [ ${#LEGACY_DRIFT[@]} -gt 0 ]; then
-  printf '[composure:upgrade] Legacy paths detected — run `/composure:auth migrate` to fix:\n'
+  printf '[composure:upgrade] Legacy paths detected — run `/composure:account migrate` to fix:\n'
   for d in "${LEGACY_DRIFT[@]}"; do
     printf '  - %s\n' "$d"
   done
@@ -733,6 +734,108 @@ if [ -d "$CACHE_BASE" ]; then
     done
   done
   rm -rf "${HOME}/.claude/plugins/cache/temp_local_"* 2>/dev/null
+fi
+
+# ── 9. Workspace drift auto-fix (was auto-fix.sh, merged 2026-05-17) ──
+# Detects drift conditions and either AUTO-INVOKES the fix where safe
+# or SURFACES the exact action when user input is required.
+# Emits at most ONE [composure:auto-fix] block summarizing what was done
+# or what needs the user's hand. Quiet on no drift.
+HOME_DIR="${HOME:-/Users/$(whoami)}"
+AUTO_FIXES=()    # actions taken automatically (or detected)
+USER_ACTIONS=()  # actions the user must take
+
+# 9a. Auth state
+CREDS="${HOME_DIR}/.composure/credentials.json"
+if [ ! -f "$CREDS" ]; then
+  USER_ACTIONS+=("not logged in — /composure:account login")
+elif command -v jq >/dev/null 2>&1; then
+  EXPIRES=$(jq -r '.expires_at // 0' "$CREDS" 2>/dev/null)
+  NOW=$(date +%s)
+  if [ "$EXPIRES" -gt 0 ] && [ "$EXPIRES" -lt "$NOW" ]; then
+    USER_ACTIONS+=("auth token expired — /composure:account refresh OR /composure:sync")
+  fi
+fi
+
+# 9b. Project not initialized → AUTO-INVOKE /composure:initialize
+if [ ! -f "$PROJECT_DIR/.composure/no-bandaids.json" ] && [ ! -f "$PROJECT_DIR/.claude/no-bandaids.json" ]; then
+  PT_FILE="/tmp/composure-project-type-$(echo -n "$PROJECT_DIR" | shasum 2>/dev/null | cut -d' ' -f1)"
+  if [ -f "$PT_FILE" ]; then
+    case "$(cat "$PT_FILE")" in
+      project) AUTO_FIXES+=("project not initialized — invoke /composure:initialize NOW") ;;
+    esac
+  fi
+fi
+
+# 9c. Legacy .claude/no-bandaids.json present (migration needed)
+if [ -f "$PROJECT_DIR/.claude/no-bandaids.json" ] && [ ! -f "$PROJECT_DIR/.composure/no-bandaids.json" ]; then
+  AUTO_FIXES+=("legacy .claude/ config detected — invoke /composure:sync to migrate")
+fi
+
+# 9d. Stale-hook reference scan in .claude/settings.local.json
+SETTINGS="$PROJECT_DIR/.claude/settings.local.json"
+if [ -f "$SETTINGS" ] && [ -n "$CLAUDE_PLUGIN_ROOT" ]; then
+  STALE_PATHS=$(grep -oE 'hooks/[a-zA-Z0-9_/.-]+\.(sh|mjs)' "$SETTINGS" 2>/dev/null | sort -u | while read p; do
+    [ -f "${CLAUDE_PLUGIN_ROOT}/$p" ] || echo "$p"
+  done)
+  if [ -n "$STALE_PATHS" ]; then
+    STALE_COUNT=$(echo "$STALE_PATHS" | wc -l | tr -d ' ')
+    USER_ACTIONS+=("$STALE_COUNT stale hook reference(s) in .claude/settings.local.json — /composure:sync for the exact edits")
+  fi
+fi
+
+# 9e. Cortex sqlite check
+SESSIONS_DIR="${HOME_DIR}/.composure/sessions"
+SESSIONS_DB="${SESSIONS_DIR}/index.db"
+SESSIONS_REINDEX="${SESSIONS_DIR}/cli/reindex-all.mjs"
+if [ -d "$SESSIONS_DIR" ] && [ ! -f "$SESSIONS_DB" ] && [ -f "$SESSIONS_REINDEX" ]; then
+  (node "$SESSIONS_REINDEX" >/dev/null 2>&1 &)
+  AUTO_FIXES+=("cortex sqlite missing — reindex started in background")
+fi
+
+# 9f. Plugin version check (24h throttled)
+INSTALLED_PLUGINS="${HOME_DIR}/.claude/plugins/installed_plugins.json"
+MARKETPLACE_SRC="${HOME_DIR}/.claude/plugins/marketplaces/composure-suite"
+LAST_CHECK="${HOME_DIR}/.composure/last-autoupdate-check"
+if [ -f "$INSTALLED_PLUGINS" ] && [ -d "${MARKETPLACE_SRC}/.git" ] && command -v jq >/dev/null 2>&1; then
+  SHOULD_CHECK=true
+  if [ -f "$LAST_CHECK" ]; then
+    LAST_TS=$(stat -f %m "$LAST_CHECK" 2>/dev/null || stat -c %Y "$LAST_CHECK" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    AGE=$((NOW - LAST_TS))
+    [ "$AGE" -lt 86400 ] && SHOULD_CHECK=false
+  fi
+  if $SHOULD_CHECK; then
+    INSTALLED_SHA=$(jq -r '.plugins["composure@composure-suite"][0].gitCommitSha // empty' "$INSTALLED_PLUGINS" 2>/dev/null)
+    if [ -n "$INSTALLED_SHA" ]; then
+      HEAD_SHA=$(git -C "$MARKETPLACE_SRC" rev-parse HEAD 2>/dev/null)
+      if [ -n "$HEAD_SHA" ] && [ "$INSTALLED_SHA" != "$HEAD_SHA" ]; then
+        BEHIND=$(git -C "$MARKETPLACE_SRC" rev-list --count "$INSTALLED_SHA".."$HEAD_SHA" 2>/dev/null || echo "?")
+        USER_ACTIONS+=("plugin $BEHIND commits behind — in Claude Code: /plugin install composure@composure-suite")
+      fi
+    fi
+    touch "$LAST_CHECK" 2>/dev/null
+  fi
+fi
+
+# 9g. Emit single-line summary OR nothing
+DRIFT_TOTAL=$((${#AUTO_FIXES[@]} + ${#USER_ACTIONS[@]}))
+if [ "$DRIFT_TOTAL" -gt 0 ]; then
+  DRIFT_OUTPUT=""
+  if [ ${#AUTO_FIXES[@]} -gt 0 ]; then
+    DRIFT_OUTPUT+="[composure:auto-fix] ${#AUTO_FIXES[@]} auto-action(s):"
+    for item in "${AUTO_FIXES[@]}"; do
+      DRIFT_OUTPUT+="\n  • $item"
+    done
+  fi
+  if [ ${#USER_ACTIONS[@]} -gt 0 ]; then
+    [ -n "$DRIFT_OUTPUT" ] && DRIFT_OUTPUT+="\n"
+    DRIFT_OUTPUT+="[composure:auto-fix] ${#USER_ACTIONS[@]} action(s) need you:"
+    for item in "${USER_ACTIONS[@]}"; do
+      DRIFT_OUTPUT+="\n  • $item"
+    done
+  fi
+  printf '{"systemMessage": %s}' "$(printf '%b' "$DRIFT_OUTPUT" | jq -Rsa .)"
 fi
 
 exit 0

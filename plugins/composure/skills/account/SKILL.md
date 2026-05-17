@@ -1,6 +1,6 @@
 ---
-name: auth
-description: Authenticate with Composure — log in, log out, check status, upgrade your plan/pricing, or refresh tokens. NOTE — to update your Composure installation (plugin version, hooks, project config), use /composure:update instead. `update` ≠ `upgrade`: update = software currency; upgrade = pricing tier.
+name: account
+description: Manage your Composure account — log in, log out, check status, upgrade plan/pricing, refresh tokens. For workspace currency (plugin version, hooks, project config) use /composure:sync instead.
 ---
 
 Manage CLI authentication for Composure. Invokes the `composure-auth.mjs` binary via the user's `~/.composure/bin/` indirection layer (works across Claude Code, Codex, Gemini, and other MCP-aware clients).
@@ -18,7 +18,7 @@ Read the user's request and pick the action:
 | Refresh an expired session without re-login | `refresh` |
 | (no clear intent) | `status` (then suggest next step based on output) |
 
-> **Note**: the `migrate` subcommand was REMOVED on 2026-05-11. To migrate legacy `.claude/` configs to `.composure/` — and to update your install in general — run `/composure:update`. The `upgrade` subcommand is for **plan/pricing tier**, not software updates; never confuse the two.
+> **Note**: the `migrate` subcommand was REMOVED on 2026-05-11. To migrate legacy `.claude/` configs to `.composure/` — and to update your install in general — run `/composure:sync`. The `upgrade` subcommand is for **plan/pricing tier**, not software updates; never confuse the two.
 
 ## Execution
 
@@ -53,7 +53,7 @@ Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/U
 ### upgrade
 
 1. Run `<home>/.composure/bin/composure-auth.mjs upgrade`.
-2. Tell the user: "The pricing page is opening in your browser. (This is for your **plan/pricing tier** — for software/installation updates, use `/composure:update` instead.)"
+2. Tell the user: "The pricing page is opening in your browser. (This is for your **plan/pricing tier** — for software/installation updates, use `/composure:sync` instead.)"
 
 ### refresh
 
@@ -65,4 +65,4 @@ Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/U
 
 1. Run `<home>/.composure/bin/composure-auth.mjs status`.
 2. If the output shows "Not authenticated", suggest logging in.
-3. If authenticated, display the status and mention available actions (login, logout, status, upgrade, refresh). Mention `/composure:update` for software/installation updates and `/composure:health` for read-only diagnostics.
+3. If authenticated, display the status and mention available actions (login, logout, status, upgrade, refresh). Mention `/composure:sync` for software/installation updates and `/composure:health` for read-only diagnostics.

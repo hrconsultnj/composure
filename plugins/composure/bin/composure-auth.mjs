@@ -326,7 +326,7 @@ function logout() {
   clearCache(); // Encrypted cache is unreadable without credentials anyway, but clean up
   if (existed) {
     console.log("Logged out. Cached content cleared.");
-    console.log("Run /composure:auth login to re-authenticate.");
+    console.log("Run /composure:account login to re-authenticate.");
   } else {
     console.log("No active session found.");
   }
@@ -339,7 +339,7 @@ async function status() {
 
   if (!creds) {
     console.log("Not authenticated.");
-    console.log("Run /composure:auth login to authenticate.");
+    console.log("Run /composure:account login to authenticate.");
     return;
   }
 
@@ -347,7 +347,7 @@ async function status() {
     console.log("Session expired. Attempting refresh...");
     const refreshed = await refreshToken(creds);
     if (!refreshed) {
-      console.log("Refresh failed. Run /composure:auth login to re-authenticate.");
+      console.log("Refresh failed. Run /composure:account login to re-authenticate.");
       return;
     }
     console.log("Token refreshed.");
@@ -415,7 +415,7 @@ async function refresh() {
 // composure-auth-update-unification-2026-05-11.md (no-legacy rule), the
 // migrate subcommand is hard-removed and the migration logic now lives
 // in `composure-update.mjs` (callable via the `composure-update` binary
-// or the `/composure:update` skill).
+// or the `/composure:sync` skill).
 //
 // NOTE FOR FUTURE CONTRIBUTORS: do NOT re-add a migrate function here.
 // All workspace-currency logic belongs in composure-update.mjs.
@@ -473,10 +473,10 @@ switch (subcommand) {
     // Per the no-legacy rule from blueprint composure-auth-update-unification-2026-05-11.md,
     // the migrate subcommand is hard-removed (not deprecation-aliased). The migration
     // logic (move .claude/no-bandaids.json -> .composure/no-bandaids.json) is now step 03
-    // of /composure:update. Surface the migration path with exit 1 so any scripted callers
+    // of /composure:sync. Surface the migration path with exit 1 so any scripted callers
     // surface the change loudly.
     console.error("Subcommand 'migrate' was REMOVED on 2026-05-11.");
-    console.error("Run /composure:update for the unified workspace-current sequence");
+    console.error("Run /composure:sync for the unified workspace-current sequence");
     console.error("(includes the .claude/ -> .composure/ migration as step 03).");
     process.exit(1);
     break;
@@ -490,7 +490,7 @@ switch (subcommand) {
     console.log("  composure-auth upgrade   Open pricing page to upgrade your PLAN/PRICING");
     console.log("  composure-auth refresh   Refresh an expired token without re-login");
     console.log("");
-    console.log("For software/installation updates (NOT pricing): /composure:update");
+    console.log("For software/installation updates (NOT pricing): /composure:sync");
     console.log("For read-only diagnostics: /composure:health");
     console.log(`\nCredentials: ${CREDENTIALS_PATH}`);
     break;

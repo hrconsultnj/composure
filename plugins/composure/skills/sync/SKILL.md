@@ -1,14 +1,16 @@
 ---
-name: update
-description: Bring your Composure workspace fully current — auth, plugin version, project config, hooks, references. One command, no separate migrate/initialize steps. NOTE — `update` ≠ `upgrade`; upgrade = pricing tier (use /composure:auth upgrade for that).
-argument-hint: "[--dry-run] [--verbose]"
+name: sync
+description: Bring your Composure workspace fully current — credentials, plugin version, project config, hooks, references. Plus `pull` subcommand for cross-machine bootstrap. For pricing tier changes use /composure:account upgrade.
+argument-hint: "[pull] [--dry-run] [--verbose]"
 ---
 
-Run all 8 steps in order. Each step either AUTO-FIXES idempotently OR prints the exact thing for the user to do. Collect results, then present in the standard summary format.
+Two modes:
+- **Local sync** (no subcommand): Run all 8 steps in order. Each step either AUTO-FIXES idempotently OR prints the exact thing for the user to do.
+- **`pull` subcommand**: Cross-machine bootstrap — OAuth login → fetch user's plugin manifest from SaaS → auto-run marketplace add + plugin install → optionally restore Cortex graph backup.
 
-`/composure:update` is the action ("fix what's wrong"). For diagnostic-only output without changes, use `/composure:health` or `/composure:update --dry-run` (equivalent).
+`/composure:sync` is the action ("fix what's wrong"). For diagnostic-only output without changes, use `/composure:health` or `/composure:sync --dry-run` (equivalent).
 
-`update` ≠ `upgrade`. **Update** = software/plugin currency. **Upgrade** = pricing tier (`/composure:auth upgrade`). The two never overlap.
+Workspace currency only — pricing tier changes go through `/composure:account upgrade`.
 
 ## Progress Tracking
 
@@ -50,8 +52,11 @@ Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/U
 | 06 | `06-stale-references.md` | Scan `.claude/settings.local.json` for hook commands referencing renamed/removed files |
 | 07 | `07-cortex-sqlite.md` | Verify `~/.composure/sessions/index.db` exists + has rows; trigger reindex if missing/empty |
 | 08 | `08-summary.md` | Render summary table (Step \| Status \| Action). On `--dry-run`, no actions taken — only proposed fixes listed. |
+| 09 | `09-pull.md` | **Only when invoked as `/composure:sync pull`**: cross-machine bootstrap (SaaS manifest fetch → install plan). Runs INSTEAD of steps 01–08, not in addition. |
 
-Execute all 8 steps in order. Do NOT skip — run them all even if earlier ones surface drift. After all steps, present results in the standard summary format from step 08.
+For local sync (`/composure:sync` with no subcommand): execute steps 01–08 in order. Do NOT skip.
+
+For cross-machine bootstrap (`/composure:sync pull`): execute ONLY step 09. The binary `~/.composure/bin/composure-sync-pull.mjs` handles the orchestration.
 
 ## Single-binary alternative
 

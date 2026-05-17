@@ -1,9 +1,10 @@
 ---
-name: view-graph
-description: Open code review graph visualization in browser.
+name: review-local
+description: Review LOCAL changes since last commit with impact analysis. (For PR review use /composure:review-pr.)
+argument-hint: "[file or function name]"
 ---
 
-Open the standalone graph visualization in the browser. No dev server needed — the visualization is a self-contained HTML file.
+Perform a focused, token-efficient code review of only the changed code and its blast radius.
 
 ## Content Loading
 
@@ -11,14 +12,14 @@ Open the standalone graph visualization in the browser. No dev server needed —
 
 Invoke the `composure_fetch_skill` MCP tool with:
 - `plugin`: `"composure"`
-- `skill`: `"view-graph"`
+- `skill`: `"review"`
 - `step`: the step filename without the `.md` extension
 
 
 **Fallback (Bash CLI — for sandbox environments where MCP servers are not available):**
 
 ```bash
-<home>/.composure/bin/composure-fetch.mjs skill composure view-graph {step-filename}
+<home>/.composure/bin/composure-fetch.mjs skill composure review {step-filename}
 ```
 
 Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.

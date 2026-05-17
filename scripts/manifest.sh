@@ -43,8 +43,8 @@ hooks_json="${hooks_json%,}}"
 # Count MCP tools (from composure graph server.ts)
 mcp_tools=$(grep -c 'server\.tool(' "$PLUGINS_DIR/composure/graph/src/server.ts" 2>/dev/null || echo 0)
 
-# Count languages enforced by no-bandaids
-enforcement_langs=$(grep -c 'case "' "$PLUGINS_DIR/composure/hooks/no-bandaids.sh" 2>/dev/null || echo 0)
+# Count languages enforced by code-enforcement.mjs (consolidated from no-bandaids.sh + framework-validation.sh)
+enforcement_langs=$(grep -c 'case "' "$PLUGINS_DIR/composure/hooks/enforcement/code-enforcement.mjs" 2>/dev/null || echo 0)
 
 # Count graph-indexed languages
 graph_langs=$(grep -c '"' "$PLUGINS_DIR/composure/graph/src/parser.ts" 2>/dev/null | head -1)

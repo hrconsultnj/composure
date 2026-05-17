@@ -38,7 +38,7 @@
     },
     "review": {
       "patterns": ["review the code", "review the changes", "review the pr", "review pr", "code review", "audit the", "audit this project", "check quality", "check the code", "run an audit", "run the audit", "run it? full", "the audit"],
-      "guidance": "Code review request. Consider /composure:review for delta analysis.",
+      "guidance": "Code review request. Consider /composure:review-local for delta analysis.",
       "reasoning": "sequential_think",
       "force_tasks": true,
       "task_prompt": "Code review request. Create tasks for each review area.",

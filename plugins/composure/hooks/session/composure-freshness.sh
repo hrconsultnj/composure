@@ -9,7 +9,7 @@
 #      partial updates).
 #   3. Rate-limited upstream check (compare installed commit vs marketplace
 #      origin/HEAD). If newer → emit [composure:update-available] and let the
-#      user run /composure:update + reload.
+#      user run /composure:sync + reload.
 #
 # Designed to be silent on the happy path: only emits messages when there's
 # something the user/agent should know. Exit code is always 0 so a failure
@@ -52,7 +52,7 @@ fi
 
 if [ ! -f "${COMPOSURE_RUNTIME_ROOT}/.claude-plugin/plugin.json" ]; then
   echo "[composure:degraded] runtime path exists but plugin.json is missing — install is broken"
-  echo "[composure:degraded] run /composure:update (or /plugin install composure@composure-suite if that fails)"
+  echo "[composure:degraded] run /composure:sync (or /plugin install composure@composure-suite if that fails)"
   exit 0
 fi
 
@@ -70,7 +70,7 @@ fi
 # manifest didn't get written (likely permission issue under ~/.composure/).
 if [ ! -f "$MANIFEST" ]; then
   echo "[composure:degraded] ~/.composure/manifest.json could not be written — check ~/.composure/ permissions"
-  echo "[composure:degraded] freshness checks disabled this session; run /composure:update once permissions are fixed"
+  echo "[composure:degraded] freshness checks disabled this session; run /composure:sync once permissions are fixed"
   exit 0
 fi
 command -v jq >/dev/null 2>&1 || exit 0
@@ -95,7 +95,7 @@ if [ -n "$RECORDED_HASH" ] && [ -n "$ACTUAL_HASH" ] && [ "$RECORDED_HASH" != "$A
 fi
 
 # ── 3. Rate-limited upstream check ────────────────────────────
-# Honor existing 24h cadence used by /composure:update step 02. We also write
+# Honor existing 24h cadence used by /composure:sync step 02. We also write
 # our own `last-freshness-check` so future tightening of the cadence doesn't
 # fight the user's existing autoupdate stamp.
 INTERVAL=$(jq -r '.policy.check_interval_seconds // 14400' "$MANIFEST" 2>/dev/null)
@@ -115,7 +115,7 @@ HEAD_SHA=$(git -C "$MARKETPLACE_SRC" rev-parse HEAD 2>/dev/null || true)
 INSTALLED_SHA=$(jq -r '.installed_plugins.composure.claude_commit_sha // ""' "$MANIFEST" 2>/dev/null)
 echo "$NOW" > "$FRESHNESS_STAMP"
 
-# Touch the legacy stamp too so /composure:update step 02 stays consistent.
+# Touch the legacy stamp too so /composure:sync step 02 stays consistent.
 echo "$NOW" > "$AUTOUPDATE_STAMP"
 
 if [ -z "$HEAD_SHA" ] || [ -z "$INSTALLED_SHA" ]; then
@@ -124,7 +124,7 @@ if [ -z "$HEAD_SHA" ] || [ -z "$INSTALLED_SHA" ]; then
   # releases. Surface which side is missing so it's diagnosable.
   if [ -z "$INSTALLED_SHA" ]; then
     echo "[composure:degraded] freshness check skipped — manifest has no installed_plugins.composure.claude_commit_sha"
-    echo "[composure:degraded] fix: rm ~/.composure/manifest.json (rebuilds on next boot), or run /composure:update"
+    echo "[composure:degraded] fix: rm ~/.composure/manifest.json (rebuilds on next boot), or run /composure:sync"
   fi
   if [ -z "$HEAD_SHA" ]; then
     echo "[composure:degraded] freshness check skipped — no git HEAD in ${MARKETPLACE_SRC}"
@@ -142,6 +142,6 @@ BEHIND=$(git -C "$MARKETPLACE_SRC" rev-list --count "${INSTALLED_SHA}..${HEAD_SH
 INSTALLED_VER=$(jq -r '.installed_plugins.composure.version // "?"' "$MANIFEST" 2>/dev/null)
 
 echo "[composure:update-available] composure ${INSTALLED_VER} is ${BEHIND} commits behind"
-echo "[composure:update-available] run /composure:update — then /reload to pick up new hooks/MCP servers"
+echo "[composure:update-available] run /composure:sync — then /reload to pick up new hooks/MCP servers"
 
 exit 0

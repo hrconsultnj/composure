@@ -2,7 +2,7 @@
 
 - [ ] **Framework pattern** — adding/updating patterns for a language (TypeScript, Python, Go, Rust, C/C++, Swift, Kotlin)
 - [ ] **New language support** — adding a new language framework
-- [ ] **Hook improvement** — updating no-bandaids rules, decomposition checks, or other hooks
+- [ ] **Hook improvement** — updating enforcement rules, decomposition checks, or other hooks
 - [ ] **Skill enhancement** — improving an existing skill
 - [ ] **Bug fix**
 - [ ] **Other** (describe below)
@@ -37,8 +37,8 @@ If adding a new language to `skills/app-architecture/`:
 - [ ] Created `{lang}/SKILL.md` with anti-patterns table and patterns list
 - [ ] Created `{lang}/references/universal/` directory
 - [ ] Created `{lang}/references/generated/README.md`
-- [ ] Added language to `hooks/no-bandaids.sh`:
-  - [ ] Extension detection (line ~47)
+- [ ] Added language to `hooks/enforcement/code-enforcement.mjs`:
+  - [ ] Extension detection
   - [ ] Anti-pattern rules (in the `case` block)
 - [ ] Added language to master `skills/app-architecture/SKILL.md`:
   - [ ] Framework Loading table
@@ -47,15 +47,15 @@ If adding a new language to `skills/app-architecture/`:
   - [ ] `steps/01-detect-stack.md` — Stack detection files table
   - [ ] `steps/02-extensions-skip-patterns.md` — Extensions and skip patterns table
   - [ ] `steps/03a-context7-folders.md` — Context7 query focus table
-- [ ] Updated `README.md` language list and no-bandaids table
+- [ ] Updated `README.md` language list and enforcement-rules table
 
 ## Hook / Skill Checklist
 
 If modifying hooks or skills:
 
-- [ ] Hook stays under 200 lines (no-bandaids) or 350 lines (decomposition-check)
-- [ ] Backward compatible — existing `no-bandaids.json` without new fields still works
-- [ ] Tested with `echo '{"tool_name":"Write","tool_input":{"file_path":"test.xx","content":"..."}}' | bash hooks/no-bandaids.sh`
+- [ ] `code-enforcement.mjs` stays under 700 lines; `decomposition-check.sh` under 350 lines
+- [ ] Backward compatible — existing `.composure/no-bandaids.json` config without new fields still works
+- [ ] Tested with `echo '{"tool_name":"Write","tool_input":{"file_path":"test.xx","content":"..."}}' | node hooks/enforcement/code-enforcement.mjs`
 
 ## Test Plan
 

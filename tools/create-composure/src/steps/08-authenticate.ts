@@ -56,7 +56,7 @@ export async function authenticate(options: {
 
   const authBin = findAuthBinary();
   if (!authBin) {
-    logger.info("Auth binary not available yet. Run /composure:auth login in Claude Code.");
+    logger.info("Auth binary not available yet. Run /composure:account login in Claude Code.");
     return { authenticated: false };
   }
 
@@ -78,7 +78,7 @@ export async function authenticate(options: {
 
   // Not authenticated — go straight to login (no prompt, just do it)
   if (options.nonInteractive) {
-    logger.info("Non-interactive mode — run /composure:auth login to authenticate.");
+    logger.info("Non-interactive mode — run /composure:account login to authenticate.");
     return { authenticated: false };
   }
 
@@ -101,6 +101,6 @@ export async function authenticate(options: {
     };
   }
 
-  logger.warn("Authentication did not complete. Run /composure:auth login later.");
+  logger.warn("Authentication did not complete. Run /composure:account login later.");
   return { authenticated: false };
 }

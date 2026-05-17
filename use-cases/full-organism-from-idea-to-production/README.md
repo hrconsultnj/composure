@@ -111,7 +111,7 @@ No regression. The previous failure's root cause has been addressed.
 
 ### 7:40 AM — The Review (Skeleton + Conscience)
 
-Developer runs `/composure:review`.
+Developer runs `/composure:review-local`.
 
 **Skeleton activates** (Code Graph):
 ```

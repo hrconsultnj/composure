@@ -11,7 +11,7 @@
  * Per blueprint composure-auth-update-unification-2026-05-11.md:
  * - Replaces the old `composure-auth.mjs migrate` subcommand (now removed).
  * - Replaces /composure:update-project skill (now removed).
- * - Called by /composure:update skill, by SessionStart auto-fix.sh hook,
+ * - Called by /composure:sync skill, by SessionStart auto-fix.sh hook,
  *   and directly by users who want a single command.
  *
  * Usage:

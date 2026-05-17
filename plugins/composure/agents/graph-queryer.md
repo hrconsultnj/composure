@@ -19,4 +19,4 @@ You are a code graph specialist. You query the Composure code-review-graph to an
 
 ## Related Skills
 - `/composure:build-graph` — build or update the code graph
-- `/composure:view-graph` — visualize the graph
+- `/composure:build-graph` — visualize the graph

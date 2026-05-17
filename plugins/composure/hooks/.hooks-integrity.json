@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "generated": "2026-05-03T23:05:56Z",
+  "generated": "2026-05-17T20:00:00Z",
   "files": {
     "seq-think-capture.sh": {
       "path": "cortex/seq-think-capture.sh",
@@ -66,10 +66,6 @@
       "path": "lib/memory-migrate.sh",
       "sha256": "fe908c57994bef8d91e83ca286dde222b8da329cec4a4d0ea94121ca6f422b90"
     },
-    "no-bandaids.sh": {
-      "path": "enforcement/no-bandaids.sh",
-      "sha256": "07f756c4a33959b0beb3b52180bb40650b53c756dd2e41b0ba56b8dff53bbfcb"
-    },
     "pattern-loader.sh": {
       "path": "enforcement/pattern-loader.sh",
       "sha256": "b1aaa7a1bf0228977d799851ac8ad9970f13a447075b2eb77cf69f0e87cbd961"
@@ -78,49 +74,17 @@
       "path": "enforcement/decomposition-guide.sh",
       "sha256": "88ffa642b8193740340d894bd8d94b54a804800b91053fba590437a65bef000a"
     },
-    "framework-validation.sh": {
-      "path": "enforcement/framework-validation.sh",
-      "sha256": "399b0e5a1362cd0988bab187e249ad237b1db76b6c7e47197d67c227ff344abc"
-    },
-    "session-stack-note.sh": {
-      "path": "session/session-stack-note.sh",
-      "sha256": "a49761a687b6a23d3f45ac4a1d591f7d7e2a1d91ddb9389e4382c42a0ec25924"
-    },
-    "init-check.sh": {
-      "path": "session/init-check.sh",
-      "sha256": "56ceb66f91856bdd7072d2f9404c22936c3174d581a36db13b9e41d43ba93324"
-    },
     "session-boot.sh": {
       "path": "session/session-boot.sh",
       "sha256": "8d1f25fa995e88ea248553a2c7c7036dbabf68fe0a674cceac154b7e9ccb4bc8"
-    },
-    "auto-fix.sh": {
-      "path": "session/auto-fix.sh",
-      "sha256": "b60df6daafde89fcdb6c0b1a29103bbedec0a0ae14a7cc31283b02e6f39d2414"
-    },
-    "health-nudge.sh": {
-      "path": "session/health-nudge.sh",
-      "sha256": "75722516fcf1289c49889c652a4d75d26e6b3ef5eb0c3fe4c7ac530668e63c0a"
     },
     "session-auth.sh": {
       "path": "session/session-auth.sh",
       "sha256": "59a77745282d20364161bb38f921abf5feb09f6d0d5ed0738b635afb55e32ab3"
     },
-    "content-protection.sh": {
-      "path": "session/content-protection.sh",
-      "sha256": "74f9e7e5491c9c1f992388f82abb68b6329f1527b563418404738afe0b4c820d"
-    },
     "session-end-summary.sh": {
       "path": "session/session-end-summary.sh",
       "sha256": "5b28ca7b156f0bab9f3e62eb405836fab86ab5597c4b13747b7d07401ebc88bb"
-    },
-    "auth-check.sh": {
-      "path": "session/auth-check.sh",
-      "sha256": "4e4844d4f5161ce5211b78e6034bce25b73692b394ca0b2cc864cc84e92cb9cf"
-    },
-    "resume-check.sh": {
-      "path": "session/resume-check.sh",
-      "sha256": "94a566425f08ceff125b40d0e6d0c47419618ac7f4c9c091203622d9e84ca322"
     },
     "resolve-data-patterns.sh": {
       "path": "lib/resolve-data-patterns.sh",

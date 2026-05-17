@@ -24,7 +24,7 @@ One command handles everything:
 ## Options
 
 ```
---skip-auth          Skip authentication (do it later via /composure:auth login)
+--skip-auth          Skip authentication (do it later via /composure:account login)
 --skip-claude        Don't offer to install Claude Code
 --skip-adapters      Don't generate rules files for non-Claude tools
 --plugins <list>     Comma-separated plugin list

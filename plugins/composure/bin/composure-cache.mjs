@@ -93,7 +93,7 @@ function formatAge(isoDate) {
 async function sync() {
   const token = await getValidToken();
   if (!token) {
-    console.error("Not authenticated. Run /composure:auth login first.");
+    console.error("Not authenticated. Run /composure:account login first.");
     process.exit(1);
   }
 
@@ -175,7 +175,7 @@ function encryptContent(plaintext, key) {
 
 async function getCacheWriter() {
   const key = getCacheKey();
-  if (!key) throw new Error("No cache key — run /composure:auth login first");
+  if (!key) throw new Error("No cache key — run /composure:account login first");
   return {
     writeCache(cachePath, content, meta) {
       const dir = dirname(cachePath);

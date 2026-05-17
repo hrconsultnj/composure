@@ -49,21 +49,21 @@ dontDoThis()
 
 See the **New Language Checklist** in the PR template. You'll need to update:
 - `skills/app-architecture/{lang}/SKILL.md` — anti-patterns and patterns
-- `hooks/no-bandaids.sh` — extension detection and rules
+- `hooks/enforcement/code-enforcement.mjs` — extension detection and `case` block rules
 - `skills/app-architecture/SKILL.md` — framework loading table
 - `skills/initialize/steps/01-detect-stack.md` — stack detection
 - `README.md` — language list
 
 ### 3. Improve Hooks
 
-The hooks are bash scripts in `hooks/`. Size limits:
-- `no-bandaids.sh` — under 220 lines
+The hooks live in `hooks/` (bash) and `hooks/enforcement/` (Node). Size limits:
+- `code-enforcement.mjs` — under 700 lines
 - `decomposition-check.sh` — under 350 lines
 
 Test locally:
 ```bash
-echo '{"tool_name":"Write","tool_input":{"file_path":"test.py","content":"x: Any = 5"}}' | bash hooks/no-bandaids.sh
-# Should output: BLOCKED with "Use a specific type instead of Any"
+echo '{"tool_name":"Write","tool_input":{"file_path":"test.py","content":"x: Any = 5"}}' | node hooks/enforcement/code-enforcement.mjs
+# Should exit 2 with "Use a specific type instead of Any"
 ```
 
 ### 4. Report Issues

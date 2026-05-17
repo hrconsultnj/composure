@@ -1,6 +1,6 @@
 ---
-name: mcp-setup
-description: Discover and configure MCP servers for your project.
+name: mcp-install
+description: Discover and install MCP servers for your project. (For building a NEW custom MCP server, use /composure:mcp-builder.)
 argument-hint: "[search-query] [--list] [--stack <override>]"
 ---
 

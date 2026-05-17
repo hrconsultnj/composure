@@ -146,7 +146,7 @@ export async function fetchFromAPI(endpoint) {
   const token = await getValidToken();
 
   if (!token) {
-    return { ok: false, status: 401, error: "Not authenticated. Run /composure:auth login" };
+    return { ok: false, status: 401, error: "Not authenticated. Run /composure:account login" };
   }
 
   let lastError = null;
@@ -241,12 +241,12 @@ export async function fetchWithCache(type, endpoint, cachePath) {
   if (result.status === 401) {
     // Auth error — still serve stale cache if available (don't block work)
     if (cached) {
-      console.error("[composure] Auth expired — serving cached version. Run /composure:auth login to refresh.");
+      console.error("[composure] Auth expired — serving cached version. Run /composure:account login to refresh.");
       return { content: cached.content, source: "[cached:stale:auth-expired]" };
     }
     throw new FetchError(
       `Authentication failed: ${result.error}`,
-      "Run /composure:auth login to authenticate.",
+      "Run /composure:account login to authenticate.",
       401,
     );
   }
@@ -254,7 +254,7 @@ export async function fetchWithCache(type, endpoint, cachePath) {
   if (result.status === 403) {
     throw new FetchError(
       `This content requires a different plan. ${result.error}`,
-      "Run /composure:auth upgrade to view available plans.",
+      "Run /composure:account upgrade to view available plans.",
       403,
     );
   }
@@ -296,8 +296,8 @@ export class FetchError extends Error {
   toCliMessage() {
     return [
       `[composure:fetch-failed] ${this.message}`,
-      this.action || "Run /composure:auth login or check your connection.",
-      "If this persists, run /composure:update — outdated plugin code can also cause fetch failures.",
+      this.action || "Run /composure:account login or check your connection.",
+      "If this persists, run /composure:sync — outdated plugin code can also cause fetch failures.",
       "IMPORTANT: Do NOT reconstruct this content from memory or training data.",
       "Report this error to the user and wait for instructions.",
     ].join("\n");
