@@ -1,8 +1,32 @@
 # Claude Code Plugins
 
+> ## ⚠️ This repo has been absorbed into [composure-pro](https://github.com/hrconsultnj/composure-pro)
+>
+> As of **2026-05-17**, this repo (claude-plugins) is the prior canonical source for the Composure plugin suite. It has been merged into [composure-pro](https://github.com/hrconsultnj/composure-pro), which is now the single source-of-truth for:
+> - All 5 plugin source trees (composure, design-forge, sentinel, shipyard, testbench)
+> - The marketplace manifest (`.claude-plugin/marketplace.json`)
+> - All hooks, agents, binaries, MCP servers, skills
+> - The pro-patterns content catalog (which always lived in composure-pro)
+>
+> **For existing users**: nothing breaks immediately — this repo's `marketplace.json` keeps the same `composure-suite` name and relative `./plugins/<name>` source paths, so existing installs continue to work. But future updates only land in composure-pro.
+>
+> **To migrate** (recommended):
+> ```
+> /plugin marketplace remove hrconsultnj/claude-plugins
+> /plugin marketplace add hrconsultnj/composure-pro
+> /plugin install composure@composure-suite
+> ```
+> The marketplace name stays `composure-suite` so plugin install paths don't change.
+>
+> **Background**: see [`composure-consolidation-2026-05-17.md`](https://github.com/hrconsultnj/composure-pro/blob/main/tasks-plans/blueprints/composure-consolidation-2026-05-17.md) for the full rationale (Wave A → Wave B repo collapse).
+>
+> This repo will be archived once existing installs have migrated.
+
+---
+
 Claude writes code fast. These plugins make sure it writes it right.
 
-> 5 plugins &middot; 33 skills &middot; 17 automated hooks &middot; 13 MCP tools &middot; 8 indexed languages &middot; One command setup
+> 5 plugins &middot; 37 skills &middot; 14 unique hook scripts (21 registered entries) &middot; 13 MCP tools &middot; 8 indexed languages &middot; One command setup
 >
 > **Full docs & getting started:** [composure-pro.com](https://composure-pro.com)
 
