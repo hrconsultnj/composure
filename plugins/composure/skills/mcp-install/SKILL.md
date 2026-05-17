@@ -20,14 +20,14 @@ This skill uses TaskCreate for progress tracking. Before starting work:
 
 Invoke the `composure_fetch_skill` MCP tool with:
 - `plugin`: `"composure"`
-- `skill`: `"mcp-setup"`
+- `skill`: `"mcp-install"`
 - `step`: the step filename without the `.md` extension (category content uses `"{category}/{filename}"`)
 
 
 **Fallback (Bash CLI — for sandbox environments where MCP servers are not available):**
 
 ```bash
-<home>/.composure/bin/composure-fetch.mjs skill composure mcp-setup {step-filename}
+<home>/.composure/bin/composure-fetch.mjs skill composure mcp-install {step-filename}
 ```
 
 Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.

@@ -12,14 +12,14 @@ Perform a focused, token-efficient code review of only the changed code and its 
 
 Invoke the `composure_fetch_skill` MCP tool with:
 - `plugin`: `"composure"`
-- `skill`: `"review"`
+- `skill`: `"review-local"`
 - `step`: the step filename without the `.md` extension
 
 
 **Fallback (Bash CLI — for sandbox environments where MCP servers are not available):**
 
 ```bash
-<home>/.composure/bin/composure-fetch.mjs skill composure review {step-filename}
+<home>/.composure/bin/composure-fetch.mjs skill composure review-local {step-filename}
 ```
 
 Replace `<home>` with the user's **resolved absolute home directory** (e.g., `/Users/username` on macOS, `/home/username` on Linux). Do NOT use `$HOME`, `~`, or quotes — Claude Code permissions require the literal path.
